@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SuraMotor - Gestión de Stock</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome para Iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Configuración Personalizada de Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        chileanNavy: '#0F172A', // Azul marino oscuro
+                        chileanTeal: '#0D9488', // Turquesa premium
+                        chileanTealDark: '#0F766E',
+                        chileanBg: '#F8FAFC', // Fondo gris ultra claro
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos para simular comportamiento de App Nativa en móviles y centrar en desktops */
+        body {
+            background-color: #0F172A;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Scrollbars elegantes */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Contenedor móvil para pantallas grandes */
+        .mobile-frame {
+            max-width: 440px;
+            height: 100vh;
+            margin: 0 auto;
+            position: relative;
+            background-color: #F8FAFC;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        @media(max-width: 440px) {
+            .mobile-frame {
+                max-width: 100%;
+                height: 100dvh;
+                box-shadow: none;
+            }
+        }
+        /* Transiciones fluidas */
+        .page-transition {
+            transition: all 0.25s ease-out;
+        }
+        /* Efecto de pulso turquesa suave */
+        .pulse-teal {
+            animation: pulseTeal 2s infinite;
+        }
+        @keyframes pulseTeal {
+            0% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.5); }
+            70% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<!-- React & Babel CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.22.10/babel.min.js"></script>
+
+<script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const INITIAL_STOCK_DATA = [
+        {
+            id: 1,
+            patente: "KD-PT-45",
+            marca: "Kia",
+            modelo: "Morning",
+            version: "1.2 EX Full",
+            anio: 2019,
+            km: 58000,
+            color: "Gris Plata",
+            transmision: "Manual",
+            combustible: "Bencina",
+            origen: "Nacional",
+            precioVenta: 7890000,
+            costoAdquisicion: 5900000,
+            estado: "En venta", // Pre-stock, En preparación, En venta, Reservado, Vendido
+            diasStock: 12,
+            fotos: [
+                "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80",
+                "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80"
+            ],
+            comentario: "Súper económico, único dueño, mantenciones al día."
+        },
+        {
+            id: 2,
+            patente: "PL-GR-88",
+            marca: "Suzuki",
+            modelo: "Swift",
+            version: "1.2 GLX Smt",
+            anio: 2021,
+            km: 32000,
+            color: "Azul Eléctrico",
+            transmision: "Manual",
+            combustible: "Bencina",
+            origen: "Nacional",
+            precioVenta: 9490000,
+            costoAdquisicion: 7200000,
+            estado: "En preparación",
+            diasStock: 5,
+            fotos: [
+                "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80",
+                "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=600&q=80"
+            ],
+            comentario: "Detalle menor en tapabarro derecho. En pulido."
+        },
+        {
+            id: 3,
+            patente: "JZ-WY-12",
+            marca: "Toyota",
+            modelo: "Yaris",
+            version: "1.5 XLI",
+            anio: 2018,
+            km: 105000,
+            color: "Blanco",
+            transmision: "Automático",
+            combustible: "Bencina",
+            origen: "Nacional",
+            precioVenta: 8990000,
+            costoAdquisicion: 6700000,
+            estado: "En venta",
+            diasStock: 65, // Alerta > 60 días!
+            fotos: [
+                "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80"
+            ],
+            comentario: "Lleva más de 60 días. Requiere revisión de precio o promo."
+        },
+        {
+            id: 4,
+            patente: "LS-CS-34",
+            marca: "Mazda",
+            modelo: "3",
+            version: "2.0 Sport V",
+            anio: 2020,
+            km: 45000,
+            color: "Rojo Cristal",
+            transmision: "Automático",
+            combustible: "Bencina",
+            origen: "Nacional",
+            precioVenta: 13290000,
+            costoAdquisicion: 10800000,
+            estado: "Reservado",
+            diasStock: 22,
+            fotos: [
+                "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=600&q=80"
+            ],
+            comentario: "Reserva de palabra de Marcelo Aravena. Esperando aprobación de crédito."
+        },
+        {
+            id: 5,
+            patente: "RC-VB-56",
+            marca: "Hyundai",
+            modelo: "Accent",
+            version: "1.4 GL Value",
+            anio: 2022,
+            km: 28000,
+            color: "Gris Oscuro",
+            transmision: "Manual",
+            combustible: "Bencina",
+            origen: "Nacional",
+            precioVenta: 11190000,
+            costoAdquisicion: 8900000,
+            estado: "Vendido",
+            diasStock: 45,
+            fotos: [
+                "https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=600&q=80"
+            ],
+            comentario: "Vendido al contado el 05 de Julio."
+        },
+        {
+            id: 6,
+            patente: "HV-XP-90",
+            marca: "Chevrolet",
+            modelo: "Sail",
+            version: "1.5 LT",
+            anio: 2017,
+            km: 98000,
+            color: "Azul Metálico",
+            transmision: "Manual",
+            combustible: "Bencina",
+            origen: "Nacional",
+            precioVenta: 6490000,
+            costoAdquisicion: 4800000,
+            estado: "Pre-stock",
+            diasStock: 2,
+            fotos: [
+                "https://images.unsplash.com/photo-1532581291347-9c39cf10a73c?auto=format&fit=crop&w=600&q=80"
+            ],
+            comentario: "Comprado a particular, esperando retiro."
+        }
+    ];
+
+    const INITIAL_AUCTIONS = [
+        {
+            id: 101,
+            marca: "Suzuki",
+            modelo: "Baleno",
+            version: "1.4 GLS MT",
+            anio: 2021,
+            origen: "Remate Macal",
+            costoFinal: 8500000,
+            sugeridoVenta: 10490000,
+            patente: "PL-SD-19",
+            km: 38000,
+            color: "Gris Grafito",
+            transmision: "Manual",
+            combustible: "Bencina",
+            estado: "Adjudicada", // Disponible, Mis Ofertas, Adjudicadas
+            tiempoRestante: "Completado"
+        },
+        {
+            id: 102,
+            marca: "Ford",
+            modelo: "EcoSport",
+            version: "1.5 Titanium",
+            anio: 2018,
+            origen: "Subasta Tattersall",
+            costoFinal: 7200000,
+            sugeridoVenta: 8990000,
+            patente: "JY-HH-52",
+            km: 84000,
+            color: "Plata",
+            transmision: "Automático",
+            combustible: "Bencina",
+            estado: "Disponible",
+            tiempoRestante: "45m 12s",
+            ultimaOferta: 6800000
+        },
+        {
+            id: 103,
+            marca: "Nissan",
+            modelo: "Qashqai",
+            version: "2.0 Sense",
+            anio: 2019,
+            origen: "Remate Santander",
+            costoFinal: 10100000,
+            sugeridoVenta: 12490000,
+            patente: "KW-PL-10",
+            km: 72000,
+            color: "Blanco Perla",
+            transmision: "Manual",
+            combustible: "Bencina",
+            estado: "Mis Ofertas",
+            tiempoRestante: "1h 15m",
+            miOferta: 9800000
+        }
+    ];
+
+    const INITIAL_CUSTOMERS = [
+        { id: 1, nombre: "Marcelo Aravena", telefono: "+56 9 8456 1234", tipo: "Particular", estado: "Caliente", interes: "Mazda 3", reservadoId: 4 },
+        { id: 2, nombre: "Automotora Melipilla SpA", telefono: "+56 9 7123 9988", tipo: "Empresa", estado: "Frecuente", interes: "Varios (Revendedor)", reservadoId: null },
+        { id: 3, nombre: "Carolina Soto", telefono: "+56 9 5544 3322", tipo: "Particular", estado: "Interesado", interes: "Kia Morning", reservadoId: null }
+    ];
+
+    function App() {
+        // App Core State
+        const [stock, setStock] = useState(INITIAL_STOCK_DATA);
+        const [auctions, setAuctions] = useState(INITIAL_AUCTIONS);
+        const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);
+        
+        // Navigation: 'inicio', 'stock', 'subastas', 'clientes'
+        const [activeTab, setActiveTab] = useState('inicio');
+        
+        // Modal States
+        const [activeCar, setActiveCar] = useState(null); // Detailed view
+        const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+        const [isPriceSheetOpen, setIsPriceSheetOpen] = useState(false);
+        const [isStatusSheetOpen, setIsStatusSheetOpen] = useState(false);
+        const [isAuctionBidSheetOpen, setIsAuctionBidSheetOpen] = useState(false);
+        const [activeAuction, setActiveAuction] = useState(null);
+
+        // Filter stock variables
+        const [searchQuery, setSearchQuery] = useState("");
+        const [filterState, setFilterState] = useState("Todos"); // State chips
+        const [filters, setFilters] = useState({
+            marca: "",
+            anio: "",
+            precioMax: 20000000,
+            estado: ""
+        });
+
+        // Price adjustments variables
+        const [adjustedPrice, setAdjustedPrice] = useState(0);
+
+        // Status change variables
+        const [selectedStatus, setSelectedStatus] = useState("");
+        const [statusNote, setStatusNote] = useState("");
+
+        // Auction Bid state
+        const [bidAmount, setBidAmount] = useState(0);
+
+        // Subastas inner tabs: 'disponibles', 'ofertas', 'adjudicadas'
+        const [subastaTab, setSubastaTab] = useState('disponibles');
+
+        // Clientes inner tabs: 'clientes', 'intereses'
+        const [clienteTab, setClienteTab] = useState('clientes');
+        const [isNewClientSheetOpen, setIsNewClientSheetOpen] = useState(false);
+        const [newClient, setNewClient] = useState({ nombre: "", telefono: "", tipo: "Particular", interes: "" });
+
+        // Cargar Auto step-by-step state
+        const [isCargarAutoOpen, setIsCargarAutoOpen] = useState(false);
+        const [cargarStep, setCargarStep] = useState(1);
+        const [wizardData, setWizardData] = useState({
+            id: null,
+            patente: "",
+            marca: "",
+            modelo: "",
+            version: "1.5 Full",
+            anio: 2020,
+            km: 50000,
+            color: "Gris",
+            transmision: "Manual",
+            combustible: "Bencina",
+            origen: "Nacional",
+            precioVenta: 9000000,
+            costoAdquisicion: 7000000,
+            estado: "En preparación",
+            diasStock: 1,
+            fotos: [
+                "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80"
+            ],
+            comentario: "",
+            desdeSubastaId: null
+        });
+
+        // Notification system
+        const [notification, setNotification] = useState(null);
+
+        const showNotification = (message, type = "success") => {
+            setNotification({ message, type });
+            setTimeout(() => {
+                setNotification(null);
+            }, 3500);
+        };
+
+        const kpis = useMemo(() => {
+            const activos = stock.filter(c => c.estado !== "Vendido");
+            const vendidosMes = stock.filter(c => c.estado === "Vendido");
+            
+            const valorStock = activos.reduce((sum, c) => sum + c.costoAdquisicion, 0);
+            const promedioDias = activos.length > 0 
+                ? Math.round(activos.reduce((sum, c) => sum + c.diasStock, 0) / activos.length) 
+                : 0;
+            const tieneCriticos = activos.some(c => c.diasStock > 60);
+
+            // Margen promedio de los activos y vendidos
+            const margenPromedio = activos.length > 0
+                ? Math.round((activos.reduce((sum, c) => sum + (c.precioVenta - c.costoAdquisicion), 0) / activos.length))
+                : 0;
+
+            const totalMontoVendidos = vendidosMes.reduce((sum, c) => sum + c.precioVenta, 0);
+            const adjudicadasPendientes = auctions.filter(a => a.estado === "Adjudicada").length;
+
+            return {
+                valorStock,
+                promedioDias,
+                tieneCriticos,
+                margenPromedio,
+                cantVendidos: vendidosMes.length,
+                montoVendidos: totalMontoVendidos,
+                adjudicadasPendientes
+            };
+        }, [stock, auctions]);
+
+        // Formatear pesos chilenos
+        const fmtCLP = (num) => {
+            return new Intl.NumberFormat('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                minimumFractionDigits: 0
+            }).format(num);
+        };
+
+        const filteredStock = useMemo(() => {
+            return stock.filter(car => {
+                const query = searchQuery.toLowerCase();
+                const matchesSearch = car.marca.toLowerCase().includes(query) || 
+                                      car.modelo.toLowerCase().includes(query) || 
+                                      car.patente.toLowerCase().includes(query);
+                
+                const matchesChip = filterState === "Todos" || car.estado === filterState;
+
+                const matchesMarca = !filters.marca || car.marca === filters.marca;
+                const matchesAnio = !filters.anio || car.anio.toString() === filters.anio;
+                const matchesPrecio = car.precioVenta <= filters.precioMax;
+                const matchesEstado = !filters.estado || car.estado === filters.estado;
+
+                return matchesSearch && matchesChip && matchesMarca && matchesAnio && matchesPrecio && matchesEstado;
+            });
+        }, [stock, searchQuery, filterState, filters]);
+
+        // Listado de marcas únicas en stock para filtros
+        const marcasDisponibles = useMemo(() => {
+            return [...new Set(stock.map(c => c.marca))];
+        }, [stock]);
+
+        // Workflow 1: Iniciar carga manual
+        const handleAbrirCargaManual = () => {
+            setWizardData({
+                id: null,
+                patente: "",
+                marca: "",
+                modelo: "",
+                version: "1.5 GL Mecánico",
+                anio: 2021,
+                km: 42000,
+                color: "Gris Metálico",
+                transmision: "Manual",
+                combustible: "Bencina",
+                origen: "Nacional",
+                precioVenta: 8990000,
+                costoAdquisicion: 7100000,
+                estado: "En preparación",
+                diasStock: 1,
+                fotos: [
+                    "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80"
+                ],
+                comentario: "Ingresado manualmente por el patio.",
+                desdeSubastaId: null
+            });
+            setCargarStep(1);
+            setIsCargarAutoOpen(true);
+        };
+
+        // Workflow 2: Agregar desde subasta adjudicada
+        const handleAgregarDesdeSubasta = (auction) => {
+            setWizardData({
+                id: null,
+                patente: auction.patente || "POR-ASIG",
+                marca: auction.marca,
+                modelo: auction.modelo,
+                version: auction.version || "1.4 Hatchback",
+                anio: auction.anio,
+                km: auction.km || 40000,
+                color: auction.color || "Gris",
+                transmision: auction.transmision || "Manual",
+                combustible: auction.combustible || "Bencina",
+                origen: "Remate / Subasta",
+                precioVenta: auction.sugeridoVenta,
+                costoAdquisicion: auction.costoFinal,
+                estado: "Pre-stock",
+                diasStock: 1,
+                fotos: [
+                    "https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=600&q=80"
+                ],
+                comentario: `Procedente de ${auction.origen}.`,
+                desdeSubastaId: auction.id
+            });
+            setCargarStep(1);
+            setIsCargarAutoOpen(true);
+        };
+
+        // Guardar Auto del Wizard
+        const handleGuardarAutoWizard = () => {
+            const nuevoAuto = {
+                ...wizardData,
+                id: wizardData.id || stock.length + 1,
+                patente: wizardData.patente.toUpperCase() || "SIN-PAT",
+                precioVenta: Number(wizardData.precioVenta),
+                costoAdquisicion: Number(wizardData.costoAdquisicion)
+            };
+
+            // Añadir al stock
+            setStock([nuevoAuto, ...stock]);
+
+            // Si venía de subasta, eliminar o cambiar estado de la subasta para no duplicar
+            if (wizardData.desdeSubastaId) {
+                setAuctions(auctions.filter(a => a.id !== wizardData.desdeSubastaId));
+                showNotification(`¡Excelente! Subasta ganada de ${nuevoAuto.marca} ${nuevoAuto.modelo} traspasada a Stock.`, "success");
+            } else {
+                showNotification(`¡Auto ${nuevoAuto.marca} ${nuevoAuto.modelo} agregado al stock con éxito!`, "success");
+            }
+
+            // Cerrar wizard y volver a Stock
+            setIsCargarAutoOpen(false);
+            setActiveTab('stock');
+        };
+
+        // Guardar cambio de precio
+        const handleGuardarPrecio = () => {
+            if (!activeCar) return;
+            setStock(stock.map(c => {
+                if (c.id === activeCar.id) {
+                    const actualizado = { ...c, precioVenta: adjustedPrice };
+                    setActiveCar(actualizado);
+                    return actualizado;
+                }
+                return c;
+            }));
+            setIsPriceSheetOpen(false);
+            showNotification("Precio del auto actualizado correctamente.");
+        };
+
+        // Guardar cambio de estado
+        const handleGuardarEstado = () => {
+            if (!activeCar) return;
+            setStock(stock.map(c => {
+                if (c.id === activeCar.id) {
+                    const actualizado = { ...c, estado: selectedStatus, comentario: statusNote || c.comentario };
+                    setActiveCar(actualizado);
+                    return actualizado;
+                }
+                return c;
+            }));
+            setIsStatusSheetOpen(false);
+            showNotification(`Estado cambiado a "${selectedStatus}"`);
+        };
+
+        // Ofertar en Subasta
+        const handleEnviarOfertaSubasta = () => {
+            if (!activeAuction) return;
+            setAuctions(auctions.map(a => {
+                if (a.id === activeAuction.id) {
+                    return {
+                        ...a,
+                        estado: "Mis Ofertas",
+                        miOferta: bidAmount
+                    };
+                }
+                return a;
+            }));
+            setIsAuctionBidSheetOpen(false);
+            showNotification(`¡Oferta de ${fmtCLP(bidAmount)} enviada con éxito!`);
+        };
+
+        // Crear Cliente
+        const handleCrearCliente = () => {
+            if (!newClient.nombre) return;
+            const client = {
+                id: customers.length + 1,
+                nombre: newClient.nombre,
+                telefono: newClient.telefono || "+56 9 XXXX XXXX",
+                tipo: newClient.tipo,
+                estado: "Nuevo",
+                interes: newClient.interes || "Ninguno",
+                reservadoId: null
+            };
+            setCustomers([...customers, client]);
+            setIsNewClientSheetOpen(false);
+            setNewClient({ nombre: "", telefono: "", tipo: "Particular", interes: "" });
+            showNotification("Cliente registrado con éxito.");
+        };
+
+        return (
+            <div className="mobile-frame font-sans">
+                
+                {/* NOTIFICACIONES EMERGENTES */}
+                {notification && (
+                    <div className="absolute top-4 left-4 right-4 z-50 bg-teal-800 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-teal-500 animate-bounce">
+                        <i className="fa-solid fa-circle-check text-xl text-teal-300"></i>
+                        <span className="text-sm font-semibold">{notification.message}</span>
+                    </div>
+                )}
+
+                {/* HEADER PRINCIPAL */}
+                <header className="bg-chileanNavy text-white px-4 py-4 flex justify-between items-center shrink-0 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                        <div className="bg-chileanTeal p-2 rounded-lg">
+                            <i className="fa-solid fa-car-rear text-white"></i>
+                        </div>
+                        <div>
+                            <h1 className="font-extrabold text-base tracking-tight">SuraMotor</h1>
+                            <p className="text-[10px] text-slate-400 font-medium">COMPRAVENTA USADOS • CHILE</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <span className="bg-slate-800 text-teal-400 font-bold px-2.5 py-1 rounded-full text-xs flex items-center gap-1.5 border border-slate-700">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            Santiago
+                        </span>
+                    </div>
+                </header>
+
+                {/* PANTALLA PRINCIPAL: CONTENIDO SCROLLABLE */}
+                <main className="flex-1 overflow-y-auto bg-chileanBg pb-24 hide-scrollbar">
+
+                    {}
+                    {activeTab === 'inicio' && (
+                        <div className="p-4 space-y-5 animate-fade-in">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-800">¡Hola, Alfredo! 👋</h2>
+                                    <p className="text-xs text-slate-500">¿Qué auto ingresará al patio hoy?</p>
+                                </div>
+                                <span className="text-xs text-slate-400 font-semibold bg-slate-100 px-2 py-1 rounded">Hoy, 12 de Julio</span>
+                            </div>
+
+                            {/* ALERTA DE STOCK CRÍTICO >60 DÍAS */}
+                            {kpis.tieneCriticos && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start shadow-sm">
+                                    <div className="bg-amber-100 text-amber-700 p-2.5 rounded-xl">
+                                        <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="text-sm font-bold text-amber-800">Alerta de Rotación</h4>
+                                        <p className="text-xs text-amber-700 mt-0.5">Tienes autos con más de 60 días en stock (ej. Toyota Yaris). Considera ajustar precios.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* SECCIÓN DE ACCESO RÁPIDO */}
+                            <div className="bg-gradient-to-r from-teal-900 to-chileanNavy rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+                                <div className="absolute right-0 bottom-0 opacity-10 text-[100px] font-black pointer-events-none transform translate-y-6">
+                                    CL
+                                </div>
+                                <h3 className="font-bold text-lg mb-1">Operación del Día</h3>
+                                <p className="text-xs text-slate-300 mb-4 max-w-[80%]">Sube un auto captado en patio o adquiere directo desde remates de manera expedita.</p>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={handleAbrirCargaManual}
+                                        className="bg-chileanTeal hover:bg-chileanTealDark text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95"
+                                    >
+                                        <i className="fa-solid fa-plus"></i> Cargar manual
+                                    </button>
+                                    <button 
+                                        onClick={() => { setActiveTab('subastas'); setSubastaTab('adjudicadas'); }}
+                                        className="bg-slate-800 text-slate-200 hover:text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 border border-slate-700 active:scale-95 transition-all"
+                                    >
+                                        <i className="fa-solid fa-gavel"></i> Ver Subastas ({kpis.adjudicadasPendientes})
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* TARJETAS DE KPIS */}
+                            <h3 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider">KPIs del Negocio</h3>
+                            <div className="grid grid-cols-2 gap-3.5">
+                                
+                                {/* KPI: VALOR STOCK */}
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Valor Stock (Costo)</span>
+                                    <div className="mt-2">
+                                        <span className="text-base font-extrabold text-slate-800">{fmtCLP(kpis.valorStock)}</span>
+                                        <div className="flex items-center gap-1 mt-1 text-[10px] text-teal-600 font-semibold">
+                                            <i className="fa-solid fa-circle-info"></i> Capital en autos
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* KPI: ROTACIÓN PROMEDIO */}
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Días Promedio</span>
+                                    <div className="mt-2">
+                                        <span className={`text-xl font-extrabold ${kpis.promedioDias > 30 ? 'text-amber-600' : 'text-slate-800'}`}>
+                                            {kpis.promedioDias} días
+                                        </span>
+                                        <div className="flex items-center gap-1 mt-1 text-[10px] text-amber-600 font-semibold">
+                                            <i className="fa-solid fa-clock"></i> En preparación + venta
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* KPI: MARGEN PROMEDIO */}
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between col-span-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Margen Promedio Estimado</span>
+                                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Retorno Sano</span>
+                                    </div>
+                                    <div className="mt-2 flex justify-between items-baseline">
+                                        <span className="text-xl font-extrabold text-slate-800">{fmtCLP(kpis.margenPromedio)}</span>
+                                        <span className="text-xs text-slate-500 font-medium">Por unidad</span>
+                                    </div>
+                                </div>
+
+                                {/* KPI: VENDIDOS ESTE MES */}
+                                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Ventas de Julio</span>
+                                    <div className="mt-2">
+                                        <span className="text-lg font-extrabold text-slate-800">{kpis.cantVendidos} {kpis.cantVendidos === 1 ? 'unidad' : 'unidades'}</span>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">Monto: {fmtCLP(kpis.montoVendidos)}</p>
+                                    </div>
+                                </div>
+
+                                {/* KPI: ADJUDICADAS REMATE */}
+                                <div className={`p-4 rounded-2xl shadow-sm border flex flex-col justify-between cursor-pointer transition-all ${kpis.adjudicadasPendientes > 0 ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-100'}`}
+                                     onClick={() => { setActiveTab('subastas'); setSubastaTab('adjudicadas'); }}>
+                                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Ganadas sin Registrar</span>
+                                    <div className="mt-2">
+                                        <span className={`text-lg font-extrabold ${kpis.adjudicadasPendientes > 0 ? 'text-teal-700' : 'text-slate-800'}`}>
+                                            {kpis.adjudicadasPendientes} Autos
+                                        </span>
+                                        <p className="text-[10px] text-teal-600 mt-0.5 font-semibold flex items-center gap-1">
+                                            Toca para ingresar <i className="fa-solid fa-arrow-right"></i>
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    )}
+
+                    {}
+                    {activeTab === 'stock' && (
+                        <div className="p-4 space-y-4 animate-fade-in">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-xl font-black text-slate-800">Stock de Vehículos</h2>
+                                <button 
+                                    onClick={() => setIsFilterSheetOpen(true)}
+                                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5"
+                                >
+                                    <i className="fa-solid fa-sliders"></i> Filtros
+                                </button>
+                            </div>
+
+                            {/* BARRA DE BÚSQUEDA */}
+                            <div className="relative">
+                                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                                    <i className="fa-solid fa-magnifying-glass"></i>
+                                </span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar por marca, modelo o patente..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-chileanTeal"
+                                />
+                                {searchQuery && (
+                                    <button 
+                                        onClick={() => setSearchQuery("")}
+                                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                                    >
+                                        <i className="fa-solid fa-circle-xmark"></i>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* CHIPS DE ESTADO */}
+                            <div className="flex gap-2 overflow-x-auto pb-1 hide-scrollbar -mx-4 px-4">
+                                {["Todos", "Pre-stock", "En preparación", "En venta", "Reservado", "Vendido"].map(est => {
+                                    const cant = est === "Todos" 
+                                        ? stock.length 
+                                        : stock.filter(c => c.estado === est).length;
+                                    const isSelected = filterState === est;
+                                    return (
+                                        <button
+                                            key={est}
+                                            onClick={() => setFilterState(est)}
+                                            className={`whitespace-nowrap px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 transition-all ${
+                                                isSelected 
+                                                    ? 'bg-chileanNavy text-white' 
+                                                    : 'bg-white text-slate-600 border border-slate-200'
+                                            }`}
+                                        >
+                                            {est}
+                                            <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                                                isSelected ? 'bg-chileanTeal text-white' : 'bg-slate-100 text-slate-500'
+                                            }`}>
+                                                {cant}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* LISTADO DE AUTOS */}
+                            <div className="space-y-3">
+                                {filteredStock.length === 0 ? (
+                                    <div className="bg-white p-8 rounded-2xl text-center border border-slate-200">
+                                        <i className="fa-solid fa-car-side text-slate-300 text-4xl mb-2"></i>
+                                        <p className="text-sm font-bold text-slate-500">No encontramos autos con esos filtros</p>
+                                        <button 
+                                            onClick={() => { setFilterState("Todos"); setFilters({ marca: "", anio: "", precioMax: 20000000, estado: "" }); setSearchQuery(""); }} 
+                                            className="text-xs text-chileanTeal font-bold mt-2"
+                                        >
+                                            Restablecer filtros
+                                        </button>
+                                    </div>
+                                ) : (
+                                    filteredStock.map(car => {
+                                        // Configuración de badges de estado
+                                        let badgeColor = "bg-slate-100 text-slate-700 border-slate-200";
+                                        if (car.estado === "En venta") badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+                                        else if (car.estado === "En preparación" || car.estado === "Pre-stock") badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
+                                        else if (car.estado === "Reservado") badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
+                                        else if (car.estado === "Vendido") badgeColor = "bg-slate-100 text-slate-500 border-slate-200";
+
+                                        return (
+                                            <div 
+                                                key={car.id}
+                                                onClick={() => { setActiveCar(car); }}
+                                                className="bg-white rounded-2xl p-3 shadow-sm border border-slate-100 flex gap-3 cursor-pointer hover:border-slate-300 transition-all active:scale-[0.99]"
+                                            >
+                                                {/* Miniatura de Imagen */}
+                                                <div className="w-24 h-24 rounded-xl overflow-hidden bg-slate-100 shrink-0 relative">
+                                                    <img 
+                                                        src={car.fotos[0]} 
+                                                        alt={car.modelo}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => { e.target.src = "https://placehold.co/150x150/e2e8f0/475569?text=Sin+Foto"; }}
+                                                    />
+                                                    {car.diasStock > 60 && car.estado !== "Vendido" && (
+                                                        <span className="absolute top-1 left-1 bg-amber-500 text-white rounded px-1.5 py-0.5 text-[8px] font-extrabold flex items-center gap-0.5 shadow">
+                                                            <i className="fa-solid fa-clock"></i> +60 DÍAS
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Datos */}
+                                                <div className="flex-1 flex flex-col justify-between">
+                                                    <div>
+                                                        <div className="flex justify-between items-start gap-1">
+                                                            <h3 className="font-bold text-sm text-slate-800 line-clamp-1">{car.marca} {car.modelo}</h3>
+                                                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border uppercase">
+                                                                {car.patente}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[11px] text-slate-500 mt-0.5">{car.anio} • {car.km.toLocaleString('es-CL')} km • {car.transmision}</p>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-end mt-2">
+                                                        <div className="text-slate-800">
+                                                            <p className="text-[10px] font-semibold text-slate-400">Precio Venta</p>
+                                                            <p className="font-extrabold text-base tracking-tight">{fmtCLP(car.precioVenta)}</p>
+                                                        </div>
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${badgeColor}`}>
+                                                                {car.estado}
+                                                            </span>
+                                                            <span className="text-[9px] text-slate-400 font-medium">
+                                                                {car.diasStock} {car.diasStock === 1 ? 'día' : 'días'} en patio
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {}
+                    {activeTab === 'subastas' && (
+                        <div className="p-4 space-y-4 animate-fade-in">
+                            <div>
+                                <h2 className="text-xl font-black text-slate-800">Mesa de Subastas</h2>
+                                <p className="text-xs text-slate-500">Adquiere stock de fuentes corporativas e institucionales</p>
+                            </div>
+
+                            {/* SUB-TABS SUBASTAS */}
+                            <div className="flex bg-slate-200 p-1 rounded-xl">
+                                <button 
+                                    onClick={() => setSubastaTab('disponibles')}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${subastaTab === 'disponibles' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600'}`}
+                                >
+                                    Disponibles
+                                </button>
+                                <button 
+                                    onClick={() => setSubastaTab('ofertas')}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${subastaTab === 'ofertas' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600'}`}
+                                >
+                                    Mis Ofertas
+                                </button>
+                                <button 
+                                    onClick={() => setSubastaTab('adjudicadas')}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${subastaTab === 'adjudicadas' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600'}`}
+                                >
+                                    Adjudicadas ({auctions.filter(a => a.estado === "Adjudicada").length})
+                                </button>
+                            </div>
+
+                            {/* LISTA SUBASTAS SEGÚN SELECCIÓN */}
+                            <div className="space-y-3">
+                                {auctions.filter(a => {
+                                    if (subastaTab === 'disponibles') return a.estado === 'Disponible';
+                                    if (subastaTab === 'ofertas') return a.estado === 'Mis Ofertas';
+                                    if (subastaTab === 'adjudicadas') return a.estado === 'Adjudicada';
+                                    return false;
+                                }).map(auc => (
+                                    <div key={auc.id} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 space-y-3">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded uppercase">
+                                                    {auc.origen}
+                                                </span>
+                                                <h3 className="font-extrabold text-base text-slate-800 mt-1">{auc.marca} {auc.modelo}</h3>
+                                                <p className="text-xs text-slate-500">{auc.anio} • {auc.version}</p>
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-400">
+                                                ID: #{auc.id}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl text-xs">
+                                            <div>
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Transmisión</span>
+                                                <span className="font-semibold text-slate-700">{auc.transmision}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-400 block text-[10px] uppercase font-bold">Kilometraje</span>
+                                                <span className="font-semibold text-slate-700">{auc.km.toLocaleString('es-CL')} km</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                                            <div>
+                                                {auc.estado === 'Adjudicada' ? (
+                                                    <div>
+                                                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Costo de Adquisición</span>
+                                                        <span className="text-sm font-extrabold text-teal-600">{fmtCLP(auc.costoFinal)}</span>
+                                                    </div>
+                                                ) : auc.estado === 'Mis Ofertas' ? (
+                                                    <div>
+                                                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Mi Oferta Actual</span>
+                                                        <span className="text-sm font-extrabold text-slate-700">{fmtCLP(auc.miOferta)}</span>
+                                                    </div>
+                                                ) : (
+                                                    <div>
+                                                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Oferta Actual</span>
+                                                        <span className="text-sm font-extrabold text-slate-700">{fmtCLP(auc.ultimaOferta)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {auc.estado === 'Disponible' && (
+                                                <button 
+                                                    onClick={() => { setActiveAuction(auc); setBidAmount(auc.ultimaOferta + 100000); setIsAuctionBidSheetOpen(true); }}
+                                                    className="bg-chileanTeal hover:bg-chileanTealDark text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all active:scale-95"
+                                                >
+                                                    Ofertar
+                                                </button>
+                                            )}
+
+                                            {auc.estado === 'Mis Ofertas' && (
+                                                <span className="text-xs font-bold text-amber-600 flex items-center gap-1.5 bg-amber-50 px-2 py-1 rounded">
+                                                    <i className="fa-solid fa-spinner animate-spin"></i> Pendiente
+                                                </span>
+                                            )}
+
+                                            {auc.estado === 'Adjudicada' && (
+                                                <button 
+                                                    onClick={() => handleAgregarDesdeSubasta(auc)}
+                                                    className="bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-1.5 transition-all active:scale-95 pulse-teal"
+                                                >
+                                                    <i className="fa-solid fa-cloud-arrow-down"></i> Agregar al Stock
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {auctions.filter(a => {
+                                    if (subastaTab === 'disponibles') return a.estado === 'Disponible';
+                                    if (subastaTab === 'ofertas') return a.estado === 'Mis Ofertas';
+                                    if (subastaTab === 'adjudicadas') return a.estado === 'Adjudicada';
+                                    return false;
+                                }).length === 0 && (
+                                    <div className="bg-white p-8 rounded-2xl text-center border border-slate-200">
+                                        <i className="fa-solid fa-gavel text-slate-300 text-4xl mb-2"></i>
+                                        <p className="text-xs font-bold text-slate-500">No hay remates en esta categoría por ahora</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {}
+                    {activeTab === 'clientes' && (
+                        <div className="p-4 space-y-4 animate-fade-in">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-xl font-black text-slate-800">Clientes & Leads</h2>
+                                    <p className="text-xs text-slate-500">Contactos interesados y reservas</p>
+                                </div>
+                                <button 
+                                    onClick={() => setIsNewClientSheetOpen(true)}
+                                    className="bg-chileanTeal hover:bg-chileanTealDark text-white font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow"
+                                >
+                                    <i className="fa-solid fa-user-plus"></i> Nuevo
+                                </button>
+                            </div>
+
+                            {/* METRICAS DE CLIENTES */}
+                            <div className="grid grid-cols-3 gap-2 bg-slate-100 p-2 rounded-xl text-center">
+                                <div className="bg-white py-2 rounded-lg">
+                                    <span className="text-[10px] text-slate-400 block font-bold uppercase">Total</span>
+                                    <span className="text-sm font-extrabold text-slate-800">{customers.length}</span>
+                                </div>
+                                <div className="bg-white py-2 rounded-lg">
+                                    <span className="text-[10px] text-slate-400 block font-bold uppercase">Particulares</span>
+                                    <span className="text-sm font-extrabold text-slate-800">
+                                        {customers.filter(c => c.tipo === 'Particular').length}
+                                    </span>
+                                </div>
+                                <div className="bg-white py-2 rounded-lg">
+                                    <span className="text-[10px] text-slate-400 block font-bold uppercase">Empresas</span>
+                                    <span className="text-sm font-extrabold text-slate-800">
+                                        {customers.filter(c => c.tipo === 'Empresa').length}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* SUB-TABS CLIENTES */}
+                            <div className="flex bg-slate-200 p-1 rounded-xl">
+                                <button 
+                                    onClick={() => setClienteTab('clientes')}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${clienteTab === 'clientes' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600'}`}
+                                >
+                                    Fichas de Clientes
+                                </button>
+                                <button 
+                                    onClick={() => setClienteTab('intereses')}
+                                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${clienteTab === 'intereses' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600'}`}
+                                >
+                                    Auto de Interés
+                                </button>
+                            </div>
+
+                            {/* LISTA CLIENTES */}
+                            <div className="space-y-3">
+                                {clienteTab === 'clientes' ? (
+                                    customers.map(cli => (
+                                        <div key={cli.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase ${
+                                                        cli.tipo === 'Empresa' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                    }`}>
+                                                        {cli.tipo}
+                                                    </span>
+                                                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded-full text-[9px]">
+                                                        {cli.estado}
+                                                    </span>
+                                                </div>
+                                                <h3 className="font-extrabold text-sm text-slate-800">{cli.nombre}</h3>
+                                                <p className="text-xs text-slate-500 font-medium">{cli.telefono}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-[10px] text-slate-400 block font-bold">Interés Primario</span>
+                                                <span className="text-xs font-bold text-slate-700">{cli.interes}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    customers.filter(c => c.interes && c.interes !== "Ninguno").map(cli => (
+                                        <div key={cli.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-2">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h3 className="font-bold text-sm text-slate-800">{cli.nombre}</h3>
+                                                    <p className="text-xs text-slate-500">Interesado en un auto de la automotora</p>
+                                                </div>
+                                                <a href={`tel:${cli.telefono}`} className="bg-emerald-100 text-emerald-800 p-2 rounded-xl text-xs flex items-center justify-center">
+                                                    <i className="fa-solid fa-phone"></i>
+                                                </a>
+                                            </div>
+                                            <div className="bg-teal-50 border border-teal-100 p-2.5 rounded-xl flex justify-between items-center text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <i className="fa-solid fa-car text-chileanTeal"></i>
+                                                    <span className="font-extrabold text-teal-800">{cli.interes}</span>
+                                                </div>
+                                                <button 
+                                                    onClick={() => {
+                                                        const match = stock.find(c => c.modelo === cli.interes.split(' ')[0] || c.marca === cli.interes.split(' ')[0]);
+                                                        if (match) setActiveCar(match);
+                                                        else showNotification("Auto no disponible de momento.", "warning");
+                                                    }}
+                                                    className="text-chileanTeal font-bold hover:underline"
+                                                >
+                                                    Ver en Stock
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                </main>
+
+                {/* BARRA DE NAVEGACIÓN INFERIOR FIJA */}
+                <nav className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 flex justify-around items-center shrink-0 z-30">
+                    <button 
+                        onClick={() => setActiveTab('inicio')}
+                        className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${activeTab === 'inicio' ? 'text-chileanTeal' : 'text-slate-400'}`}
+                    >
+                        <i className="fa-solid fa-house-chimney text-lg"></i>
+                        <span className="text-[10px] font-bold">Inicio</span>
+                    </button>
+                    
+                    <button 
+                        onClick={() => setActiveTab('stock')}
+                        className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${activeTab === 'stock' ? 'text-chileanTeal' : 'text-slate-400'}`}
+                    >
+                        <i className="fa-solid fa-warehouse text-lg"></i>
+                        <span className="text-[10px] font-bold">Stock</span>
+                    </button>
+
+                    {/* BOTÓN MÁS FLOTANTE INTEGRADO EN EL CENTRO */}
+                    <div className="relative -top-5">
+                        <button 
+                            onClick={handleAbrirCargaManual}
+                            className="bg-chileanTeal hover:bg-chileanTealDark text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg transform active:scale-90 transition-all border-4 border-white"
+                        >
+                            <i className="fa-solid fa-plus text-xl"></i>
+                        </button>
+                    </div>
+
+                    <button 
+                        onClick={() => setActiveTab('subastas')}
+                        className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${activeTab === 'subastas' ? 'text-chileanTeal' : 'text-slate-400'}`}
+                    >
+                        <div className="relative">
+                            <i className="fa-solid fa-gavel text-lg"></i>
+                            {kpis.adjudicadasPendientes > 0 && (
+                                <span className="absolute -top-1.5 -right-2 bg-teal-500 text-white font-black text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center border border-white">
+                                    {kpis.adjudicadasPendientes}
+                                </span>
+                            )}
+                        </div>
+                        <span className="text-[10px] font-bold">Subastas</span>
+                    </button>
+
+                    <button 
+                        onClick={() => setActiveTab('clientes')}
+                        className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all ${activeTab === 'clientes' ? 'text-chileanTeal' : 'text-slate-400'}`}
+                    >
+                        <i className="fa-solid fa-user-group text-lg"></i>
+                        <span className="text-[10px] font-bold">Clientes</span>
+                    </button>
+                </nav>
+
+
+                {/* PANTALLA: CARGAR AUTO (PASO A PASO) */}
+                {isCargarAutoOpen && (
+                    <div className="absolute inset-0 bg-chileanBg z-50 flex flex-col page-transition">
+                        {/* Header del Flujo */}
+                        <div className="bg-chileanNavy text-white p-4 flex justify-between items-center border-b border-slate-800">
+                            <button 
+                                onClick={() => setIsCargarAutoOpen(false)}
+                                className="text-slate-400 hover:text-white font-semibold text-xs"
+                            >
+                                <i className="fa-solid fa-xmark text-lg"></i> Cancelar
+                            </button>
+                            <h3 className="font-extrabold text-sm tracking-tight">Cargar Auto Usado</h3>
+                            <span className="text-xs bg-slate-800 px-2.5 py-1 rounded font-bold text-teal-400 border border-slate-700">
+                                Paso {cargarStep} de 5
+                            </span>
+                        </div>
+
+                        {/* Barra de Progreso */}
+                        <div className="w-full h-1.5 bg-slate-200">
+                            <div 
+                                className="h-full bg-chileanTeal transition-all duration-300"
+                                style={{ width: `${(cargarStep / 5) * 100}%` }}
+                            ></div>
+                        </div>
+
+                        {/* Contenido según el paso */}
+                        <div className="flex-1 overflow-y-auto p-4 hide-scrollbar">
+                            
+                            {/* PASO 1: FOTOS */}
+                            {cargarStep === 1 && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Cargar Fotos del Vehículo</h3>
+                                        <p className="text-xs text-slate-500">La primera foto se convertirá en la portada del vehículo.</p>
+                                    </div>
+
+                                    {/* MOCK DE CAPTURA DE CÁMARA */}
+                                    <div className="bg-slate-800 rounded-2xl h-56 flex flex-col justify-center items-center text-center p-4 relative border-2 border-dashed border-slate-600">
+                                        <i className="fa-solid fa-camera text-4xl text-slate-500 mb-2"></i>
+                                        <p className="text-sm font-bold text-white">Simulador de Cámara Integrada</p>
+                                        <p className="text-xs text-slate-400 mt-1">Saca fotos desde el patio del auto directamente.</p>
+                                        
+                                        <button 
+                                            onClick={() => {
+                                                showNotification("Foto capturada con éxito de manera simulada.");
+                                                setWizardData({
+                                                    ...wizardData,
+                                                    fotos: ["https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80", ...wizardData.fotos]
+                                                });
+                                            }}
+                                            className="mt-4 bg-chileanTeal hover:bg-chileanTealDark text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
+                                        >
+                                            <i className="fa-solid fa-shutter-button"></i> Capturar Foto en Patio
+                                        </button>
+                                    </div>
+
+                                    {/* GALERÍA DE PREVIA */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {wizardData.fotos.map((f, idx) => (
+                                            <div key={idx} className="relative aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200">
+                                                <img src={f} className="w-full h-full object-cover" alt="Previa" />
+                                                <span className="absolute bottom-1 right-1 bg-teal-600 text-white text-[8px] font-black px-1.5 py-0.2 rounded uppercase">
+                                                    {idx === 0 ? "Portada" : `Foto ${idx + 1}`}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* PASO 2: DATOS BÁSICOS */}
+                            {cargarStep === 2 && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Identificación Básica</h3>
+                                        <p className="text-xs text-slate-500">Ingresa la patente para pre-cargar datos del registro chileno.</p>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Patente Chilena</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Ej: KDPT45"
+                                                maxLength={6}
+                                                value={wizardData.patente}
+                                                onChange={(e) => setWizardData({...wizardData, patente: e.target.value.toUpperCase()})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-bold text-slate-800 uppercase tracking-widest text-center text-lg"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Marca</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Ej: Kia"
+                                                value={wizardData.marca}
+                                                onChange={(e) => setWizardData({...wizardData, marca: e.target.value})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-medium text-slate-800"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Modelo</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Ej: Morning"
+                                                value={wizardData.modelo}
+                                                onChange={(e) => setWizardData({...wizardData, modelo: e.target.value})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-medium text-slate-800"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Año</label>
+                                            <input 
+                                                type="number" 
+                                                placeholder="Ej: 2019"
+                                                value={wizardData.anio}
+                                                onChange={(e) => setWizardData({...wizardData, anio: parseInt(e.target.value) || 2020})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-medium text-slate-800"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* PASO 3: DETALLES TÉCNICOS */}
+                            {cargarStep === 3 && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Especificaciones y Detalles</h3>
+                                        <p className="text-xs text-slate-500">Datos relevantes que buscan los clientes.</p>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Kilometraje (km)</label>
+                                            <input 
+                                                type="number" 
+                                                placeholder="Ej: 58000"
+                                                value={wizardData.km}
+                                                onChange={(e) => setWizardData({...wizardData, km: parseInt(e.target.value) || 0})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-medium text-slate-800"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Color</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Ej: Gris Plata"
+                                                value={wizardData.color}
+                                                onChange={(e) => setWizardData({...wizardData, color: e.target.value})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-medium text-slate-800"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Transmisión</label>
+                                                <select 
+                                                    value={wizardData.transmision}
+                                                    onChange={(e) => setWizardData({...wizardData, transmision: e.target.value})}
+                                                    className="w-full p-3 border border-slate-200 rounded-xl font-medium text-slate-800 bg-white"
+                                                >
+                                                    <option value="Manual">Manual</option>
+                                                    <option value="Automático">Automático</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Combustible</label>
+                                                <select 
+                                                    value={wizardData.combustible}
+                                                    onChange={(e) => setWizardData({...wizardData, combustible: e.target.value})}
+                                                    className="w-full p-3 border border-slate-200 rounded-xl font-medium text-slate-800 bg-white"
+                                                >
+                                                    <option value="Bencina">Bencina</option>
+                                                    <option value="Diesel">Diésel</option>
+                                                    <option value="Hibrido">Híbrido</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* PASO 4: PRECIOS */}
+                            {cargarStep === 4 && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Precios y Finanzas</h3>
+                                        <p className="text-xs text-slate-500">Define los números finales para el cálculo del margen real de rentabilidad.</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Costo Adquisición (CLP)</label>
+                                            <input 
+                                                type="number" 
+                                                value={wizardData.costoAdquisicion}
+                                                onChange={(e) => setWizardData({...wizardData, costoAdquisicion: parseInt(e.target.value) || 0})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-bold text-slate-800 text-lg"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Precio Venta Recomendado (CLP)</label>
+                                            <input 
+                                                type="number" 
+                                                value={wizardData.precioVenta}
+                                                onChange={(e) => setWizardData({...wizardData, precioVenta: parseInt(e.target.value) || 0})}
+                                                className="w-full p-3 border border-slate-200 rounded-xl font-bold text-slate-800 text-lg"
+                                            />
+                                        </div>
+
+                                        {/* CALCULO DE MARGEN ESTIMADO EN VIVO */}
+                                        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex justify-between items-center">
+                                            <div>
+                                                <span className="text-[10px] text-emerald-600 block font-bold uppercase">Margen de Venta Estimado</span>
+                                                <span className="text-lg font-black text-emerald-800">
+                                                    {fmtCLP(wizardData.precioVenta - wizardData.costoAdquisicion)}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs bg-emerald-200 text-emerald-800 font-extrabold px-2.5 py-1 rounded-full">
+                                                {Math.round(((wizardData.precioVenta - wizardData.costoAdquisicion) / wizardData.costoAdquisicion) * 100) || 0}% Retorno
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* PASO 5: CONFIRMACIÓN */}
+                            {cargarStep === 5 && (
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-800">Revisión y Publicación</h3>
+                                        <p className="text-xs text-slate-500">Confirma los datos para ingresar el auto en estado "En preparación".</p>
+                                    </div>
+
+                                    <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <h4 className="font-extrabold text-base text-slate-800">
+                                                {wizardData.marca} {wizardData.modelo} ({wizardData.anio})
+                                            </h4>
+                                            <span className="bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded text-xs uppercase">
+                                                {wizardData.patente || "SIN ASIGNAR"}
+                                            </span>
+                                        </div>
+
+                                        <hr className="border-slate-100" />
+
+                                        <div className="grid grid-cols-2 gap-y-2 text-xs">
+                                            <div><span className="text-slate-400 font-semibold">Km:</span> <span className="font-bold text-slate-700">{wizardData.km.toLocaleString('es-CL')} km</span></div>
+                                            <div><span className="text-slate-400 font-semibold">Color:</span> <span className="font-bold text-slate-700">{wizardData.color}</span></div>
+                                            <div><span className="text-slate-400 font-semibold">Transmisión:</span> <span className="font-bold text-slate-700">{wizardData.transmision}</span></div>
+                                            <div><span className="text-slate-400 font-semibold">Combustible:</span> <span className="font-bold text-slate-700">{wizardData.combustible}</span></div>
+                                        </div>
+
+                                        <hr className="border-slate-100" />
+
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <span className="text-[10px] text-slate-400 block font-bold">Costo Adquisición</span>
+                                                <span className="font-bold text-sm text-slate-700">{fmtCLP(wizardData.costoAdquisicion)}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-[10px] text-slate-400 block font-bold">Precio Venta</span>
+                                                <span className="font-extrabold text-lg text-teal-600">{fmtCLP(wizardData.precioVenta)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+
+                        {/* Botonera inferior del Wizard */}
+                        <div className="bg-white border-t border-slate-200 p-4 flex gap-3 shrink-0">
+                            {cargarStep > 1 && (
+                                <button 
+                                    onClick={() => setCargarStep(cargarStep - 1)}
+                                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm"
+                                >
+                                    Atrás
+                                </button>
+                            )}
+                            {cargarStep < 5 ? (
+                                <button 
+                                    onClick={() => {
+                                        if (cargarStep === 2 && !wizardData.marca) {
+                                            showNotification("Por favor, introduce al menos la marca.", "warning");
+                                            return;
+                                        }
+                                        setCargarStep(cargarStep + 1);
+                                    }}
+                                    className="flex-1 py-3 bg-chileanTeal hover:bg-chileanTealDark text-white font-bold rounded-xl text-sm"
+                                >
+                                    Siguiente
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={handleGuardarAutoWizard}
+                                    className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl text-sm"
+                                >
+                                    Guardar en Stock
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+
+                {/* PANTALLA: FICHA DE AUTO DETALLE (PANTALLA COMPLETA) */}
+                {activeCar && (
+                    <div className="absolute inset-0 bg-chileanBg z-40 flex flex-col page-transition">
+                        
+                        {/* Header de la Ficha */}
+                        <div className="bg-chileanNavy text-white p-4 flex justify-between items-center border-b border-slate-800">
+                            <button 
+                                onClick={() => setActiveCar(null)}
+                                className="text-slate-400 hover:text-white font-semibold text-xs flex items-center gap-1"
+                            >
+                                <i className="fa-solid fa-chevron-left"></i> Volver
+                            </button>
+                            <h3 className="font-extrabold text-sm">Ficha del Auto</h3>
+                            <span className="text-xs bg-slate-800 px-2.5 py-1 rounded font-bold text-teal-400 uppercase tracking-wider border border-slate-700">
+                                {activeCar.patente}
+                            </span>
+                        </div>
+
+                        {/* Contenido Ficha */}
+                        <div className="flex-1 overflow-y-auto pb-4 hide-scrollbar">
+                            
+                            {/* Galería de imágenes (Slidable simulated) */}
+                            <div className="w-full h-56 bg-slate-200 relative">
+                                <img 
+                                    src={activeCar.fotos[0]} 
+                                    alt={activeCar.modelo} 
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute bottom-3 right-3 bg-slate-950/70 text-white px-2 py-1 rounded-lg text-xs font-bold">
+                                    1 / {activeCar.fotos.length}
+                                </div>
+                            </div>
+
+                            {/* Información Principal */}
+                            <div className="p-4 space-y-4">
+                                
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h2 className="text-xl font-extrabold text-slate-800">{activeCar.marca} {activeCar.modelo}</h2>
+                                        <p className="text-sm text-slate-500 font-medium">{activeCar.version} • Año {activeCar.anio}</p>
+                                    </div>
+                                    <span className="text-xs font-extrabold bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-full">
+                                        {activeCar.estado}
+                                    </span>
+                                </div>
+
+                                {/* Bloque de Margen y Costos */}
+                                <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase">Costo Adquisición</span>
+                                        <span className="text-xs font-bold text-slate-600">{fmtCLP(activeCar.costoAdquisicion)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <span className="text-[10px] text-slate-400 font-bold uppercase block">Precio Sugerido Venta</span>
+                                            <span className="text-lg font-black text-slate-800">{fmtCLP(activeCar.precioVenta)}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-[10px] text-emerald-600 font-bold uppercase block">Margen Neto</span>
+                                            <span className="text-base font-extrabold text-emerald-600">
+                                                +{fmtCLP(activeCar.precioVenta - activeCar.costoAdquisicion)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Tabla de Datos Técnicos */}
+                                <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+                                    <h3 className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-3">Detalle del Vehículo</h3>
+                                    <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Kilometraje</span>
+                                            <span className="font-semibold text-slate-800">{activeCar.km.toLocaleString('es-CL')} km</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Color</span>
+                                            <span className="font-semibold text-slate-800">{activeCar.color}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Transmisión</span>
+                                            <span className="font-semibold text-slate-800">{activeCar.transmision}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Combustible</span>
+                                            <span className="font-semibold text-slate-800">{activeCar.combustible}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Días en Patio</span>
+                                            <span className={`font-semibold ${activeCar.diasStock > 60 ? 'text-amber-600' : 'text-slate-800'}`}>
+                                                {activeCar.diasStock} días
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Origen</span>
+                                            <span className="font-semibold text-slate-800">{activeCar.origen}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Comentarios u observaciones del equipo */}
+                                <div className="bg-slate-100 rounded-2xl p-4 text-xs border border-slate-200">
+                                    <span className="font-bold text-slate-500 block mb-1">Notas de Patio:</span>
+                                    <p className="text-slate-600 leading-relaxed font-medium">{activeCar.comentario || "Sin notas u observaciones especiales."}</p>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        {/* Botonera de Acciones Rápidas (Especialmente diseñados para pulgar) */}
+                        <div className="bg-white border-t border-slate-200 p-4 space-y-2.5 shrink-0">
+                            <div className="grid grid-cols-2 gap-2.5">
+                                <button 
+                                    onClick={() => {
+                                        setAdjustedPrice(activeCar.precioVenta);
+                                        setIsPriceSheetOpen(true);
+                                    }}
+                                    className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all"
+                                >
+                                    <i className="fa-solid fa-dollar-sign"></i> Ajustar Precio
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setSelectedStatus(activeCar.estado);
+                                        setStatusNote("");
+                                        setIsStatusSheetOpen(true);
+                                    }}
+                                    className="py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all"
+                                >
+                                    <i className="fa-solid fa-rotate"></i> Cambiar Estado
+                                </button>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setWizardData(activeCar);
+                                    setCargarStep(1);
+                                    setIsCargarAutoOpen(true);
+                                }}
+                                className="w-full py-3.5 bg-chileanNavy hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md"
+                            >
+                                <i className="fa-solid fa-pen-to-square"></i> Editar Todo el Expediente
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+
+                {/* HOJA DESDE ABAJO: FILTROS */}
+                {isFilterSheetOpen && (
+                    <div className="absolute inset-0 bg-black/60 z-50 flex flex-col justify-end">
+                        <div className="bg-white rounded-t-3xl max-h-[85%] flex flex-col animate-slide-up">
+                            <div className="p-4 flex justify-between items-center border-b border-slate-100 shrink-0">
+                                <h3 className="font-extrabold text-sm text-slate-800">Filtrar Vehículos</h3>
+                                <button onClick={() => setIsFilterSheetOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                    <i className="fa-solid fa-circle-xmark text-lg"></i>
+                                </button>
+                            </div>
+
+                            <div className="p-4 overflow-y-auto space-y-4">
+                                {/* Filtro Marca */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Marca</label>
+                                    <select 
+                                        value={filters.marca}
+                                        onChange={(e) => setFilters({...filters, marca: e.target.value})}
+                                        className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white"
+                                    >
+                                        <option value="">Todas las marcas</option>
+                                        {marcasDisponibles.map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Filtro Año */}
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Año</label>
+                                    <input 
+                                        type="number" 
+                                        placeholder="Ej: 2021"
+                                        value={filters.anio}
+                                        onChange={(e) => setFilters({...filters, anio: e.target.value})}
+                                        className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700"
+                                    />
+                                </div>
+
+                                {/* Filtro Rango Precio Máximo */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Precio Máximo</label>
+                                        <span className="text-xs font-extrabold text-chileanTeal">{fmtCLP(filters.precioMax)}</span>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="4000000" 
+                                        max="20000000" 
+                                        step="500000"
+                                        value={filters.precioMax}
+                                        onChange={(e) => setFilters({...filters, precioMax: parseInt(e.target.value)})}
+                                        className="w-full accent-chileanTeal"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="p-4 border-t border-slate-100 flex gap-2 shrink-0">
+                                <button 
+                                    onClick={() => {
+                                        setFilters({ marca: "", anio: "", precioMax: 20000000, estado: "" });
+                                        setIsFilterSheetOpen(false);
+                                    }}
+                                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs"
+                                >
+                                    Limpiar
+                                </button>
+                                <button 
+                                    onClick={() => setIsFilterSheetOpen(false)}
+                                    className="flex-1 py-3 bg-chileanTeal text-white font-bold rounded-xl text-xs"
+                                >
+                                    Aplicar Filtros
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+
+                {/* HOJA DESDE ABAJO: AJUSTAR PRECIO */}
+                {isPriceSheetOpen && activeCar && (
+                    <div className="absolute inset-0 bg-black/60 z-50 flex flex-col justify-end">
+                        <div className="bg-white rounded-t-3xl p-4 space-y-4 animate-slide-up">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold text-sm text-slate-800">Ajustar Precio de Venta</h3>
+                                    <p className="text-xs text-slate-500">{activeCar.marca} {activeCar.modelo}</p>
+                                </div>
+                                <button onClick={() => setIsPriceSheetOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                    <i className="fa-solid fa-circle-xmark text-lg"></i>
+                                </button>
+                            </div>
+
+                            {/* Mostrar Valor de Precio Gigante */}
+                            <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase block">Nuevo Precio</span>
+                                <span className="text-2xl font-black text-slate-800">{fmtCLP(adjustedPrice)}</span>
+                            </div>
+
+                            {/* Control gordo para ajustar con pulgar */}
+                            <div className="flex justify-between items-center gap-3">
+                                <button 
+                                    onClick={() => setAdjustedPrice(Math.max(adjustedPrice - 100000, activeCar.costoAdquisicion))}
+                                    className="w-14 h-14 bg-slate-100 hover:bg-slate-200 active:scale-90 rounded-full flex items-center justify-center text-slate-800 text-xl font-black transition-all"
+                                >
+                                    <i className="fa-solid fa-minus"></i>
+                                </button>
+                                <div className="flex-1 text-center">
+                                    <span className="text-[10px] text-emerald-600 font-bold uppercase block">Nuevo Margen Estimado</span>
+                                    <span className="text-base font-extrabold text-emerald-600">
+                                        +{fmtCLP(adjustedPrice - activeCar.costoAdquisicion)}
+                                    </span>
+                                </div>
+                                <button 
+                                    onClick={() => setAdjustedPrice(adjustedPrice + 100000)}
+                                    className="w-14 h-14 bg-slate-100 hover:bg-slate-200 active:scale-90 rounded-full flex items-center justify-center text-slate-800 text-xl font-black transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+
+                            <button 
+                                onClick={handleGuardarPrecio}
+                                className="w-full py-3.5 bg-chileanTeal hover:bg-chileanTealDark text-white font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-95"
+                            >
+                                Guardar Precio de Venta
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+
+                {/* HOJA DESDE ABAJO: CAMBIAR ESTADO */}
+                {isStatusSheetOpen && activeCar && (
+                    <div className="absolute inset-0 bg-black/60 z-50 flex flex-col justify-end">
+                        <div className="bg-white rounded-t-3xl p-4 space-y-4 animate-slide-up">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold text-sm text-slate-800">Cambiar Estado de Operación</h3>
+                                    <p className="text-xs text-slate-500">{activeCar.marca} {activeCar.modelo}</p>
+                                </div>
+                                <button onClick={() => setIsStatusSheetOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                    <i className="fa-solid fa-circle-xmark text-lg"></i>
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Seleccionar Estado</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {["Pre-stock", "En preparación", "En venta", "Reservado", "Vendido"].map(est => {
+                                        const isSelected = selectedStatus === est;
+                                        return (
+                                            <button
+                                                key={est}
+                                                type="button"
+                                                onClick={() => setSelectedStatus(est)}
+                                                className={`py-2 px-3 rounded-xl font-bold text-xs border text-left flex justify-between items-center transition-all ${
+                                                    isSelected 
+                                                        ? 'bg-chileanNavy text-white border-chileanNavy' 
+                                                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                                                }`}
+                                            >
+                                                {est}
+                                                {isSelected && <i className="fa-solid fa-circle-check text-teal-400"></i>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Nota Opcional</label>
+                                    <textarea 
+                                        placeholder="Ej: Se inicia proceso de detallado estético..."
+                                        value={statusNote}
+                                        onChange={(e) => setStatusNote(e.target.value)}
+                                        className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-chileanTeal"
+                                        rows="2"
+                                    ></textarea>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={handleGuardarEstado}
+                                className="w-full py-3.5 bg-chileanTeal hover:bg-chileanTealDark text-white font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-95"
+                            >
+                                Cambiar Estado
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+
+                {/* HOJA DESDE ABAJO: OFERTAR SUBASTA */}
+                {isAuctionBidSheetOpen && activeAuction && (
+                    <div className="absolute inset-0 bg-black/60 z-50 flex flex-col justify-end">
+                        <div className="bg-white rounded-t-3xl p-4 space-y-4 animate-slide-up">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold text-sm text-slate-800">Ingresar Oferta en Remate</h3>
+                                    <p className="text-xs text-slate-500">{activeAuction.marca} {activeAuction.modelo} ({activeAuction.origen})</p>
+                                </div>
+                                <button onClick={() => setIsAuctionBidSheetOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                    <i className="fa-solid fa-circle-xmark text-lg"></i>
+                                </button>
+                            </div>
+
+                            <div className="bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase block">Monto de tu Oferta</span>
+                                <span className="text-2xl font-black text-slate-800">{fmtCLP(bidAmount)}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center gap-3">
+                                <button 
+                                    onClick={() => setBidAmount(Math.max(bidAmount - 100000, activeAuction.ultimaOferta))}
+                                    className="w-14 h-14 bg-slate-100 hover:bg-slate-200 active:scale-90 rounded-full flex items-center justify-center text-slate-800 text-xl font-black transition-all"
+                                >
+                                    <i className="fa-solid fa-minus"></i>
+                                </button>
+                                <div className="flex-1 text-center text-xs font-semibold text-slate-500">
+                                    Oferta Mínima Requerida: {fmtCLP(activeAuction.ultimaOferta + 100000)}
+                                </div>
+                                <button 
+                                    onClick={() => setBidAmount(bidAmount + 100000)}
+                                    className="w-14 h-14 bg-slate-100 hover:bg-slate-200 active:scale-90 rounded-full flex items-center justify-center text-slate-800 text-xl font-black transition-all"
+                                >
+                                    <i className="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+
+                            <button 
+                                onClick={handleEnviarOfertaSubasta}
+                                className="w-full py-3.5 bg-chileanTeal hover:bg-chileanTealDark text-white font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-95"
+                            >
+                                Enviar Oferta Oficial
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+
+                {/* HOJA DESDE ABAJO: NUEVO CLIENTE */}
+                {isNewClientSheetOpen && (
+                    <div className="absolute inset-0 bg-black/60 z-50 flex flex-col justify-end">
+                        <div className="bg-white rounded-t-3xl p-4 space-y-4 animate-slide-up">
+                            <div className="flex justify-between items-center">
+                                <h3 className="font-bold text-sm text-slate-800">Registrar Nuevo Lead / Cliente</h3>
+                                <button onClick={() => setIsNewClientSheetOpen(false)} className="text-slate-400 hover:text-slate-600">
+                                    <i className="fa-solid fa-circle-xmark text-lg"></i>
+                                </button>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Nombre Completo</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Ej: Marcelo Aravena"
+                                        value={newClient.nombre}
+                                        onChange={(e) => setNewClient({...newClient, nombre: e.target.value})}
+                                        className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Teléfono o Celular</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Ej: +56 9 1234 5678"
+                                        value={newClient.telefono}
+                                        onChange={(e) => setNewClient({...newClient, telefono: e.target.value})}
+                                        className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Tipo de Cliente</label>
+                                        <select 
+                                            value={newClient.tipo}
+                                            onChange={(e) => setNewClient({...newClient, tipo: e.target.value})}
+                                            className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white"
+                                        >
+                                            <option value="Particular">Particular</option>
+                                            <option value="Empresa">Empresa / Dealer</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Auto de Interés</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Ej: Kia Morning"
+                                            value={newClient.interes}
+                                            onChange={(e) => setNewClient({...newClient, interes: e.target.value})}
+                                            className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={handleCrearCliente}
+                                className="w-full py-3.5 bg-chileanTeal hover:bg-chileanTealDark text-white font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-95"
+                            >
+                                Registrar Cliente
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+            </div>
+        );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('app'));
+</script>
+</body>
+</html>
