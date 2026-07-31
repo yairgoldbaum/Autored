@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "autored-vendor",
+    "slug": "autored-vendor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SuraMotor necesita acceso a tus fotos para cargar imágenes de los vehículos.",
+          "cameraPermission": "SuraMotor necesita acceso a la cámara para fotografiar los vehículos en stock."
+        }
+      ]
+    ]
+  }
+}
