@@ -5,10 +5,11 @@ import {
   Car,
   Auction,
   Customer,
-  ClienteRol,
   VehicleContact,
   TransferenciaNotarial,
   BusquedaCliente,
+  RelacionClienteVehiculo,
+  TipoRelacion,
 } from './data';
 
 const STORAGE_KEY = 'suramotor:state:v1';
@@ -17,6 +18,7 @@ export interface PersistedState {
   stock: Car[];
   auctions: Auction[];
   customers: Customer[];
+  relaciones: RelacionClienteVehiculo[];
 }
 
 export async function loadState(): Promise<PersistedState | null> {
@@ -31,10 +33,25 @@ export async function loadState(): Promise<PersistedState | null> {
       stock: data.stock.map(normalizeCar),
       auctions: data.auctions.map(normalizeAuction),
       customers: data.customers.map(normalizeCustomer),
+      // Tercera colección, nueva. Un estado guardado antes de que existiera no la
+      // trae: se arranca vacía y syncStockAndCustomers rearma las que se derivan
+      // de los contactos embebidos del auto.
+      relaciones: Array.isArray(data.relaciones) ? data.relaciones.flatMap(normalizeRelacion) : [],
     };
   } catch {
     return null;
   }
+}
+
+const TIPOS_RELACION: TipoRelacion[] = ['adquisicion', 'venta', 'consignacion', 'oportunidad'];
+
+/** Devuelve [] en vez de null para poder usarlo con flatMap y descartar la basura. */
+function normalizeRelacion(rel: unknown): RelacionClienteVehiculo[] {
+  if (!rel || typeof rel !== 'object') return [];
+  const r = rel as Partial<RelacionClienteVehiculo>;
+  if (typeof r.id !== 'number' || typeof r.clienteId !== 'number' || typeof r.vehiculoId !== 'number') return [];
+  if (!r.tipo || !TIPOS_RELACION.includes(r.tipo)) return [];
+  return [{ id: r.id, clienteId: r.clienteId, vehiculoId: r.vehiculoId, tipo: r.tipo, fecha: r.fecha || '' }];
 }
 
 function normalizeAuction(auction: Partial<Auction> & { id: number }): Auction {
@@ -210,10 +227,9 @@ function normalizeCustomer(customer: Partial<Customer> & { id: number }): Custom
     // que era un auto del stock propio. Se rescata como el modelo que buscan.
     busca: normalizeBusqueda(customer),
     archivado: customer.archivado === true,
-    reservadoId: customer.reservadoId ?? null,
-    roles: normalizeRoles(customer.roles),
-    vehiculosAdquisicionIds: normalizeIdList(customer.vehiculosAdquisicionIds),
-    vehiculosVentaIds: normalizeIdList(customer.vehiculosVentaIds),
+    // Los ids de autos que el cliente guardaba (vehiculosAdquisicionIds,
+    // vehiculosVentaIds, reservadoId) se descartan: esa relación ahora vive en
+    // `relaciones`, y syncStockAndCustomers la rearma desde los contactos del auto.
   };
 }
 
@@ -241,13 +257,3 @@ function normalizeContact(contact: unknown): VehicleContact | null {
   };
 }
 
-function normalizeRoles(roles: unknown): ClienteRol[] {
-  if (!Array.isArray(roles)) return ['Venta'];
-  const clean = roles.filter((role): role is ClienteRol => role === 'Adquisición' || role === 'Venta');
-  return clean.length ? Array.from(new Set(clean)) : ['Venta'];
-}
-
-function normalizeIdList(ids: unknown): number[] {
-  if (!Array.isArray(ids)) return [];
-  return ids.filter((id): id is number => typeof id === 'number');
-}

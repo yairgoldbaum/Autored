@@ -73,8 +73,6 @@ export interface Car {
   inspeccion?: InspectionReport | null;
 }
 
-export type ClienteRol = 'Adquisición' | 'Venta';
-
 export interface VehicleContact {
   clienteId: number | null;
   nombre: string;
@@ -316,10 +314,54 @@ export interface Customer {
   canal: CanalCliente;
   busca: BusquedaCliente | null;
   archivado: boolean;
-  reservadoId: number | null;
-  roles: ClienteRol[];
-  vehiculosAdquisicionIds: number[];
-  vehiculosVentaIds: number[];
+}
+
+/* Qué une a un cliente con un auto.
+
+   Antes esto vivía partido en tres campos del cliente (vehiculosAdquisicionIds,
+   vehiculosVentaIds, reservadoId) más los contactos embebidos en el auto, y había
+   que mantener las dos direcciones cuadradas a mano. Ahora es una lista sola.
+
+   `reservadoId` no era un tipo de relación y por eso no está acá: la reserva se
+   deriva de un cliente con relación de venta a un auto en estado Reservado.
+
+   Los contactos embebidos del auto (clienteAdquisicion, comprador, consignante) se
+   quedan donde estaban: sirven para mostrar el nombre sin ir a buscarlo a otra
+   lista. Lo que se elimina es la duplicación en la dirección contraria. */
+export type TipoRelacion = 'adquisicion' | 'venta' | 'consignacion' | 'oportunidad';
+
+export interface RelacionClienteVehiculo {
+  id: number;
+  clienteId: number;
+  vehiculoId: number;
+  tipo: TipoRelacion;
+  fecha: string; // YYYY-MM-DD
+}
+
+export function relacionesDeCliente(
+  relaciones: RelacionClienteVehiculo[],
+  clienteId: number,
+): RelacionClienteVehiculo[] {
+  return relaciones.filter((r) => r.clienteId === clienteId);
+}
+
+export function relacionesDeVehiculo(
+  relaciones: RelacionClienteVehiculo[],
+  vehiculoId: number,
+): RelacionClienteVehiculo[] {
+  return relaciones.filter((r) => r.vehiculoId === vehiculoId);
+}
+
+/* El rol comercial ya no se guarda, se deduce: quien tiene una relación de
+   adquisición o de consignación es un cliente de adquisición, y quien tiene una de
+   venta es un cliente de venta. Antes se elegía a mano en el formulario y quedaba
+   desalineado con los autos que el cliente realmente tenía. */
+export function esClienteDeAdquisicion(relaciones: RelacionClienteVehiculo[]): boolean {
+  return relaciones.some((r) => r.tipo === 'adquisicion' || r.tipo === 'consignacion');
+}
+
+export function esClienteDeVenta(relaciones: RelacionClienteVehiculo[]): boolean {
+  return relaciones.some((r) => r.tipo === 'venta');
 }
 
 /* Modelos frecuentes del mercado chileno, para sugerir mientras se escribe qué busca
@@ -942,10 +984,6 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     canal: 'Carga manual',
     busca: null, // ya encontró lo suyo: tiene el Mazda 3 reservado
     archivado: false,
-    reservadoId: 4,
-    roles: ['Venta'],
-    vehiculosAdquisicionIds: [],
-    vehiculosVentaIds: [4],
   },
   {
     id: 2,
@@ -956,10 +994,6 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     canal: 'Carga manual',
     busca: { modelo: '', comentario: 'Revendedor: compra varios, sin modelo fijo.' },
     archivado: false,
-    reservadoId: null,
-    roles: ['Adquisición'],
-    vehiculosAdquisicionIds: [],
-    vehiculosVentaIds: [],
   },
   {
     id: 3,
@@ -970,11 +1004,18 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
     busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.' },
     archivado: false,
-    reservadoId: null,
-    roles: ['Venta'],
-    vehiculosAdquisicionIds: [],
-    vehiculosVentaIds: [],
   },
+];
+
+/* Las relaciones que antes estaban implícitas en los ids que guardaba cada cliente.
+   Las derivables desde los contactos embebidos del auto las vuelve a armar
+   syncStockAndCustomers en cada carga; las de tipo 'oportunidad' viven solo acá,
+   porque no cuelgan de ningún contacto del auto. */
+export const INITIAL_RELACIONES: RelacionClienteVehiculo[] = [
+  // Marcelo Aravena tiene el Mazda 3 reservado.
+  { id: 1, clienteId: 1, vehiculoId: 4, tipo: 'venta', fecha: '2026-08-02' },
+  // Automotora Melipilla dejó el Toyota Yaris en consignación.
+  { id: 2, clienteId: 2, vehiculoId: 3, tipo: 'consignacion', fecha: '2026-05-08' },
 ];
 
 export const ESTADOS: EstadoAuto[] = [

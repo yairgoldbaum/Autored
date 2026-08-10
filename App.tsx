@@ -29,7 +29,8 @@ import {
   Auction,
   Customer,
   BusquedaCliente,
-  ClienteRol,
+  RelacionClienteVehiculo,
+  TipoRelacion,
   EstadoAuto,
   EnvioInforme,
   InformeAutosave,
@@ -42,10 +43,13 @@ import {
   INITIAL_STOCK_DATA,
   INITIAL_AUCTIONS,
   INITIAL_CUSTOMERS,
+  INITIAL_RELACIONES,
   ESTADOS,
   MODELOS_BUSCADOS,
   costoBase,
   diasEnStock,
+  esClienteDeAdquisicion,
+  esClienteDeVenta,
 } from './src/data';
 import { Icon, Ping, Spinner, Wiggle, Pulse, Sheet, Dropdown, PageOverlay } from './src/ui';
 import { loadState, saveState } from './src/storage';
@@ -77,6 +81,9 @@ import { InspectionScreen } from './src/inspection/InspectionScreen';
 import { InspectionReport } from './src/inspection/types';
 
 type TabKey = 'inicio' | 'stock' | 'subastas' | 'clientes';
+/* Etiqueta de pantalla, ya no un campo del cliente: se deduce de sus relaciones
+   con autos. Vive acá y no en el modelo porque el modelo ya no lo guarda. */
+type ClienteRol = 'Adquisición' | 'Venta';
 type SubastaTabKey = 'disponibles' | 'ofertas' | 'mis_subastas' | 'finalizadas';
 
 const AUCTION_DURATION_MS = 4 * 60 * 60 * 1000;
@@ -94,7 +101,6 @@ interface NewClientData {
   estado: string;
   buscaModelo: string;
   buscaComentario: string;
-  rol: ClienteRol | 'Ambos';
 }
 
 const TIPO_VEHICULO_OPTIONS = ['Vehículo liviano', 'Vehículo pesado', 'Moto'];
@@ -160,7 +166,7 @@ export default function App() {
 function AppInner() {
   const insets = useSafeAreaInsets();
   const initialSyncedState = useMemo(
-    () => syncStockAndCustomers(INITIAL_STOCK_DATA, INITIAL_CUSTOMERS),
+    () => syncStockAndCustomers(INITIAL_STOCK_DATA, INITIAL_CUSTOMERS, INITIAL_RELACIONES),
     [],
   );
 
@@ -168,6 +174,9 @@ function AppInner() {
   const [stock, setStock] = useState<Car[]>(initialSyncedState.stock);
   const [auctions, setAuctions] = useState<Auction[]>(INITIAL_AUCTIONS);
   const [customers, setCustomers] = useState<Customer[]>(initialSyncedState.customers);
+  // Las relaciones cliente-vehículo viven acá, al lado de stock y customers, no
+  // adentro de ninguno de los dos.
+  const [relaciones, setRelaciones] = useState<RelacionClienteVehiculo[]>(initialSyncedState.relaciones);
 
   const [activeTab, setActiveTab] = useState<TabKey>('inicio');
 
@@ -257,10 +266,11 @@ function AppInner() {
     (async () => {
       const saved = await loadState();
       if (saved) {
-        const synced = syncStockAndCustomers(saved.stock, saved.customers);
+        const synced = syncStockAndCustomers(saved.stock, saved.customers, saved.relaciones);
         setStock(synced.stock);
         setAuctions(mergeAuctionsWithInitial(saved.auctions));
         setCustomers(synced.customers);
+        setRelaciones(synced.relaciones);
       }
       setHydrated(true);
     })();
@@ -268,8 +278,8 @@ function AppInner() {
 
   useEffect(() => {
     if (!hydrated) return;
-    saveState({ stock, auctions, customers });
-  }, [hydrated, stock, auctions, customers]);
+    saveState({ stock, auctions, customers, relaciones });
+  }, [hydrated, stock, auctions, customers, relaciones]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowTs(Date.now()), 1000);
@@ -425,15 +435,28 @@ function AppInner() {
   const activeInforme = useMemo(() => (activeCar ? generarInformeAutosave(activeCar) : null), [activeCar]);
   const activeBloqueos = useMemo(() => bloqueosTransferencia(activeInforme), [activeInforme]);
 
+  // Las relaciones de cada cliente, indexadas una vez para no recorrer la lista entera
+  // por cada tarjeta.
+  const relacionesPorCliente = useMemo(() => {
+    const map = new Map<number, RelacionClienteVehiculo[]>();
+    relaciones.forEach((rel) => {
+      const previas = map.get(rel.clienteId);
+      if (previas) previas.push(rel);
+      else map.set(rel.clienteId, [rel]);
+    });
+    return map;
+  }, [relaciones]);
+
   // Clientes filtrados por rol comercial y buscador.
   const filteredCustomers = useMemo(() => {
     const q = clienteSearch.trim().toLowerCase();
     return customers.filter((c) => {
-      const roles = normalizeCustomerRoles(c);
+      const rels = relacionesPorCliente.get(c.id) || [];
+      const roles = rolesDeCliente(rels);
       const matchesRole = clienteRoleFilter === 'Todos' || roles.includes(clienteRoleFilter);
       if (!matchesRole) return false;
       if (!q) return true;
-      const vehicleLabels = getCustomerVehicleLabels(c, stockById).join(' ').toLowerCase();
+      const vehicleLabels = getCustomerVehicleLabels(rels, stockById).join(' ').toLowerCase();
       const busca = `${c.busca?.modelo || ''} ${c.busca?.comentario || ''}`.toLowerCase();
       return (
         c.nombre.toLowerCase().includes(q) ||
@@ -443,7 +466,7 @@ function AppInner() {
         vehicleLabels.includes(q)
       );
     });
-  }, [customers, clienteSearch, clienteRoleFilter, stockById]);
+  }, [customers, clienteSearch, clienteRoleFilter, stockById, relacionesPorCliente]);
 
   /* ------------------- Motor de precios ------------------- */
   const handleAbrirMotor = () => {
@@ -573,17 +596,19 @@ function AppInner() {
     const nextStock = isEditing
       ? stock.map((c) => (c.id === nuevoAuto.id ? nuevoAuto : c))
       : [nuevoAuto, ...stock];
-    const synced = syncStockAndCustomers(nextStock, customers);
+    const synced = syncStockAndCustomers(nextStock, customers, relaciones);
     const savedAuto = synced.stock.find((c) => c.id === nuevoAuto.id) || nuevoAuto;
 
     if (isEditing) {
       setStock(synced.stock);
       setCustomers(synced.customers);
+      setRelaciones(synced.relaciones);
       setActiveCar(savedAuto);
       showNotification(`Publicación de ${savedAuto.marca} ${savedAuto.modelo} actualizada correctamente.`);
     } else {
       setStock(synced.stock);
       setCustomers(synced.customers);
+      setRelaciones(synced.relaciones);
       if (wizardData.desdeSubastaId) {
         setAuctions(auctions.filter((a) => a.id !== wizardData.desdeSubastaId));
         showNotification(`¡Excelente! Subasta ganada de ${savedAuto.marca} ${savedAuto.modelo} traspasada a Stock.`);
@@ -643,9 +668,10 @@ function AppInner() {
           style: 'destructive',
           onPress: () => {
             const nextStock = stock.filter((c) => c.id !== car.id);
-            const synced = syncStockAndCustomers(nextStock, customers);
+            const synced = syncStockAndCustomers(nextStock, customers, relaciones);
             setStock(synced.stock);
             setCustomers(synced.customers);
+            setRelaciones(synced.relaciones);
             setActiveCar((prev) => (prev && prev.id === car.id ? null : prev));
             showNotification(`Publicación de ${car.marca} ${car.modelo} eliminada.`);
           },
@@ -686,10 +712,11 @@ function AppInner() {
         comentario: statusNote || c.comentario,
       };
     });
-    const synced = syncStockAndCustomers(nextStock, customers);
+    const synced = syncStockAndCustomers(nextStock, customers, relaciones);
     const updatedCar = synced.stock.find((c) => c.id === activeCar.id) || activeCar;
     setStock(synced.stock);
     setCustomers(synced.customers);
+    setRelaciones(synced.relaciones);
     setActiveCar(updatedCar);
     setIsStatusSheetOpen(false);
     showNotification(`Estado cambiado a "${selectedStatus}"`);
@@ -885,9 +912,10 @@ function AppInner() {
     };
 
     const nextStock = stock.map((item) => (item.id === car.id ? { ...item, estado: 'En venta' as EstadoAuto } : item));
-    const synced = syncStockAndCustomers(nextStock, customers);
+    const synced = syncStockAndCustomers(nextStock, customers, relaciones);
     setStock(synced.stock);
     setCustomers(synced.customers);
+    setRelaciones(synced.relaciones);
     setActiveCar((prev) => (prev?.id === car.id ? synced.stock.find((item) => item.id === car.id) || prev : prev));
     setAuctions([auction, ...auctions]);
     setIsAuctionPublishSheetOpen(false);
@@ -934,14 +962,12 @@ function AppInner() {
       estado: client.estado,
       buscaModelo: client.busca?.modelo || '',
       buscaComentario: client.busca?.comentario || '',
-      rol: roleFormFromRoles(client.roles),
     });
     setIsNewClientSheetOpen(true);
   };
 
   const handleGuardarCliente = () => {
     if (!newClient.nombre) return;
-    const roles = rolesFromForm(newClient.rol);
     if (newClient.id) {
       const existing = customers.find((c) => c.id === newClient.id);
       const updated: Customer = {
@@ -953,16 +979,13 @@ function AppInner() {
         canal: existing?.canal ?? 'Carga manual',
         busca: busquedaFromForm(newClient),
         archivado: existing?.archivado ?? false,
-        reservadoId: existing?.reservadoId ?? null,
-        roles,
-        vehiculosAdquisicionIds: existing?.vehiculosAdquisicionIds ?? [],
-        vehiculosVentaIds: existing?.vehiculosVentaIds ?? [],
       };
       const nextCustomers = customers.map((c) => (c.id === updated.id ? updated : c));
       const nextStock = stock.map((car) => updateCarContactForCustomer(car, updated));
-      const synced = syncStockAndCustomers(nextStock, nextCustomers);
+      const synced = syncStockAndCustomers(nextStock, nextCustomers, relaciones);
       setStock(synced.stock);
       setCustomers(synced.customers);
+      setRelaciones(synced.relaciones);
       setActiveCar((prev) => (prev ? synced.stock.find((car) => car.id === prev.id) || prev : prev));
       setIsNewClientSheetOpen(false);
       setNewClient(emptyNewClient());
@@ -978,10 +1001,6 @@ function AppInner() {
       canal: 'Carga manual',
       busca: busquedaFromForm(newClient),
       archivado: false,
-      reservadoId: null,
-      roles,
-      vehiculosAdquisicionIds: [],
-      vehiculosVentaIds: [],
     };
     setCustomers([...customers, client]);
     setIsNewClientSheetOpen(false);
@@ -997,6 +1016,7 @@ function AppInner() {
         style: 'destructive',
         onPress: () => {
           setCustomers((prev) => prev.filter((c) => c.id !== client.id));
+          setRelaciones((prev) => prev.filter((r) => r.clienteId !== client.id));
           showNotification(`Cliente ${client.nombre} eliminado.`);
         },
       },
@@ -1639,6 +1659,9 @@ function AppInner() {
 
   /* ======================= PANTALLA CLIENTES ======================= */
   function renderClientes() {
+    const contarPorRol = (rol: ClienteRol) =>
+      customers.filter((c) => rolesDeCliente(relacionesPorCliente.get(c.id) || []).includes(rol)).length;
+
     return (
       <View style={{ gap: 16 }}>
         <View style={s.rowBetween}>
@@ -1660,20 +1683,18 @@ function AppInner() {
           </View>
           <View style={s.metricCell}>
             <Text style={s.metricLabel}>Adquisición</Text>
-            <Text style={s.metricValue}>{customers.filter((c) => normalizeCustomerRoles(c).includes('Adquisición')).length}</Text>
+            <Text style={s.metricValue}>{contarPorRol('Adquisición')}</Text>
           </View>
           <View style={s.metricCell}>
             <Text style={s.metricLabel}>Venta</Text>
-            <Text style={s.metricValue}>{customers.filter((c) => normalizeCustomerRoles(c).includes('Venta')).length}</Text>
+            <Text style={s.metricValue}>{contarPorRol('Venta')}</Text>
           </View>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
           {(['Todos', 'Adquisición', 'Venta'] as const).map((role) => {
             const isSelected = clienteRoleFilter === role;
-            const count = role === 'Todos'
-              ? customers.length
-              : customers.filter((c) => normalizeCustomerRoles(c).includes(role)).length;
+            const count = role === 'Todos' ? customers.length : contarPorRol(role);
             return (
               <TouchableOpacity
                 key={role}
@@ -1717,10 +1738,10 @@ function AppInner() {
           ) : (
             filteredCustomers.map((cli) => {
               const eb = badgeForEstadoCliente(cli.estado);
-              const roles = normalizeCustomerRoles(cli);
-              const vehicleLabels = getCustomerVehicleLabels(cli, stockById);
-              const firstVehicleId = [...(cli.vehiculosAdquisicionIds || []), ...(cli.vehiculosVentaIds || [])][0];
-              const firstVehicle = firstVehicleId ? stockById.get(firstVehicleId) : null;
+              const rels = relacionesPorCliente.get(cli.id) || [];
+              const roles = rolesDeCliente(rels);
+              const vehicleLabels = getCustomerVehicleLabels(rels, stockById);
+              const firstVehicle = rels.length ? stockById.get(rels[0].vehiculoId) || null : null;
               return (
                 <View key={cli.id} style={s.cliCard}>
                   {/* Cabecera: nombre + estado + acciones */}
@@ -4119,14 +4140,6 @@ function AppInner() {
                   options={ESTADO_CLIENTE_OPTIONS}
                 />
               </View>
-              <View>
-                <Text style={s.sheetFieldLabel}>Rol Comercial</Text>
-                <Dropdown
-                  value={newClient.rol}
-                  onChange={(v) => setNewClient({ ...newClient, rol: v as NewClientData['rol'] })}
-                  options={CLIENTE_ROL_OPTIONS}
-                />
-              </View>
               <ModeloBuscadoField
                 modelo={newClient.buscaModelo}
                 comentario={newClient.buscaComentario}
@@ -4155,12 +4168,6 @@ const ESTADO_CLIENTE_OPTIONS = [
   { label: 'Adquisición', value: 'Adquisición' },
   { label: 'Reserva', value: 'Reserva' },
   { label: 'Comprador', value: 'Comprador' },
-];
-
-const CLIENTE_ROL_OPTIONS = [
-  { label: 'Cliente de venta', value: 'Venta' },
-  { label: 'Cliente de adquisición', value: 'Adquisición' },
-  { label: 'Ambos', value: 'Ambos' },
 ];
 
 // Color del badge según el estado del lead
@@ -4220,7 +4227,6 @@ function emptyNewClient(): NewClientData {
     estado: 'Nuevo',
     buscaModelo: '',
     buscaComentario: '',
-    rol: 'Venta',
   };
 }
 
@@ -4238,24 +4244,14 @@ function busquedaFromForm(form: NewClientData): BusquedaCliente | null {
   return modelo || comentario ? { modelo, comentario } : null;
 }
 
-function rolesFromForm(rol: NewClientData['rol']): ClienteRol[] {
-  return rol === 'Ambos' ? ['Adquisición', 'Venta'] : [rol];
-}
-
-function roleFormFromRoles(roles: ClienteRol[] | undefined): NewClientData['rol'] {
-  const normalized = normalizeRolesArray(roles);
-  if (normalized.includes('Adquisición') && normalized.includes('Venta')) return 'Ambos';
-  return normalized.includes('Adquisición') ? 'Adquisición' : 'Venta';
-}
-
-function normalizeCustomerRoles(customer: Customer): ClienteRol[] {
-  return normalizeRolesArray(customer.roles);
-}
-
-function normalizeRolesArray(roles: ClienteRol[] | undefined): ClienteRol[] {
-  if (!roles?.length) return ['Venta'];
-  const clean = roles.filter((role): role is ClienteRol => role === 'Adquisición' || role === 'Venta');
-  return clean.length ? Array.from(new Set(clean)) : ['Venta'];
+/* El rol comercial ya no se elige ni se guarda: sale de las relaciones del cliente.
+   Antes se pedía en el formulario y quedaba desalineado con los autos que el cliente
+   realmente tenía asociados. */
+function rolesDeCliente(rels: RelacionClienteVehiculo[]): ClienteRol[] {
+  const roles: ClienteRol[] = [];
+  if (esClienteDeAdquisicion(rels)) roles.push('Adquisición');
+  if (esClienteDeVenta(rels)) roles.push('Venta');
+  return roles;
 }
 
 function normalizePhone(telefono: string) {
@@ -4271,17 +4267,21 @@ function contactDisplayName(contact: VehicleContact | null | undefined) {
   return contact.telefono ? `${contact.nombre || 'Sin nombre'} · ${contact.telefono}` : contact.nombre;
 }
 
-function getCustomerVehicleLabels(customer: Customer, stockById: Map<number, Car>) {
-  const labels: string[] = [];
-  (customer.vehiculosAdquisicionIds || []).forEach((id) => {
-    const car = stockById.get(id);
-    if (car) labels.push(`Adq. ${getCarLabel(car)}`);
+const PREFIJO_RELACION: Record<TipoRelacion, string> = {
+  adquisicion: 'Adq.',
+  venta: 'Venta',
+  consignacion: 'Consig.',
+  oportunidad: 'Oport.',
+};
+
+function getCustomerVehicleLabels(rels: RelacionClienteVehiculo[], stockById: Map<number, Car>) {
+  return rels.flatMap((rel) => {
+    const car = stockById.get(rel.vehiculoId);
+    if (!car) return [];
+    // La reserva no es un tipo de relación: es una venta a un auto todavía reservado.
+    const prefijo = rel.tipo === 'venta' && car.estado === 'Reservado' ? 'Reserva' : PREFIJO_RELACION[rel.tipo];
+    return [`${prefijo} ${getCarLabel(car)}`];
   });
-  (customer.vehiculosVentaIds || []).forEach((id) => {
-    const car = stockById.get(id);
-    if (car) labels.push(`${car.estado === 'Reservado' ? 'Reserva' : 'Venta'} ${getCarLabel(car)}`);
-  });
-  return labels;
 }
 
 function updateCarContactForCustomer(car: Car, customer: Customer): Car {
@@ -4298,15 +4298,31 @@ function updateCarContactForCustomer(car: Car, customer: Customer): Car {
   };
 }
 
-function syncStockAndCustomers(stock: Car[], customers: Customer[]): { stock: Car[]; customers: Customer[] } {
+interface SyncedState {
+  stock: Car[];
+  customers: Customer[];
+  relaciones: RelacionClienteVehiculo[];
+}
+
+/* Deja cuadrados los tres lados del modelo:
+   - crea el cliente que falta cuando un auto trae un contacto que no está en la lista,
+   - copia el nombre y el teléfono del cliente al contacto embebido del auto,
+   - y rearma las relaciones que se derivan de esos contactos (adquisición, venta y
+     consignación), conservando el id y la fecha de la relación que ya existía.
+
+   Las de tipo 'oportunidad' no cuelgan de ningún contacto del auto, se cargan a mano:
+   acá solo se conservan, descartando las que apuntan a un auto o a un cliente que
+   ya no existe.
+
+   Antes esta función además mantenía a mano los ids de autos guardados dentro del
+   cliente, en la dirección contraria. Eso ya no existe. */
+function syncStockAndCustomers(
+  stock: Car[],
+  customers: Customer[],
+  relaciones: RelacionClienteVehiculo[],
+): SyncedState {
   let nextCustomerId = Math.max(0, ...customers.map((c) => c.id)) + 1;
-  const nextCustomers: Customer[] = customers.map((customer) => ({
-    ...customer,
-    roles: normalizeCustomerRoles(customer),
-    vehiculosAdquisicionIds: [],
-    vehiculosVentaIds: [],
-    reservadoId: null,
-  }));
+  const nextCustomers: Customer[] = customers.map((customer) => ({ ...customer }));
 
   const findCustomerIndex = (contact: VehicleContact) => {
     if (typeof contact.clienteId === 'number') {
@@ -4323,65 +4339,84 @@ function syncStockAndCustomers(stock: Car[], customers: Customer[]): { stock: Ca
     return -1;
   };
 
-  const upsertCustomer = (contact: VehicleContact, role: ClienteRol, car: Car): VehicleContact => {
+  /* El cliente que hay detrás del contacto: el que ya estaba, o uno nuevo. Ya no
+     toca el estado del trato, que es de la relación comercial y lo maneja el
+     usuario, ni los roles, que ahora se deducen de las relaciones. */
+  const upsertCustomer = (contact: VehicleContact): { contact: VehicleContact; clienteId: number } => {
     const idx = findCustomerIndex(contact);
-    const estado = role === 'Adquisición' ? 'Adquisición' : car.estado === 'Vendido' ? 'Comprador' : 'Reserva';
     if (idx < 0) {
       const created: Customer = {
         id: nextCustomerId++,
         nombre: contact.nombre || 'Cliente sin nombre',
         telefono: contact.telefono,
         tipo: 'Particular',
-        estado,
+        estado: 'Nuevo',
         // Nace desde el auto, no desde el tasador web, y no busca nada: ya tiene
         // este auto asociado. `busca` es para el que quiere algo que no tienes.
         canal: 'Carga manual',
         busca: null,
         archivado: false,
-        reservadoId: role === 'Venta' && car.estado === 'Reservado' ? car.id : null,
-        roles: [role],
-        vehiculosAdquisicionIds: role === 'Adquisición' ? [car.id] : [],
-        vehiculosVentaIds: role === 'Venta' ? [car.id] : [],
       };
       nextCustomers.push(created);
-      return { ...contact, clienteId: created.id };
+      return { contact: { ...contact, clienteId: created.id }, clienteId: created.id };
     }
 
     const existing = nextCustomers[idx];
-    const roles = Array.from(new Set([...normalizeCustomerRoles(existing), role]));
-    const vehiculosAdquisicionIds = role === 'Adquisición'
-      ? Array.from(new Set([...(existing.vehiculosAdquisicionIds || []), car.id]))
-      : existing.vehiculosAdquisicionIds || [];
-    const vehiculosVentaIds = role === 'Venta'
-      ? Array.from(new Set([...(existing.vehiculosVentaIds || []), car.id]))
-      : existing.vehiculosVentaIds || [];
     nextCustomers[idx] = {
       ...existing,
       nombre: contact.nombre || existing.nombre,
       telefono: contact.telefono || existing.telefono,
-      estado: role === 'Venta' || existing.estado === 'Nuevo' ? estado : existing.estado,
-      reservadoId: role === 'Venta' && car.estado === 'Reservado' ? car.id : existing.reservadoId,
-      roles,
-      vehiculosAdquisicionIds,
-      vehiculosVentaIds,
     };
-    return { ...contact, clienteId: existing.id };
+    return { contact: { ...contact, clienteId: existing.id }, clienteId: existing.id };
+  };
+
+  let nextRelacionId = Math.max(0, ...relaciones.map((r) => r.id)) + 1;
+  const derivadas: RelacionClienteVehiculo[] = [];
+  const registrarRelacion = (
+    clienteId: number,
+    vehiculoId: number,
+    tipo: TipoRelacion,
+    fecha: string,
+  ) => {
+    const yaEsta = (r: RelacionClienteVehiculo) =>
+      r.clienteId === clienteId && r.vehiculoId === vehiculoId && r.tipo === tipo;
+    if (derivadas.some(yaEsta)) return;
+    const previa = relaciones.find(yaEsta);
+    // Se conserva la relación previa entera: su id y, sobre todo, su fecha, que es
+    // cuándo pasó de verdad y no se puede reconstruir desde el auto.
+    derivadas.push(previa ? { ...previa } : { id: nextRelacionId++, clienteId, vehiculoId, tipo, fecha });
   };
 
   const nextStock = stock.map((car) => {
     const clienteAdquisicion = cleanVehicleContact(car.clienteAdquisicion);
     const comprador = cleanVehicleContact(car.comprador);
-    const nextCar = { ...car, clienteAdquisicion, comprador };
+    const consignante = cleanVehicleContact(car.consignante);
+    const nextCar: Car = { ...car, clienteAdquisicion, comprador, consignante };
     if (clienteAdquisicion) {
-      nextCar.clienteAdquisicion = upsertCustomer(clienteAdquisicion, 'Adquisición', nextCar);
+      const res = upsertCustomer(clienteAdquisicion);
+      nextCar.clienteAdquisicion = res.contact;
+      registrarRelacion(res.clienteId, car.id, 'adquisicion', car.fechaIngreso);
+    }
+    if (car.tenencia === 'Consignado' && consignante) {
+      const res = upsertCustomer(consignante);
+      nextCar.consignante = res.contact;
+      registrarRelacion(res.clienteId, car.id, 'consignacion', car.fechaIngreso);
     }
     if (requiresBuyer(nextCar.estado) && comprador) {
-      nextCar.comprador = upsertCustomer(comprador, 'Venta', nextCar);
+      const res = upsertCustomer(comprador);
+      nextCar.comprador = res.contact;
+      registrarRelacion(res.clienteId, car.id, 'venta', car.fechaVenta || car.fechaIngreso);
     }
     return nextCar;
   });
 
-  return { stock: nextStock, customers: nextCustomers };
+  const idsAutos = new Set(nextStock.map((c) => c.id));
+  const idsClientes = new Set(nextCustomers.map((c) => c.id));
+  const oportunidades = relaciones.filter(
+    (r) => r.tipo === 'oportunidad' && idsAutos.has(r.vehiculoId) && idsClientes.has(r.clienteId),
+  );
+
+  return { stock: nextStock, customers: nextCustomers, relaciones: [...derivadas, ...oportunidades] };
 }
 
 function makeEmptyWizard(): WizardData {
