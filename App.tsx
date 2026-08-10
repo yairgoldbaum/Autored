@@ -167,6 +167,10 @@ const EQUIPAMIENTO_OPTIONS = [
 ];
 const DOCUMENTO_OPTIONS = ['Permiso de circulación', 'Revisión técnica', 'SOAP', 'Padrón', 'Certificado multas', 'Otro'];
 
+/* Tres pasos, el corte de David: fotos, información del vehículo, y precios más
+   estado más cliente. Eran cinco. */
+const WIZARD_PASOS = 3;
+
 /* ============================ APP ROOT ============================ */
 export default function App() {
   return (
@@ -2082,21 +2086,19 @@ function AppInner() {
               </TouchableOpacity>
               <Text style={s.overlayTitle}>{wizardData.id ? 'Editar Publicación' : 'Cargar Auto Usado'}</Text>
               <View style={s.stepPill}>
-                <Text style={s.stepPillText}>Paso {cargarStep} de 5</Text>
+                <Text style={s.stepPillText}>Paso {cargarStep} de {WIZARD_PASOS}</Text>
               </View>
             </View>
 
             {/* Progreso */}
             <View style={s.progressTrack}>
-              <View style={[s.progressFill, { width: `${(cargarStep / 5) * 100}%` }]} />
+              <View style={[s.progressFill, { width: `${(cargarStep / WIZARD_PASOS) * 100}%` }]} />
             </View>
 
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {cargarStep === 1 && renderWizardStep1()}
               {cargarStep === 2 && renderWizardStep2()}
               {cargarStep === 3 && renderWizardStep3()}
-              {cargarStep === 4 && renderWizardStep4()}
-              {cargarStep === 5 && renderWizardStep5()}
             </ScrollView>
 
             {/* Botonera */}
@@ -2106,7 +2108,7 @@ function AppInner() {
                   <Text style={s.wizardBackText}>Atrás</Text>
                 </TouchableOpacity>
               )}
-              {cargarStep < 5 ? (
+              {cargarStep < WIZARD_PASOS ? (
                 <TouchableOpacity
                   onPress={() => {
                     if (cargarStep === 2 && (!wizardData.patente || !wizardData.marca)) {
@@ -2177,8 +2179,8 @@ function AppInner() {
     return (
       <View style={{ gap: 16 }}>
         <View>
-          <Text style={s.stepTitle}>Identificación Básica</Text>
-          <Text style={s.stepSub}>Datos visibles en el módulo Stock desktop para identificar la unidad.</Text>
+          <Text style={s.stepTitle}>Información del Vehículo</Text>
+          <Text style={s.stepSub}>Todo lo que es del auto: identificación y especificaciones.</Text>
         </View>
         <View style={{ gap: 12 }}>
           <View>
@@ -2227,99 +2229,17 @@ function AppInner() {
             value={wizardData.anioFabricacion ? String(wizardData.anioFabricacion) : ''}
             onChange={(t) => setWizardData({ ...wizardData, anioFabricacion: parseInt(t) || 0 })}
           />
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.fieldLabel}>Sucursal</Text>
-              <Dropdown
-                value={wizardData.sucursal}
-                onChange={(v) => setWizardData({ ...wizardData, sucursal: v })}
-                options={SUCURSAL_OPTIONS.map((v) => ({ label: v, value: v }))}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.fieldLabel}>Estado Inicial</Text>
-              <Dropdown
-                value={wizardData.estado}
-                onChange={(v) => setWizardData({ ...wizardData, estado: v as EstadoAuto })}
-                options={ESTADOS.map((v) => ({ label: v, value: v }))}
-              />
-            </View>
+          <View>
+            <Text style={s.fieldLabel}>Sucursal</Text>
+            <Dropdown
+              value={wizardData.sucursal}
+              onChange={(v) => setWizardData({ ...wizardData, sucursal: v })}
+              options={SUCURSAL_OPTIONS.map((v) => ({ label: v, value: v }))}
+            />
           </View>
-          <DateField label="Fecha de Ingreso" value={wizardData.fechaIngreso} onChange={(fechaIngreso) => setWizardData({ ...wizardData, fechaIngreso })} />
           <Field label="Origen" placeholder="Ej: Retoma, Subasta, Importación" value={wizardData.origen} onChange={(t) => setWizardData({ ...wizardData, origen: t })} />
-          <View style={s.inlinePanel}>
-            <Text style={s.inlinePanelTitle}>Cliente de Adquisición</Text>
-            <Text style={s.inlinePanelHint}>Persona o empresa desde quien ingresa esta unidad al stock.</Text>
-            <View style={{ gap: 10, marginTop: 12 }}>
-              <Field
-                label="Nombre"
-                placeholder="Ej: Juan Pérez o Empresa SpA"
-                value={wizardData.clienteAdquisicion?.nombre || ''}
-                onChange={(nombre) =>
-                  setWizardData({
-                    ...wizardData,
-                    clienteAdquisicion: { ...(wizardData.clienteAdquisicion || emptyContact()), nombre },
-                  })
-                }
-              />
-              <Field
-                label="Teléfono"
-                placeholder="Ej: +56 9 1234 5678"
-                keyboardType="phone-pad"
-                value={wizardData.clienteAdquisicion?.telefono || ''}
-                onChange={(telefono) =>
-                  setWizardData({
-                    ...wizardData,
-                    clienteAdquisicion: { ...(wizardData.clienteAdquisicion || emptyContact()), telefono },
-                  })
-                }
-              />
-            </View>
-          </View>
-          {requiresBuyer(wizardData.estado) ? (
-            <View style={s.inlinePanel}>
-              <Text style={s.inlinePanelTitle}>Comprador</Text>
-              <Text style={s.inlinePanelHint}>Obligatorio para autos reservados o vendidos.</Text>
-              <View style={{ gap: 10, marginTop: 12 }}>
-                <Field
-                  label="Nombre"
-                  placeholder="Ej: María González"
-                  value={wizardData.comprador?.nombre || ''}
-                  onChange={(nombre) =>
-                    setWizardData({
-                      ...wizardData,
-                      comprador: { ...(wizardData.comprador || emptyContact()), nombre },
-                    })
-                  }
-                />
-                <Field
-                  label="Teléfono"
-                  placeholder="Ej: +56 9 1234 5678"
-                  keyboardType="phone-pad"
-                  value={wizardData.comprador?.telefono || ''}
-                  onChange={(telefono) =>
-                    setWizardData({
-                      ...wizardData,
-                      comprador: { ...(wizardData.comprador || emptyContact()), telefono },
-                    })
-                  }
-                />
-              </View>
-            </View>
-          ) : null}
-        </View>
-      </View>
-    );
-  }
-
-  function renderWizardStep3() {
-    return (
-      <View style={{ gap: 16 }}>
-        <View>
-          <Text style={s.stepTitle}>Especificaciones y Detalles</Text>
-          <Text style={s.stepSub}>Datos relevantes que buscan los clientes.</Text>
-        </View>
-        <View style={{ gap: 12 }}>
+          {/* La fecha de ingreso, el estado inicial y el cliente salieron de acá: no
+              son datos del auto sino de la operación, y por eso van con los precios. */}
           <Field
             label="Kilometraje (km)"
             placeholder="Ej: 58000"
@@ -2399,7 +2319,7 @@ function AppInner() {
     );
   }
 
-  function renderWizardStep4() {
+  function renderWizardStep3() {
     const precioBase = wizardData.precioVentaEstimado || wizardData.precioPublicacionContado || wizardData.precioVenta;
     const base = costoBase(wizardData as Car);
     const margen = precioBase - base;
@@ -2407,8 +2327,8 @@ function AppInner() {
     return (
       <View style={{ gap: 16 }}>
         <View>
-          <Text style={s.stepTitle}>Precios y Finanzas</Text>
-          <Text style={s.stepSub}>Define los números finales para el cálculo del margen real de rentabilidad.</Text>
+          <Text style={s.stepTitle}>Precios y Operación</Text>
+          <Text style={s.stepSub}>Los números, cuándo entró y en qué estado queda.</Text>
         </View>
         <View style={{ gap: 16 }}>
           <View>
@@ -2464,147 +2384,96 @@ function AppInner() {
               <Text style={s.margenTagText}>{pct}% Retorno</Text>
             </View>
           </View>
+
+          <MotorPreciosPublicacion patente={wizardData.patente} km={wizardData.km} vehiculo={wizardData} />
+
+          {/* Datos de la operación, no del auto: por eso viven acá y no en el paso 2. */}
+          <DateField
+            label="Fecha de Ingreso"
+            value={wizardData.fechaIngreso}
+            onChange={(fechaIngreso) => setWizardData({ ...wizardData, fechaIngreso })}
+          />
+          <View>
+            <Text style={s.fieldLabel}>Estado Inicial</Text>
+            <Dropdown
+              value={wizardData.estado}
+              onChange={(v) => setWizardData({ ...wizardData, estado: v as EstadoAuto })}
+              options={ESTADOS.map((v) => ({ label: v, value: v }))}
+            />
+          </View>
+
+          {/* El cliente se pregunta solo si el auto entra reservado o vendido. Si entra
+              en preparación o en venta todavía no hay nadie del otro lado. */}
+          {requiresBuyer(wizardData.estado) ? (
+            <>
+              <View style={s.inlinePanel}>
+                <Text style={s.inlinePanelTitle}>Comprador</Text>
+                <Text style={s.inlinePanelHint}>Obligatorio para autos reservados o vendidos.</Text>
+                <View style={{ gap: 10, marginTop: 12 }}>
+                  <Field
+                    label="Nombre"
+                    placeholder="Ej: María González"
+                    value={wizardData.comprador?.nombre || ''}
+                    onChange={(nombre) =>
+                      setWizardData({
+                        ...wizardData,
+                        comprador: { ...(wizardData.comprador || emptyContact()), nombre },
+                      })
+                    }
+                  />
+                  <Field
+                    label="Teléfono"
+                    placeholder="Ej: +56 9 1234 5678"
+                    keyboardType="phone-pad"
+                    value={wizardData.comprador?.telefono || ''}
+                    onChange={(telefono) =>
+                      setWizardData({
+                        ...wizardData,
+                        comprador: { ...(wizardData.comprador || emptyContact()), telefono },
+                      })
+                    }
+                  />
+                </View>
+              </View>
+              <View style={s.inlinePanel}>
+                <Text style={s.inlinePanelTitle}>Cliente de Adquisición</Text>
+                <Text style={s.inlinePanelHint}>Opcional: de quién venía esta unidad.</Text>
+                <View style={{ gap: 10, marginTop: 12 }}>
+                  <Field
+                    label="Nombre"
+                    placeholder="Ej: Juan Pérez o Empresa SpA"
+                    value={wizardData.clienteAdquisicion?.nombre || ''}
+                    onChange={(nombre) =>
+                      setWizardData({
+                        ...wizardData,
+                        clienteAdquisicion: { ...(wizardData.clienteAdquisicion || emptyContact()), nombre },
+                      })
+                    }
+                  />
+                  <Field
+                    label="Teléfono"
+                    placeholder="Ej: +56 9 1234 5678"
+                    keyboardType="phone-pad"
+                    value={wizardData.clienteAdquisicion?.telefono || ''}
+                    onChange={(telefono) =>
+                      setWizardData({
+                        ...wizardData,
+                        clienteAdquisicion: { ...(wizardData.clienteAdquisicion || emptyContact()), telefono },
+                      })
+                    }
+                  />
+                </View>
+              </View>
+            </>
+          ) : null}
         </View>
       </View>
     );
   }
 
-  function renderWizardStep5() {
-    return (
-      <View style={{ gap: 16 }}>
-        <View>
-          <Text style={s.stepTitle}>Documentos y Revisión</Text>
-          <Text style={s.stepSub}>
-            {wizardData.id
-              ? 'Confirma los cambios para actualizar la publicación existente.'
-              : 'Confirma los datos para ingresar el auto en estado "En preparación".'}
-          </Text>
-        </View>
-        <View style={s.inlinePanel}>
-          <Text style={s.inlinePanelTitle}>Agregar Documento</Text>
-          <View style={{ gap: 10, marginTop: 10 }}>
-            <View>
-              <Text style={s.fieldLabel}>Tipo de Documento</Text>
-              <Dropdown
-                value={documentDraft.tipo}
-                placeholder="Selecciona el tipo de documento"
-                onChange={(v) => setDocumentDraft({ ...documentDraft, tipo: v })}
-                options={DOCUMENTO_OPTIONS.map((v) => ({ label: v, value: v }))}
-              />
-            </View>
-            <Field
-              label="Nombre del Documento"
-              placeholder="Nombre personalizado (opcional)"
-              value={documentDraft.nombre}
-              onChange={(t) => setDocumentDraft({ ...documentDraft, nombre: t })}
-            />
-            <DateField
-              label="Fecha de Vencimiento"
-              value={documentDraft.fechaVencimiento}
-              onChange={(fechaVencimiento) => setDocumentDraft({ ...documentDraft, fechaVencimiento })}
-              placeholder="Seleccionar fecha"
-              optional
-            />
-            <Field
-              label="Archivo"
-              placeholder="Nombre del archivo preparado"
-              value={documentDraft.archivoNombre}
-              onChange={(t) => setDocumentDraft({ ...documentDraft, archivoNombre: t })}
-            />
-            <TouchableOpacity onPress={handleAgregarDocumento} style={s.addDocBtn}>
-              <Icon name="plus" size={12} color={C.white} />
-              <Text style={s.addDocText}>Agregar documento</Text>
-            </TouchableOpacity>
-          </View>
-          {wizardData.documentos.length > 0 ? (
-            <View style={{ gap: 8, marginTop: 12 }}>
-              {wizardData.documentos.map((doc) => (
-                <View key={doc.id} style={s.docRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.docTitle}>{doc.nombre || doc.tipo}</Text>
-                    <Text style={s.docMeta}>
-                      {doc.tipo}
-                      {doc.fechaVencimiento ? ` • vence ${doc.fechaVencimiento}` : ''}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => handleQuitarDocumento(doc.id)} style={s.docRemove}>
-                    <Icon name="xmark" size={10} color={C.red700} />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={s.docsEmpty}>
-              <Icon name="file-lines" size={18} color={C.slate300} />
-              <Text style={s.docsEmptyText}>No hay documentos preparados</Text>
-            </View>
-          )}
-        </View>
-        <View style={s.reviewCard}>
-          <View style={[s.rowBetween, { alignItems: 'center' }]}>
-            <Text style={s.reviewTitle}>
-              {wizardData.marca} {wizardData.modelo}
-              {wizardData.anio ? ` (${wizardData.anio})` : ''}
-            </Text>
-            <View style={s.reviewPatente}>
-              <Text style={s.reviewPatenteText}>{wizardData.patente || 'SIN ASIGNAR'}</Text>
-            </View>
-          </View>
-          <View style={s.hr} />
-          <View style={s.reviewGrid}>
-            <Text style={s.reviewCell}>
-              <Text style={s.reviewCellLabel}>Km: </Text>
-              {fmtMiles(wizardData.km)} km
-            </Text>
-            <Text style={s.reviewCell}>
-              <Text style={s.reviewCellLabel}>Color: </Text>
-              {wizardData.color || '—'}
-            </Text>
-            <Text style={s.reviewCell}>
-              <Text style={s.reviewCellLabel}>Transmisión: </Text>
-              {wizardData.transmision}
-            </Text>
-            <Text style={s.reviewCell}>
-              <Text style={s.reviewCellLabel}>Combustible: </Text>
-              {wizardData.combustible}
-            </Text>
-            <Text style={s.reviewCell}>
-              <Text style={s.reviewCellLabel}>Tracción: </Text>
-              {wizardData.traccion || '—'}
-            </Text>
-            <Text style={s.reviewCell}>
-              <Text style={s.reviewCellLabel}>Puertas: </Text>
-              {wizardData.puertas || '—'}
-            </Text>
-          </View>
-          <View style={s.hr} />
-          <View style={s.reviewCommercialGrid}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.reviewMoneyLabel}>Cliente Adquisición</Text>
-              <Text style={s.reviewContactText}>{contactDisplayName(wizardData.clienteAdquisicion)}</Text>
-            </View>
-            {requiresBuyer(wizardData.estado) ? (
-              <View style={{ flex: 1, alignItems: 'flex-end' }}>
-                <Text style={s.reviewMoneyLabel}>Comprador</Text>
-                <Text style={[s.reviewContactText, { textAlign: 'right' }]}>{contactDisplayName(wizardData.comprador)}</Text>
-              </View>
-            ) : null}
-          </View>
-          <View style={s.hr} />
-          <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
-            <View>
-              <Text style={s.reviewMoneyLabel}>Costo Adquisición</Text>
-              <Text style={s.reviewCosto}>{fmtCLP(wizardData.costoAdquisicion)}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={s.reviewMoneyLabel}>Precio Venta</Text>
-              <Text style={s.reviewPrecio}>{fmtCLP(wizardData.precioPublicacionContado || wizardData.precioVenta)}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  }
+  /* El paso de Documentos y Revisión se sacó del alta: nadie carga el padrón parado
+     en el patio con el auto recién llegado. Los documentos se suben después desde la
+     ficha del auto. */
 
   /* ======================= FICHA DE AUTO ======================= */
   function renderCarDetail() {
@@ -4805,6 +4674,93 @@ function SegBtn({ label, active, onPress }: { label: string; active: boolean; on
 const CAL_MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const CAL_DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
+/* Motor de precios en modo publicación: cuánto pedir por un auto que YA es tuyo.
+
+   Componente aparte desde el principio porque P1 lo reusa en la ficha del auto (es
+   el sexto cruce de cruces-p1-p2.md). Recibe lo que necesita y no toca estado de
+   nadie.
+
+   Muestra el precio sugerido y los comparables, y a propósito NO muestra el rango de
+   oferta ni el margen al piso o al techo: esos son de la decisión de compra, y acá el
+   auto ya está en el patio y lo que se decide es a cuánto publicarlo. Esa versión
+   completa vive en renderMotorPrecios, entrando desde el Inicio.
+
+   src/pricing.ts resuelve la referencia de mercado desde la patente; los datos que el
+   usuario ya escribió (marca, modelo, año) mandan sobre lo que devuelve el registro,
+   para que los comparables hablen del auto que está cargando. */
+function MotorPreciosPublicacion({
+  patente,
+  km,
+  vehiculo,
+}: {
+  patente: string;
+  km: number;
+  vehiculo: Pick<Car, 'marca' | 'modelo' | 'version' | 'anio' | 'transmision' | 'combustible'>;
+}) {
+  const registro = buscarPatente(patente);
+  if (!registro || km <= 0) {
+    return (
+      <View style={s.motorAltaEmpty}>
+        <Icon name="wand-magic-sparkles" size={14} color={C.slate400} />
+        <Text style={s.motorAltaEmptyText}>
+          Completa la patente y el kilometraje en el paso anterior y acá aparece el precio sugerido.
+        </Text>
+      </View>
+    );
+  }
+
+  const t = tasar(
+    {
+      ...registro,
+      marca: vehiculo.marca || registro.marca,
+      modelo: vehiculo.modelo || registro.modelo,
+      version: vehiculo.version || registro.version,
+      anio: vehiculo.anio || registro.anio,
+      transmision: vehiculo.transmision || registro.transmision,
+      combustible: vehiculo.combustible || registro.combustible,
+    },
+    km,
+  );
+
+  return (
+    <View style={s.motorAltaBox}>
+      <View style={s.rowBetween}>
+        <View style={s.rowCenter}>
+          <Icon name="wand-magic-sparkles" size={13} color={C.teal700} />
+          <Text style={s.motorAltaTitle}> Precio sugerido</Text>
+        </View>
+        <View style={s.motorConfTag}>
+          <Text style={s.motorConfText}>{t.confianza}% confianza</Text>
+        </View>
+      </View>
+
+      <Text style={s.motorAltaPrecio}>{fmtCLP(t.precioVenta)}</Text>
+      <Text style={s.motorAltaSub}>
+        Referencia {t.vehiculo.anio} {fmtCLP(t.vehiculo.referencia)} · ajuste por {fmtMiles(km)} km{' '}
+        {t.ajusteKm >= 0 ? '+' : '−'}
+        {fmtCLP(Math.abs(t.ajusteKm)).replace('-', '')}
+      </Text>
+
+      <View style={{ gap: 6, marginTop: 12 }}>
+        <Text style={s.sectionLabel}>Publicaciones similares</Text>
+        {t.comparables.map((c) => (
+          <View key={c.fuente} style={s.motorCompRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.motorCompTitle} numberOfLines={1}>
+                {c.titulo}
+              </Text>
+              <Text style={s.motorCompSub}>
+                {c.fuente} · {fmtMiles(c.km)} km
+              </Text>
+            </View>
+            <Text style={s.motorCompPrice}>{fmtCLP(c.precio)}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /* Qué busca el cliente. Es texto libre con sugerencias y NO un selector del stock
    propio: registrar interés en un auto que todavía no tienes es justo el caso que
    la app no sabía representar. Las sugerencias son ayuda de tipeo, no una lista
@@ -6141,6 +6097,12 @@ const s = StyleSheet.create({
   sheetTitleSm: { fontWeight: W.bold, fontSize: 14, color: C.slate800 },
   sheetFieldLabel: { fontSize: 12, fontWeight: W.bold, color: C.slate400, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   sheetInput: { borderWidth: 1, borderColor: C.slate200, borderRadius: 12, padding: 10, fontSize: 12, fontWeight: W.semibold, color: C.slate700, backgroundColor: C.white },
+  motorAltaBox: { backgroundColor: C.teal50, borderRadius: 16, borderWidth: 1, borderColor: C.teal200, padding: 14 },
+  motorAltaTitle: { fontSize: 12, fontWeight: W.extrabold, color: C.teal700, textTransform: 'uppercase', letterSpacing: 0.5 },
+  motorAltaPrecio: { fontSize: 26, fontWeight: W.extrabold, color: C.slate800, marginTop: 8 },
+  motorAltaSub: { fontSize: 11, fontWeight: W.medium, color: C.slate500, marginTop: 2 },
+  motorAltaEmpty: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.slate50, borderRadius: 16, borderWidth: 1, borderColor: C.slate200, borderStyle: 'dashed', padding: 14 },
+  motorAltaEmptyText: { flex: 1, fontSize: 11, fontWeight: W.medium, color: C.slate500 },
   sheetToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: C.slate50, borderWidth: 1, borderColor: C.slate200 },
   sheetToggleText: { fontSize: 12, fontWeight: W.bold, color: C.slate600 },
   sugerenciaChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.slate100, borderWidth: 1, borderColor: C.slate200 },
