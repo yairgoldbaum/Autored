@@ -1763,8 +1763,7 @@ function AppInner() {
               const eb = badgeForEstadoCliente(cli.estado);
               const rels = relacionesPorCliente.get(cli.id) || [];
               const roles = rolesDeCliente(rels);
-              const vehicleLabels = getCustomerVehicleLabels(rels, stockById);
-              const firstVehicle = rels.length ? stockById.get(rels[0].vehiculoId) || null : null;
+              const linea = lineaCliente(cli, rels, stockById);
               return (
                 <View key={cli.id} style={s.cliCard}>
                   {/* Cabecera: nombre + estado + acciones */}
@@ -1797,7 +1796,7 @@ function AppInner() {
                     </View>
                   </View>
 
-                  {/* Grid simétrico: Teléfono | Relación con stock */}
+                  {/* Grid simétrico: Teléfono | lo que es este cliente */}
                   <View style={s.cliGrid}>
                     <View style={s.cliGridCell}>
                       <Text style={s.cliGridLabel}>Teléfono</Text>
@@ -1807,15 +1806,17 @@ function AppInner() {
                     </View>
                     <View style={[s.cliGridCell, s.cliGridCellRight]}>
                       <View style={s.rowBetween}>
-                        <Text style={s.cliGridLabel}>Relación Stock</Text>
-                        {firstVehicle ? (
-                          <TouchableOpacity onPress={() => setActiveCar(firstVehicle)}>
+                        <Text style={s.cliGridLabel} numberOfLines={1}>
+                          {linea.etiqueta}
+                        </Text>
+                        {linea.vehiculo ? (
+                          <TouchableOpacity onPress={() => setActiveCar(linea.vehiculo as Car)}>
                             <Text style={s.cliVerLink}>Ver</Text>
                           </TouchableOpacity>
                         ) : null}
                       </View>
                       <Text style={s.cliGridValue} numberOfLines={1}>
-                        {vehicleLabels.length ? vehicleLabels.join(' / ') : textoBusqueda(cli.busca)}
+                        {linea.valor}
                       </Text>
                     </View>
                   </View>
@@ -4319,6 +4320,49 @@ const PREFIJO_RELACION: Record<TipoRelacion, string> = {
   consignacion: 'Consig.',
   oportunidad: 'Oport.',
 };
+
+/* Cuando un cliente tiene varias relaciones, cuál manda en la tarjeta: lo más
+   avanzado primero, porque es lo que describe mejor la relación comercial. */
+const ORDEN_RELACION: TipoRelacion[] = ['venta', 'consignacion', 'adquisicion', 'oportunidad'];
+
+const ETIQUETA_RELACION: Record<TipoRelacion, string> = {
+  venta: 'Se llevó',
+  consignacion: 'Te dejó en consignación',
+  adquisicion: 'Le compraste',
+  oportunidad: 'Le interesa',
+};
+
+interface LineaCliente {
+  etiqueta: string;
+  valor: string;
+  vehiculo: Car | null;
+}
+
+/* La línea que va en la tarjeta, según lo que esa persona es. Antes todas mostraban
+   la misma ("Relación Stock"), que no decía nada del interesado ni del consignante. */
+function lineaCliente(
+  cliente: Customer,
+  rels: RelacionClienteVehiculo[],
+  stockById: Map<number, Car>,
+): LineaCliente {
+  const conAuto = rels.filter((r) => stockById.has(r.vehiculoId));
+  if (conAuto.length) {
+    const principal = [...conAuto].sort(
+      (a, b) => ORDEN_RELACION.indexOf(a.tipo) - ORDEN_RELACION.indexOf(b.tipo),
+    )[0];
+    const car = stockById.get(principal.vehiculoId) as Car;
+    // La reserva no es un tipo propio: es una venta a un auto todavía reservado.
+    const reservado = principal.tipo === 'venta' && car.estado === 'Reservado';
+    const otras = conAuto.length - 1;
+    return {
+      etiqueta: reservado ? 'Tiene reservado' : ETIQUETA_RELACION[principal.tipo],
+      valor: `${getCarLabel(car)}${otras > 0 ? ` · +${otras}` : ''}`,
+      vehiculo: car,
+    };
+  }
+  if (cliente.busca) return { etiqueta: 'Busca', valor: textoBusqueda(cliente.busca), vehiculo: null };
+  return { etiqueta: 'Relación', valor: '—', vehiculo: null };
+}
 
 function getCustomerVehicleLabels(rels: RelacionClienteVehiculo[], stockById: Map<number, Car>) {
   return rels.flatMap((rel) => {
