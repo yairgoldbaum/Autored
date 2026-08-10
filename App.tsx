@@ -43,6 +43,7 @@ import {
   INITIAL_CUSTOMERS,
   ESTADOS,
   costoBase,
+  diasEnStock,
 } from './src/data';
 import { Icon, Ping, Spinner, Wiggle, Pulse, Sheet, Dropdown, PageOverlay } from './src/ui';
 import { loadState, saveState } from './src/storage';
@@ -341,7 +342,7 @@ function AppInner() {
     const activos = stock.filter((c) => c.estado !== 'Vendido');
     const valorStock = activos.reduce((sum, c) => sum + c.costoAdquisicion, 0);
     const promedioDias =
-      activos.length > 0 ? Math.round(activos.reduce((sum, c) => sum + c.diasStock, 0) / activos.length) : 0;
+      activos.length > 0 ? Math.round(activos.reduce((sum, c) => sum + diasEnStock(c), 0) / activos.length) : 0;
     // El margen se mide contra costoBase, no contra costoAdquisicion: en un auto
     // consignado no hubo compra y restar 0 devolvía el precio completo como utilidad.
     // valorStock, en cambio, sí es costoAdquisicion, porque mide capital propio metido.
@@ -354,14 +355,18 @@ function AppInner() {
     const margenPct = costoPromedio > 0 ? Math.round((margenPromedio / costoPromedio) * 100) : 0;
 
     // Autos que llevan demasiado tiempo sin venderse y cuánto capital tienen inmovilizado
-    const criticos = activos.filter((c) => c.diasStock > 60);
+    const criticos = activos.filter((c) => diasEnStock(c) > 60);
     const capitalCritico = criticos.reduce((sum, c) => sum + c.costoAdquisicion, 0);
     const pctCapitalCritico = valorStock > 0 ? Math.round((capitalCritico / valorStock) * 100) : 0;
 
     // Gráfico 1: cuántos autos hay en cada tramo de antigüedad
     const antiguedad = [
-      { label: '0–30 d', cantidad: activos.filter((c) => c.diasStock <= 30).length, color: C.teal600 },
-      { label: '31–60 d', cantidad: activos.filter((c) => c.diasStock > 30 && c.diasStock <= 60).length, color: C.amber500 },
+      { label: '0–30 d', cantidad: activos.filter((c) => diasEnStock(c) <= 30).length, color: C.teal600 },
+      {
+        label: '31–60 d',
+        cantidad: activos.filter((c) => diasEnStock(c) > 30 && diasEnStock(c) <= 60).length,
+        color: C.amber500,
+      },
       { label: '+60 d', cantidad: criticos.length, color: C.red600 },
     ];
 
@@ -549,7 +554,6 @@ function AppInner() {
       precioVentaEstimado: auction.sugeridoVenta,
       costoAdquisicion: auction.costoFinal,
       estado: 'Pre-stock',
-      diasStock: 1,
       fotos: [],
       comentario: `Procedente de ${auction.origen}.`,
       documentos: [],
@@ -1322,6 +1326,7 @@ function AppInner() {
             filteredStock.map((car) => {
               const badge = badgeForEstado(car.estado);
               const activeStockAuction = activeStockAuctionMap.get(car.id);
+              const dias = diasEnStock(car);
               return (
                 <TouchableOpacity key={car.id} activeOpacity={0.9} onPress={() => setActiveCar(car)} style={s.carCard}>
                   <View style={s.carThumb}>
@@ -1332,7 +1337,7 @@ function AppInner() {
                         <Icon name="car-side" size={22} color={C.slate300} />
                       </View>
                     )}
-                    {car.diasStock > 60 && car.estado !== 'Vendido' && (
+                    {dias > 60 && car.estado !== 'Vendido' && (
                       <View style={s.badge60}>
                         <Icon name="clock" size={8} color={C.white} />
                         <Text style={s.badge60Text}>+60 DÍAS</Text>
@@ -1390,7 +1395,7 @@ function AppInner() {
                           </View>
                         )}
                         <Text style={s.diasStock}>
-                          {car.diasStock} {car.diasStock === 1 ? 'día' : 'días'} en stock
+                          {dias} {dias === 1 ? 'día' : 'días'} en stock
                         </Text>
                       </View>
                     </View>
@@ -2718,7 +2723,11 @@ function AppInner() {
                     <TechItem label="Año Modelo" value={car.anio ? String(car.anio) : '—'} />
                     <TechItem label="Año Fabricación" value={car.anioFabricacion ? String(car.anioFabricacion) : '—'} />
                     <TechItem label="Origen" value={car.origen || '—'} />
-                    <TechItem label="Días en Stock" value={`${car.diasStock} días`} warn={car.diasStock > 60} />
+                    <TechItem
+                      label="Días en Stock"
+                      value={`${diasEnStock(car)} días`}
+                      warn={diasEnStock(car) > 60}
+                    />
                   </View>
                 </View>
 
@@ -4405,7 +4414,6 @@ function makeEmptyWizard(): WizardData {
     precioVentaEstimado: 0,
     costoAdquisicion: 0,
     estado: 'En preparación',
-    diasStock: 1,
     fotos: [],
     comentario: '',
     documentos: [],
