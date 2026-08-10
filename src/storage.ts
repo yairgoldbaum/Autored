@@ -1,7 +1,15 @@
 // Persistencia local (BDD emulada) sobre AsyncStorage.
 // Guarda stock, subastas y clientes para que los cambios sobrevivan al cierre de la app.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Car, Auction, Customer, ClienteRol, VehicleContact, TransferenciaNotarial } from './data';
+import {
+  Car,
+  Auction,
+  Customer,
+  ClienteRol,
+  VehicleContact,
+  TransferenciaNotarial,
+  BusquedaCliente,
+} from './data';
 
 const STORAGE_KEY = 'suramotor:state:v1';
 
@@ -197,12 +205,27 @@ function normalizeCustomer(customer: Partial<Customer> & { id: number }): Custom
     telefono: customer.telefono || '',
     tipo: customer.tipo || 'Particular',
     estado: customer.estado || 'Nuevo',
-    interes: customer.interes || '',
+    canal: customer.canal === 'Tasador web' ? 'Tasador web' : 'Carga manual',
+    // Los clientes guardados antes de que existiera `busca` traen el viejo `interes`,
+    // que era un auto del stock propio. Se rescata como el modelo que buscan.
+    busca: normalizeBusqueda(customer),
+    archivado: customer.archivado === true,
     reservadoId: customer.reservadoId ?? null,
     roles: normalizeRoles(customer.roles),
     vehiculosAdquisicionIds: normalizeIdList(customer.vehiculosAdquisicionIds),
     vehiculosVentaIds: normalizeIdList(customer.vehiculosVentaIds),
   };
+}
+
+function normalizeBusqueda(customer: Partial<Customer> & { interes?: unknown }): BusquedaCliente | null {
+  const busca = customer.busca;
+  if (busca && typeof busca === 'object') {
+    const modelo = typeof busca.modelo === 'string' ? busca.modelo : '';
+    const comentario = typeof busca.comentario === 'string' ? busca.comentario : '';
+    return modelo || comentario ? { modelo, comentario } : null;
+  }
+  const legacy = typeof customer.interes === 'string' ? customer.interes.trim() : '';
+  return legacy ? { modelo: legacy, comentario: '' } : null;
 }
 
 function normalizeContact(contact: unknown): VehicleContact | null {
