@@ -294,18 +294,73 @@ export interface Auction {
   winningBid?: number;
 }
 
+/* Por dónde entró el cliente. Hoy todo se carga a mano; los leads del tasador web
+   de Autored caen solos cuando abran la integración, y el campo existe desde ahora
+   para recibirlos sin volver a tocar el modelo. */
+export type CanalCliente = 'Carga manual' | 'Tasador web';
+
+/* Qué anda buscando el cliente. El modelo NO sale del stock propio a propósito: el
+   punto entero es poder registrar interés en un auto que todavía no tienes, que es
+   justo el caso que la app no sabía representar. */
+export interface BusquedaCliente {
+  modelo: string;
+  comentario: string;
+}
+
 export interface Customer {
   id: number;
   nombre: string;
   telefono: string;
   tipo: 'Particular' | 'Empresa';
   estado: string;
-  interes: string;
+  canal: CanalCliente;
+  busca: BusquedaCliente | null;
+  archivado: boolean;
   reservadoId: number | null;
   roles: ClienteRol[];
   vehiculosAdquisicionIds: number[];
   vehiculosVentaIds: number[];
 }
+
+/* Modelos frecuentes del mercado chileno, para sugerir mientras se escribe qué busca
+   el cliente. Es una ayuda, no una restricción: el campo acepta cualquier texto. */
+export const MODELOS_BUSCADOS: string[] = [
+  'BYD Dolphin',
+  'Changan CS35',
+  'Chery Tiggo',
+  'Chevrolet Groove',
+  'Chevrolet Onix',
+  'Chevrolet Sail',
+  'Ford EcoSport',
+  'Ford Ranger',
+  'Great Wall Poer',
+  'Honda Fit',
+  'Hyundai Accent',
+  'Hyundai Grand i10',
+  'Hyundai Tucson',
+  'JAC S2',
+  'Kia Morning',
+  'Kia Rio',
+  'Kia Sportage',
+  'Mazda 3',
+  'Mazda CX-5',
+  'MG ZS',
+  'Mitsubishi L200',
+  'Nissan Qashqai',
+  'Nissan Versa',
+  'Peugeot 208',
+  'Renault Kwid',
+  'Subaru XV',
+  'Suzuki Baleno',
+  'Suzuki Swift',
+  'Suzuki Vitara',
+  'Toyota Corolla',
+  'Toyota Hilux',
+  'Toyota RAV4',
+  'Toyota Yaris',
+  'Volkswagen Gol',
+  'Volkswagen Polo',
+];
 
 export const INITIAL_STOCK_DATA: Car[] = [
   {
@@ -884,7 +939,9 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 8456 1234',
     tipo: 'Particular',
     estado: 'Caliente',
-    interes: 'Mazda 3',
+    canal: 'Carga manual',
+    busca: null, // ya encontró lo suyo: tiene el Mazda 3 reservado
+    archivado: false,
     reservadoId: 4,
     roles: ['Venta'],
     vehiculosAdquisicionIds: [],
@@ -896,7 +953,9 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 7123 9988',
     tipo: 'Empresa',
     estado: 'Frecuente',
-    interes: 'Varios (Revendedor)',
+    canal: 'Carga manual',
+    busca: { modelo: '', comentario: 'Revendedor: compra varios, sin modelo fijo.' },
+    archivado: false,
     reservadoId: null,
     roles: ['Adquisición'],
     vehiculosAdquisicionIds: [],
@@ -908,7 +967,9 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 5544 3322',
     tipo: 'Particular',
     estado: 'Interesado',
-    interes: 'Kia Morning',
+    canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
+    busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.' },
+    archivado: false,
     reservadoId: null,
     roles: ['Venta'],
     vehiculosAdquisicionIds: [],

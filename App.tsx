@@ -28,6 +28,7 @@ import {
   Car,
   Auction,
   Customer,
+  BusquedaCliente,
   ClienteRol,
   EstadoAuto,
   EnvioInforme,
@@ -42,6 +43,7 @@ import {
   INITIAL_AUCTIONS,
   INITIAL_CUSTOMERS,
   ESTADOS,
+  MODELOS_BUSCADOS,
   costoBase,
   diasEnStock,
 } from './src/data';
@@ -90,7 +92,8 @@ interface NewClientData {
   telefono: string;
   tipo: 'Particular' | 'Empresa';
   estado: string;
-  interes: string;
+  buscaModelo: string;
+  buscaComentario: string;
   rol: ClienteRol | 'Ambos';
 }
 
@@ -211,15 +214,7 @@ function AppInner() {
   const [clienteSearch, setClienteSearch] = useState('');
   const [clienteRoleFilter, setClienteRoleFilter] = useState<'Todos' | ClienteRol>('Todos');
   const [isNewClientSheetOpen, setIsNewClientSheetOpen] = useState(false);
-  const [newClient, setNewClient] = useState<NewClientData>({
-    id: null,
-    nombre: '',
-    telefono: '',
-    tipo: 'Particular',
-    estado: 'Nuevo',
-    interes: '',
-    rol: 'Venta',
-  });
+  const [newClient, setNewClient] = useState<NewClientData>(emptyNewClient());
 
   // AutoSave: informe (derivado, no se persiste) y transferencia notarial
   const [isAutosaveReportOpen, setIsAutosaveReportOpen] = useState(false);
@@ -439,31 +434,16 @@ function AppInner() {
       if (!matchesRole) return false;
       if (!q) return true;
       const vehicleLabels = getCustomerVehicleLabels(c, stockById).join(' ').toLowerCase();
+      const busca = `${c.busca?.modelo || ''} ${c.busca?.comentario || ''}`.toLowerCase();
       return (
         c.nombre.toLowerCase().includes(q) ||
         c.telefono.toLowerCase().includes(q) ||
-        c.interes.toLowerCase().includes(q) ||
+        busca.includes(q) ||
         roles.join(' ').toLowerCase().includes(q) ||
         vehicleLabels.includes(q)
       );
     });
   }, [customers, clienteSearch, clienteRoleFilter, stockById]);
-
-  // Autos únicos del stock activo (Marca + Modelo) para el selector de interés
-  const uniqueStockOptions = useMemo(() => {
-    const set = new Set<string>();
-    stock.forEach((c) => set.add(`${c.marca} ${c.modelo}`.trim()));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [stock]);
-
-  // Opciones del dropdown de interés: stock + resguardo del interés personalizado del lead
-  const interesOptions = useMemo(() => {
-    const opts = uniqueStockOptions.map((v) => ({ label: v, value: v }));
-    if (newClient.interes && !uniqueStockOptions.includes(newClient.interes)) {
-      opts.unshift({ label: newClient.interes, value: newClient.interes });
-    }
-    return opts;
-  }, [uniqueStockOptions, newClient.interes]);
 
   /* ------------------- Motor de precios ------------------- */
   const handleAbrirMotor = () => {
@@ -941,7 +921,7 @@ function AppInner() {
   };
 
   const handleAbrirNuevoCliente = () => {
-    setNewClient({ id: null, nombre: '', telefono: '', tipo: 'Particular', estado: 'Nuevo', interes: '', rol: 'Venta' });
+    setNewClient(emptyNewClient());
     setIsNewClientSheetOpen(true);
   };
 
@@ -952,7 +932,8 @@ function AppInner() {
       telefono: client.telefono,
       tipo: client.tipo,
       estado: client.estado,
-      interes: client.interes,
+      buscaModelo: client.busca?.modelo || '',
+      buscaComentario: client.busca?.comentario || '',
       rol: roleFormFromRoles(client.roles),
     });
     setIsNewClientSheetOpen(true);
@@ -969,7 +950,9 @@ function AppInner() {
         telefono: newClient.telefono,
         tipo: newClient.tipo,
         estado: newClient.estado,
-        interes: newClient.interes,
+        canal: existing?.canal ?? 'Carga manual',
+        busca: busquedaFromForm(newClient),
+        archivado: existing?.archivado ?? false,
         reservadoId: existing?.reservadoId ?? null,
         roles,
         vehiculosAdquisicionIds: existing?.vehiculosAdquisicionIds ?? [],
@@ -982,7 +965,7 @@ function AppInner() {
       setCustomers(synced.customers);
       setActiveCar((prev) => (prev ? synced.stock.find((car) => car.id === prev.id) || prev : prev));
       setIsNewClientSheetOpen(false);
-      setNewClient({ id: null, nombre: '', telefono: '', tipo: 'Particular', estado: 'Nuevo', interes: '', rol: 'Venta' });
+      setNewClient(emptyNewClient());
       showNotification('Cliente actualizado correctamente.');
       return;
     }
@@ -992,7 +975,9 @@ function AppInner() {
       telefono: newClient.telefono,
       tipo: newClient.tipo,
       estado: newClient.estado || 'Nuevo',
-      interes: newClient.interes,
+      canal: 'Carga manual',
+      busca: busquedaFromForm(newClient),
+      archivado: false,
       reservadoId: null,
       roles,
       vehiculosAdquisicionIds: [],
@@ -1000,7 +985,7 @@ function AppInner() {
     };
     setCustomers([...customers, client]);
     setIsNewClientSheetOpen(false);
-    setNewClient({ id: null, nombre: '', telefono: '', tipo: 'Particular', estado: 'Nuevo', interes: '', rol: 'Venta' });
+    setNewClient(emptyNewClient());
     showNotification('Cliente registrado con éxito.');
   };
 
@@ -1043,14 +1028,6 @@ function AppInner() {
   // Actualiza el estado del trato directamente desde la tarjeta
   const handleUpdateClienteEstado = (id: number, estado: string) => {
     setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, estado } : c)));
-  };
-
-  // Salta al detalle del auto de interés dentro del stock
-  const verInteresEnStock = (interes: string) => {
-    const key = (interes || '').split(' ')[0];
-    const match = stock.find((c) => c.modelo === key || c.marca === key);
-    if (match) setActiveCar(match);
-    else showNotification('Auto no disponible de momento.', 'warning');
   };
 
   /* ------------------- Cámara / Galería reales ------------------- */
@@ -1791,14 +1768,10 @@ function AppInner() {
                           <TouchableOpacity onPress={() => setActiveCar(firstVehicle)}>
                             <Text style={s.cliVerLink}>Ver</Text>
                           </TouchableOpacity>
-                        ) : cli.interes ? (
-                          <TouchableOpacity onPress={() => verInteresEnStock(cli.interes)}>
-                            <Text style={s.cliVerLink}>Interés</Text>
-                          </TouchableOpacity>
                         ) : null}
                       </View>
                       <Text style={s.cliGridValue} numberOfLines={1}>
-                        {vehicleLabels.length ? vehicleLabels.join(' / ') : cli.interes || '—'}
+                        {vehicleLabels.length ? vehicleLabels.join(' / ') : textoBusqueda(cli.busca)}
                       </Text>
                     </View>
                   </View>
@@ -4154,15 +4127,12 @@ function AppInner() {
                   options={CLIENTE_ROL_OPTIONS}
                 />
               </View>
-              <View>
-                <Text style={s.sheetFieldLabel}>Auto de Interés</Text>
-                <Dropdown
-                  value={newClient.interes}
-                  placeholder="Selecciona un auto del stock"
-                  onChange={(v) => setNewClient({ ...newClient, interes: v })}
-                  options={interesOptions}
-                />
-              </View>
+              <ModeloBuscadoField
+                modelo={newClient.buscaModelo}
+                comentario={newClient.buscaComentario}
+                onChangeModelo={(v) => setNewClient({ ...newClient, buscaModelo: v })}
+                onChangeComentario={(v) => setNewClient({ ...newClient, buscaComentario: v })}
+              />
             </View>
 
             <TouchableOpacity onPress={handleGuardarCliente} style={s.sheetPrimaryBtn}>
@@ -4239,6 +4209,33 @@ function cleanVehicleContact(contact: VehicleContact | null | undefined): Vehicl
 
 function requiresBuyer(estado: EstadoAuto | string) {
   return estado === 'Reservado' || estado === 'Vendido';
+}
+
+function emptyNewClient(): NewClientData {
+  return {
+    id: null,
+    nombre: '',
+    telefono: '',
+    tipo: 'Particular',
+    estado: 'Nuevo',
+    buscaModelo: '',
+    buscaComentario: '',
+    rol: 'Venta',
+  };
+}
+
+/** Qué busca el cliente, en una línea. '—' cuando no anotó nada. */
+function textoBusqueda(busca: BusquedaCliente | null): string {
+  if (!busca) return '—';
+  if (busca.modelo && busca.comentario) return `${busca.modelo} · ${busca.comentario}`;
+  return busca.modelo || busca.comentario || '—';
+}
+
+/** Lo que el formulario escribió, listo para guardar: null cuando no dijo nada. */
+function busquedaFromForm(form: NewClientData): BusquedaCliente | null {
+  const modelo = form.buscaModelo.trim();
+  const comentario = form.buscaComentario.trim();
+  return modelo || comentario ? { modelo, comentario } : null;
 }
 
 function rolesFromForm(rol: NewClientData['rol']): ClienteRol[] {
@@ -4328,7 +4325,6 @@ function syncStockAndCustomers(stock: Car[], customers: Customer[]): { stock: Ca
 
   const upsertCustomer = (contact: VehicleContact, role: ClienteRol, car: Car): VehicleContact => {
     const idx = findCustomerIndex(contact);
-    const carLabel = getCarLabel(car);
     const estado = role === 'Adquisición' ? 'Adquisición' : car.estado === 'Vendido' ? 'Comprador' : 'Reserva';
     if (idx < 0) {
       const created: Customer = {
@@ -4337,7 +4333,11 @@ function syncStockAndCustomers(stock: Car[], customers: Customer[]): { stock: Ca
         telefono: contact.telefono,
         tipo: 'Particular',
         estado,
-        interes: role === 'Venta' ? carLabel : '',
+        // Nace desde el auto, no desde el tasador web, y no busca nada: ya tiene
+        // este auto asociado. `busca` es para el que quiere algo que no tienes.
+        canal: 'Carga manual',
+        busca: null,
+        archivado: false,
         reservadoId: role === 'Venta' && car.estado === 'Reservado' ? car.id : null,
         roles: [role],
         vehiculosAdquisicionIds: role === 'Adquisición' ? [car.id] : [],
@@ -4360,7 +4360,6 @@ function syncStockAndCustomers(stock: Car[], customers: Customer[]): { stock: Ca
       nombre: contact.nombre || existing.nombre,
       telefono: contact.telefono || existing.telefono,
       estado: role === 'Venta' || existing.estado === 'Nuevo' ? estado : existing.estado,
-      interes: role === 'Venta' ? carLabel : existing.interes,
       reservadoId: role === 'Venta' && car.estado === 'Reservado' ? car.id : existing.reservadoId,
       roles,
       vehiculosAdquisicionIds,
@@ -4657,6 +4656,67 @@ function SegBtn({ label, active, onPress }: { label: string; active: boolean; on
 
 const CAL_MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const CAL_DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+/* Qué busca el cliente. Es texto libre con sugerencias y NO un selector del stock
+   propio: registrar interés en un auto que todavía no tienes es justo el caso que
+   la app no sabía representar. Las sugerencias son ayuda de tipeo, no una lista
+   cerrada. */
+function ModeloBuscadoField({
+  modelo,
+  comentario,
+  onChangeModelo,
+  onChangeComentario,
+}: {
+  modelo: string;
+  comentario: string;
+  onChangeModelo: (v: string) => void;
+  onChangeComentario: (v: string) => void;
+}) {
+  const q = modelo.trim().toLowerCase();
+  const sugerencias = !q
+    ? []
+    : MODELOS_BUSCADOS.filter((m) => m.toLowerCase().includes(q) && m.toLowerCase() !== q).slice(0, 6);
+
+  return (
+    <>
+      <View>
+        <Text style={s.sheetFieldLabel}>Qué busca</Text>
+        <TextInput
+          placeholder="Ej: Kia Morning (o lo que sea, aunque no lo tengas)"
+          placeholderTextColor={C.slate400}
+          value={modelo}
+          onChangeText={onChangeModelo}
+          style={s.sheetInput}
+        />
+        {sugerencias.length > 0 ? (
+          <ScrollView
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 6, paddingTop: 8 }}
+          >
+            {sugerencias.map((m) => (
+              <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => onChangeModelo(m)} style={s.sugerenciaChip}>
+                <Text style={s.sugerenciaText}>{m}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : null}
+      </View>
+      <View>
+        <Text style={s.sheetFieldLabel}>Comentario</Text>
+        <TextInput
+          placeholder="Ej: automático, tope 7 millones"
+          placeholderTextColor={C.slate400}
+          value={comentario}
+          onChangeText={onChangeComentario}
+          multiline
+          style={[s.sheetInput, { minHeight: 60, paddingTop: 10, textAlignVertical: 'top' }]}
+        />
+      </View>
+    </>
+  );
+}
 
 function DateField({
   label,
@@ -5933,6 +5993,8 @@ const s = StyleSheet.create({
   sheetTitleSm: { fontWeight: W.bold, fontSize: 14, color: C.slate800 },
   sheetFieldLabel: { fontSize: 12, fontWeight: W.bold, color: C.slate400, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   sheetInput: { borderWidth: 1, borderColor: C.slate200, borderRadius: 12, padding: 10, fontSize: 12, fontWeight: W.semibold, color: C.slate700, backgroundColor: C.white },
+  sugerenciaChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.slate100, borderWidth: 1, borderColor: C.slate200 },
+  sugerenciaText: { fontSize: 11, fontWeight: W.semibold, color: C.slate600 },
   sheetRangeValue: { fontSize: 12, fontWeight: W.extrabold, color: C.chileanTeal },
   sheetFooter: { padding: 16, borderTopWidth: 1, borderTopColor: C.slate100, flexDirection: 'row', gap: 8 },
   sheetBtnGray: { flex: 1, paddingVertical: 12, backgroundColor: C.slate100, borderRadius: 12, alignItems: 'center' },
