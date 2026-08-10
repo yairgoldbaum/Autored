@@ -84,6 +84,21 @@ type TabKey = 'inicio' | 'stock' | 'subastas' | 'clientes';
 /* Etiqueta de pantalla, ya no un campo del cliente: se deduce de sus relaciones
    con autos. Vive acá y no en el modelo porque el modelo ya no lo guarda. */
 type ClienteRol = 'Adquisición' | 'Venta';
+
+/* Los seis filtros de la lista de clientes, en reemplazo de los de rol comercial.
+   Ninguno se mantiene a mano: los cuatro del medio se derivan del cliente y de sus
+   relaciones. Se pisan a propósito — un lead del tasador con un interés anotado sale
+   en los dos, y no se inventa una regla de prioridad. Archivados es el único que se
+   comporta distinto. */
+type ClienteFiltro = 'Todos' | 'Clientes' | 'Leads' | 'Intereses' | 'Oportunidades' | 'Archivados';
+const CLIENTE_FILTROS: ClienteFiltro[] = [
+  'Todos',
+  'Clientes',
+  'Leads',
+  'Intereses',
+  'Oportunidades',
+  'Archivados',
+];
 type SubastaTabKey = 'disponibles' | 'ofertas' | 'mis_subastas' | 'finalizadas';
 
 const AUCTION_DURATION_MS = 4 * 60 * 60 * 1000;
@@ -221,7 +236,7 @@ function AppInner() {
   // Sub-tabs
   const [subastaTab, setSubastaTab] = useState<SubastaTabKey>('disponibles');
   const [clienteSearch, setClienteSearch] = useState('');
-  const [clienteRoleFilter, setClienteRoleFilter] = useState<'Todos' | ClienteRol>('Todos');
+  const [clienteFiltro, setClienteFiltro] = useState<ClienteFiltro>('Todos');
   const [isNewClientSheetOpen, setIsNewClientSheetOpen] = useState(false);
   const [newClient, setNewClient] = useState<NewClientData>(emptyNewClient());
 
@@ -447,14 +462,14 @@ function AppInner() {
     return map;
   }, [relaciones]);
 
-  // Clientes filtrados por rol comercial y buscador.
+  // Clientes filtrados por el chip activo y el buscador.
   const filteredCustomers = useMemo(() => {
     const q = clienteSearch.trim().toLowerCase();
     return customers.filter((c) => {
       const rels = relacionesPorCliente.get(c.id) || [];
-      const roles = rolesDeCliente(rels);
-      const matchesRole = clienteRoleFilter === 'Todos' || roles.includes(clienteRoleFilter);
-      if (!matchesRole) return false;
+      // Los archivados no salen en los otros chips salvo que se los busque por nombre.
+      if (clienteFiltro !== 'Archivados' && c.archivado && !q) return false;
+      if (!cumpleFiltroCliente(c, rels, clienteFiltro)) return false;
       if (!q) return true;
       const vehicleLabels = getCustomerVehicleLabels(rels, stockById).join(' ').toLowerCase();
       const busca = `${c.busca?.modelo || ''} ${c.busca?.comentario || ''}`.toLowerCase();
@@ -462,11 +477,11 @@ function AppInner() {
         c.nombre.toLowerCase().includes(q) ||
         c.telefono.toLowerCase().includes(q) ||
         busca.includes(q) ||
-        roles.join(' ').toLowerCase().includes(q) ||
+        rolesDeCliente(rels).join(' ').toLowerCase().includes(q) ||
         vehicleLabels.includes(q)
       );
     });
-  }, [customers, clienteSearch, clienteRoleFilter, stockById, relacionesPorCliente]);
+  }, [customers, clienteSearch, clienteFiltro, stockById, relacionesPorCliente]);
 
   /* ------------------- Motor de precios ------------------- */
   const handleAbrirMotor = () => {
@@ -1662,6 +1677,13 @@ function AppInner() {
     const contarPorRol = (rol: ClienteRol) =>
       customers.filter((c) => rolesDeCliente(relacionesPorCliente.get(c.id) || []).includes(rol)).length;
 
+    const contarFiltro = (filtro: ClienteFiltro) =>
+      customers.filter(
+        (c) =>
+          (filtro === 'Archivados' || !c.archivado) &&
+          cumpleFiltroCliente(c, relacionesPorCliente.get(c.id) || [], filtro),
+      ).length;
+
     return (
       <View style={{ gap: 16 }}>
         <View style={s.rowBetween}>
@@ -1692,19 +1714,20 @@ function AppInner() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
-          {(['Todos', 'Adquisición', 'Venta'] as const).map((role) => {
-            const isSelected = clienteRoleFilter === role;
-            const count = role === 'Todos' ? customers.length : contarPorRol(role);
+          {CLIENTE_FILTROS.map((filtro) => {
+            const isSelected = clienteFiltro === filtro;
             return (
               <TouchableOpacity
-                key={role}
+                key={filtro}
                 activeOpacity={0.8}
-                onPress={() => setClienteRoleFilter(role)}
+                onPress={() => setClienteFiltro(filtro)}
                 style={[s.chip, isSelected ? s.chipActive : s.chipInactive]}
               >
-                <Text style={[s.chipText, { color: isSelected ? C.white : C.slate600 }]}>{role}</Text>
+                <Text style={[s.chipText, { color: isSelected ? C.white : C.slate600 }]}>{filtro}</Text>
                 <View style={[s.chipCount, { backgroundColor: isSelected ? C.chileanTeal : C.slate100 }]}>
-                  <Text style={{ fontSize: 10, color: isSelected ? C.white : C.slate500, fontWeight: W.bold }}>{count}</Text>
+                  <Text style={{ fontSize: 10, color: isSelected ? C.white : C.slate500, fontWeight: W.bold }}>
+                    {contarFiltro(filtro)}
+                  </Text>
                 </View>
               </TouchableOpacity>
             );
@@ -4247,6 +4270,29 @@ function busquedaFromForm(form: NewClientData): BusquedaCliente | null {
 /* El rol comercial ya no se elige ni se guarda: sale de las relaciones del cliente.
    Antes se pedía en el formulario y quedaba desalineado con los autos que el cliente
    realmente tenía asociados. */
+/* Cada chip es una condición sobre el cliente y sus relaciones, no un estado que
+   alguien tiene que mantener al día. */
+function cumpleFiltroCliente(
+  cliente: Customer,
+  rels: RelacionClienteVehiculo[],
+  filtro: ClienteFiltro,
+): boolean {
+  switch (filtro) {
+    case 'Clientes':
+      return rels.length > 0; // tiene alguna relación con un auto
+    case 'Leads':
+      return cliente.canal === 'Tasador web';
+    case 'Intereses':
+      return !!cliente.busca;
+    case 'Oportunidades':
+      return rels.some((r) => r.tipo === 'oportunidad');
+    case 'Archivados':
+      return cliente.archivado;
+    default:
+      return true;
+  }
+}
+
 function rolesDeCliente(rels: RelacionClienteVehiculo[]): ClienteRol[] {
   const roles: ClienteRol[] = [];
   if (esClienteDeAdquisicion(rels)) roles.push('Adquisición');
