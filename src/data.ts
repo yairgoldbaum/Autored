@@ -545,6 +545,7 @@ export const INITIAL_STOCK_DATA: Car[] = [
     visitas: [
       { id: 1, fecha: '2026-07-28', clienteId: null, nombre: '' },
       { id: 2, fecha: '2026-08-05', clienteId: null, nombre: '' },
+      { id: 3, fecha: '2026-08-07', clienteId: 4, nombre: 'Felipe Cárdenas' },
     ],
   },
   {
@@ -742,6 +743,106 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 0,
     fechaVenta: null,
     financiado: null,
+    visitas: [],
+  },
+  /* Los dos autos que siguen existen para que los KPIs del mes tengan de dónde
+     salir. Con una sola venta el margen promedio es el de un auto y la penetración
+     de financiamiento da 0% o 100%. Uno es propio y financiado, el otro consignado
+     y al contado, así que el mes muestra los dos casos de margen. */
+  {
+    id: 7,
+    patente: 'SD-KF-33',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Nissan',
+    modelo: 'Versa',
+    version: '1.6 Sense',
+    anio: 2020,
+    anioFabricacion: 2020,
+    sucursal: 'Mayorista',
+    fechaIngreso: '2026-06-12',
+    km: 61000,
+    color: 'Gris Plata',
+    transmision: 'Automática',
+    combustible: 'Bencina',
+    traccion: '4x2',
+    cilindrada: 1600,
+    puertas: '4',
+    equipamiento: ['Aire acondicionado', 'Frenos ABS', 'Airbags', 'Cierre centralizado'],
+    otros: '',
+    origen: 'Nacional',
+    precioVenta: 8290000,
+    precioPublicacionContado: 8290000,
+    precioPublicacionFinanciado: 8590000,
+    precioVentaEstimado: 8200000,
+    costoAdquisicion: 6600000,
+    estado: 'Vendido',
+    fotos: [
+      'https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=600&q=80',
+    ],
+    comentario: 'Vendido con financiamiento a Automotora Melipilla.',
+    documentos: [],
+    clienteAdquisicion: null,
+    comprador: {
+      clienteId: 2,
+      nombre: 'Automotora Melipilla SpA',
+      telefono: '+56 9 7123 9988',
+    },
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: '2026-08-06',
+    financiado: true,
+    visitas: [],
+  },
+  {
+    id: 8,
+    patente: 'TG-BN-71',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Suzuki',
+    modelo: 'Baleno',
+    version: '1.4 GLX',
+    anio: 2019,
+    anioFabricacion: 2019,
+    sucursal: 'Mayorista',
+    fechaIngreso: '2026-06-30',
+    km: 74000,
+    color: 'Blanco',
+    transmision: 'Manual',
+    combustible: 'Bencina',
+    traccion: '4x2',
+    cilindrada: 1400,
+    puertas: '5',
+    equipamiento: ['Aire acondicionado', 'Frenos ABS', 'Pantalla táctil'],
+    otros: '',
+    origen: 'Nacional',
+    precioVenta: 6890000,
+    precioPublicacionContado: 6890000,
+    precioPublicacionFinanciado: 7100000,
+    precioVentaEstimado: 6800000,
+    costoAdquisicion: 0, // consignado: no hubo compra
+    estado: 'Vendido',
+    fotos: [
+      'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80',
+    ],
+    comentario: 'Consignado por Héctor Núñez. Vendido al contado.',
+    documentos: [],
+    clienteAdquisicion: null,
+    comprador: {
+      clienteId: null,
+      nombre: 'Paulina Rojas',
+      telefono: '+56 9 8811 4402',
+    },
+    tenencia: 'Consignado',
+    consignante: {
+      clienteId: null,
+      nombre: 'Héctor Núñez',
+      telefono: '+56 9 4433 2211',
+    },
+    precioPisoConsignacion: 6100000,
+    fechaVenta: '2026-08-08',
+    financiado: false,
     visitas: [],
   },
 ];
@@ -1004,6 +1105,30 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
     busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.' },
     archivado: false,
+    // Sin relación con ningún auto a propósito: es el interesado en algo que no
+    // tienes, el caso que el modelo viejo no sabía representar.
+  },
+  {
+    id: 4,
+    nombre: 'Felipe Cárdenas',
+    telefono: '+56 9 3311 7788',
+    tipo: 'Particular',
+    estado: 'Caliente',
+    canal: 'Carga manual',
+    busca: null,
+    archivado: false,
+    // Tiene una relación de oportunidad con el Toyota Yaris: vino a verlo y quedó
+    // de confirmar. No es venta todavía y no cuelga de ningún contacto del auto.
+  },
+  {
+    id: 5,
+    nombre: 'Ignacio Pérez',
+    telefono: '+56 9 2200 6655',
+    tipo: 'Particular',
+    estado: 'Nuevo',
+    canal: 'Tasador web',
+    busca: { modelo: 'Ford Ranger', comentario: 'Dejó de responder hace un mes.' },
+    archivado: true,
   },
 ];
 
@@ -1014,8 +1139,14 @@ export const INITIAL_CUSTOMERS: Customer[] = [
 export const INITIAL_RELACIONES: RelacionClienteVehiculo[] = [
   // Marcelo Aravena tiene el Mazda 3 reservado.
   { id: 1, clienteId: 1, vehiculoId: 4, tipo: 'venta', fecha: '2026-08-02' },
-  // Automotora Melipilla dejó el Toyota Yaris en consignación.
+  // Automotora Melipilla dejó el Toyota Yaris en consignación...
   { id: 2, clienteId: 2, vehiculoId: 3, tipo: 'consignacion', fecha: '2026-05-08' },
+  // ...y además le compró el Nissan Versa. Un mismo cliente con un auto en
+  // consignación y otro comprado: el caso que el modelo viejo no cuadraba.
+  { id: 3, clienteId: 2, vehiculoId: 7, tipo: 'venta', fecha: '2026-08-06' },
+  // Felipe Cárdenas vino a ver el Yaris y quedó de confirmar. Es el único tipo de
+  // relación que no se deriva de un contacto del auto.
+  { id: 4, clienteId: 4, vehiculoId: 3, tipo: 'oportunidad', fecha: '2026-08-07' },
 ];
 
 export const ESTADOS: EstadoAuto[] = [
