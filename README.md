@@ -1,5 +1,12 @@
 # autored-vendor
 
+> **¿Recién llegas al proyecto?** Empieza por **[`CONTEXTO-P1.md`](./CONTEXTO-P1.md)**: qué se
+> implementó, qué cambió en el modelo de datos y qué falta por hacer. Este README solo explica
+> cómo levantar la app.
+>
+> **Ojo con la rama.** La app está en `sdk57` (y su gemela `sdk54-p2`). La rama `main` de este
+> repo es el HTML viejo del challenge original, no la app.
+
 Una app simplificada para las compra y ventas de autos pequeños.
 
 App móvil hecha con **React Native + Expo** (SDK 57, React 19, RN 0.86, TypeScript).
