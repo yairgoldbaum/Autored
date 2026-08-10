@@ -1023,6 +1023,16 @@ function AppInner() {
     showNotification('Cliente registrado con éxito.');
   };
 
+  /* Archivar es reversible desde el chip de Archivados, así que no pide confirmación.
+     El tarro de basura se queda para lo que se cargó mal. Nada se archiva solo por
+     antigüedad: lo decide el usuario. */
+  const handleToggleArchivadoCliente = (client: Customer) => {
+    setCustomers((prev) => prev.map((c) => (c.id === client.id ? { ...c, archivado: !c.archivado } : c)));
+    showNotification(
+      client.archivado ? `${client.nombre} volvió a la lista.` : `${client.nombre} archivado.`,
+    );
+  };
+
   const handleEliminarCliente = (client: Customer) => {
     Alert.alert('Eliminar cliente', `¿Seguro que quieres eliminar a ${client.nombre}?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -1787,6 +1797,13 @@ function AppInner() {
                     <View style={s.rowCenter}>
                       <TouchableOpacity onPress={() => handleEditarCliente(cli)} style={s.cliIconBtn}>
                         <Icon name="pen-to-square" size={12} color={C.slate500} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleToggleArchivadoCliente(cli)} style={s.cliIconBtn}>
+                        <Icon
+                          name={cli.archivado ? 'rotate-left' : 'box-archive'}
+                          size={12}
+                          color={cli.archivado ? C.chileanTeal : C.slate500}
+                        />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => handleEliminarCliente(cli)} style={s.cliIconBtn}>
                         <Wiggle>
