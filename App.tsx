@@ -80,7 +80,13 @@ import {
 import { InspectionScreen } from './src/inspection/InspectionScreen';
 import { InspectionReport } from './src/inspection/types';
 
-type TabKey = 'inicio' | 'stock' | 'subastas' | 'clientes';
+type TabKey = 'inicio' | 'stock' | 'subastas' | 'clientes' | 'kpis';
+
+/* Tramo de antigüedad, para que tocar una barra del gráfico abra el Stock filtrado.
+   NOTA PARA P1: el filtro por rango de días es el cruce 1 y estaba en tu lado. Se
+   implementó acá lo mínimo (`filtroDias` en filteredStock) para no dejar la barra
+   muerta; cuando armes el filtro de verdad, esto se reemplaza. */
+type FiltroDias = null | '0-30' | '31-60' | '+60';
 /* Etiqueta de pantalla, ya no un campo del cliente: se deduce de sus relaciones
    con autos. Vive acá y no en el modelo porque el modelo ya no lo guarda. */
 type ClienteRol = 'Adquisición' | 'Venta';
@@ -198,6 +204,9 @@ function AppInner() {
   const [relaciones, setRelaciones] = useState<RelacionClienteVehiculo[]>(initialSyncedState.relaciones);
 
   const [activeTab, setActiveTab] = useState<TabKey>('inicio');
+  const [filtroDias, setFiltroDias] = useState<FiltroDias>(null);
+  // Mes que muestran los KPIs. Arranca en el actual.
+  const [periodoKpi, setPeriodoKpi] = useState(() => new Date().toISOString().slice(0, 7));
 
   // El botón del Motor de Precios sólo rebota en las 2 primeras entradas a Inicio.
   const [inicioVisitas, setInicioVisitas] = useState(0);
@@ -414,6 +423,27 @@ function AppInner() {
     };
   }, [stock]);
 
+  const periodosDisponibles = useMemo(() => periodosConVentas(stock), [stock]);
+
+  /* Los cuatro números del mes que pidió David. Las tarjetas de arriba describen el
+     stock que existe ahora, que es una foto; estas describen lo que pasó en un mes,
+     que es una película. Se calculan sobre los autos con fechaVenta dentro del
+     período, con costoBase para el margen y financiado para la penetración. */
+  const kpisMes = useMemo(() => {
+    const vendidos = stock.filter((c) => c.fechaVenta && c.fechaVenta.startsWith(periodoKpi));
+    const margenTotal = vendidos.reduce((sum, c) => sum + (c.precioVenta - costoBase(c)), 0);
+    const financiados = vendidos.filter((c) => c.financiado === true).length;
+    const consignados = vendidos.filter((c) => c.tenencia === 'Consignado').length;
+    return {
+      ventas: vendidos.length,
+      margenTotal,
+      margenPromedio: vendidos.length > 0 ? Math.round(margenTotal / vendidos.length) : 0,
+      penetracionFinanciamiento: vendidos.length > 0 ? Math.round((financiados / vendidos.length) * 100) : 0,
+      financiados,
+      consignados,
+    };
+  }, [stock, periodoKpi]);
+
   const filteredStock = useMemo(() => {
     return stock.filter((car) => {
       const query = searchQuery.toLowerCase();
@@ -426,9 +456,12 @@ function AppInner() {
       const matchesAnio = !filters.anio || car.anio.toString() === filters.anio;
       const matchesPrecio = car.precioVenta <= filters.precioMax;
       const matchesEstado = !filters.estado || car.estado === filters.estado;
-      return matchesSearch && matchesChip && matchesMarca && matchesAnio && matchesPrecio && matchesEstado;
+      const matchesDias = cumpleFiltroDias(car, filtroDias);
+      return (
+        matchesSearch && matchesChip && matchesMarca && matchesAnio && matchesPrecio && matchesEstado && matchesDias
+      );
     });
-  }, [stock, searchQuery, filterState, filters]);
+  }, [stock, searchQuery, filterState, filters, filtroDias]);
 
   const marcasDisponibles = useMemo(() => [...new Set(stock.map((c) => c.marca))], [stock]);
   const stockById = useMemo(() => new Map(stock.map((car) => [car.id, car])), [stock]);
@@ -1154,6 +1187,7 @@ function AppInner() {
           {activeTab === 'stock' && renderStock()}
           {activeTab === 'subastas' && renderSubastas()}
           {activeTab === 'clientes' && renderClientes()}
+          {activeTab === 'kpis' && renderKpis()}
         </ScrollView>
 
         {/* NAV INFERIOR */}
@@ -1181,6 +1215,9 @@ function AppInner() {
             badge={adjudicadasCount}
           />
           <NavButton icon="user-group" label="Clientes" active={activeTab === 'clientes'} onPress={() => setActiveTab('clientes')} />
+          {/* Última de la barra. NOTA PARA P1: cuando reordenes la barra inferior,
+              esta pestaña va al final. */}
+          <NavButton icon="chart-simple" label="KPIs" active={activeTab === 'kpis'} onPress={() => setActiveTab('kpis')} />
         </View>
 
         {/* OVERLAYS Y SHEETS (dentro del frame, apilados como en el HTML base) */}
@@ -1239,16 +1276,101 @@ function AppInner() {
           </TouchableOpacity>
         </Pulse>
 
-        {/* KPIs — cada uno con una lectura en lenguaje simple */}
+        {/* Las tarjetas y los gráficos se mudaron a su propia pestaña de KPIs. */}
+      </View>
+    );
+  }
+
+  /* ======================= PANTALLA KPIs ======================= */
+  function renderKpis() {
+    // Tocar una barra abre el Stock con ese filtro puesto.
+    const irAStockPorEstado = (estado: string) => {
+      setFiltroDias(null);
+      setFilterState(estado);
+      setActiveTab('stock');
+    };
+    const irAStockPorDias = (rango: FiltroDias) => {
+      setFilterState('Todos');
+      setFiltroDias(rango);
+      setActiveTab('stock');
+    };
+
+    return (
+      <View style={{ gap: 22 }}>
+        <View>
+          <Text style={s.h2Black}>KPIs</Text>
+          <Text style={s.subMuted}>Cómo te fue en el mes y cómo está tu stock hoy</Text>
+        </View>
+
+        {/* Filtro de período */}
+        <View style={{ gap: 8 }}>
+          <Text style={s.sectionLabel}>Período</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+            {periodosDisponibles.map((p) => {
+              const isSelected = periodoKpi === p;
+              return (
+                <TouchableOpacity
+                  key={p}
+                  activeOpacity={0.8}
+                  onPress={() => setPeriodoKpi(p)}
+                  style={[s.chip, isSelected ? s.chipActive : s.chipInactive]}
+                >
+                  <Text style={[s.chipText, { color: isSelected ? C.white : C.slate600 }]}>{etiquetaPeriodo(p)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Los cuatro del mes */}
         <View style={{ gap: 12 }}>
-          <Text style={s.sectionLabel}>Resumen</Text>
+          <Text style={s.sectionLabel}>Lo que pasó en {etiquetaPeriodo(periodoKpi)}</Text>
           <View style={s.kpiRow}>
             <KpiCard
-              label="Margen por auto"
-              value={fmtCLP(kpis.margenPromedio)}
-              insight={`Ganas ${kpis.margenPct}% sobre lo que pagaste`}
+              label="Ventas"
+              value={String(kpisMes.ventas)}
+              insight={kpisMes.ventas === 1 ? 'auto vendido' : 'autos vendidos'}
+              color={C.brand}
+            />
+            <KpiCard
+              label="Margen promedio"
+              value={fmtCLP(kpisMes.margenPromedio)}
+              insight="por auto vendido"
               color={C.emerald600}
             />
+          </View>
+          <View style={s.kpiRow}>
+            <KpiCard
+              label="Margen total"
+              value={fmtCLP(kpisMes.margenTotal)}
+              insight="del mes completo"
+              color={C.emerald600}
+            />
+            <KpiCard
+              label="Financiamiento"
+              value={`${kpisMes.penetracionFinanciamiento}%`}
+              insight={`${kpisMes.financiados} de ${kpisMes.ventas} con crédito`}
+              color={C.brand}
+            />
+          </View>
+          {kpisMes.consignados > 0 ? (
+            <View style={s.kpiNota}>
+              <Icon name="circle-info" size={11} color={C.amber700} />
+              <Text style={s.kpiNotaText}>
+                {kpisMes.consignados === 1
+                  ? 'Un auto vendido de este mes es consignado'
+                  : `${kpisMes.consignados} autos vendidos de este mes son consignados`}
+                : su margen se calcula contra el piso pactado con el dueño, que es un supuesto nuestro
+                mientras Autored no defina cómo se calcula la comisión.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* La foto del stock de hoy: sigue siendo útil y convive con lo de arriba */}
+        <View style={{ gap: 12 }}>
+          <Text style={s.sectionLabel}>Tu stock hoy</Text>
+          <View style={s.kpiRow}>
             <KpiCard
               label="Capital en autos"
               value={fmtCLP(kpis.valorStock)}
@@ -1266,20 +1388,15 @@ function AppInner() {
               color={kpis.criticos.length > 0 ? C.amber600 : C.emerald600}
             />
           </View>
-        </View>
-
-        {/* GRÁFICOS */}
-        <View style={{ gap: 12 }}>
-          <Text style={s.sectionLabel}>Tu stock</Text>
 
           <View style={s.chartCard}>
             <Text style={s.chartTitle}>¿Hace cuánto tienes cada auto?</Text>
-            <BarsAntiguedad data={kpis.antiguedad} />
+            <BarsAntiguedad data={kpis.antiguedad} onPressBar={irAStockPorDias} />
           </View>
 
           <View style={s.chartCard}>
             <Text style={s.chartTitle}>¿En qué etapa está tu stock?</Text>
-            <BarsEstado data={kpis.porEstado} total={kpis.totalActivos} />
+            <BarsEstado data={kpis.porEstado} total={kpis.totalActivos} onPressBar={irAStockPorEstado} />
           </View>
         </View>
       </View>
@@ -1337,6 +1454,20 @@ function AppInner() {
           })}
         </ScrollView>
 
+        {/* Aviso del filtro por días, que llega desde el gráfico de antigüedad de KPIs.
+            Sin esto el usuario no tiene cómo saber por qué ve menos autos. */}
+        {filtroDias ? (
+          <View style={s.filtroDiasBanner}>
+            <Icon name="clock" size={11} color={C.teal700} />
+            <Text style={s.filtroDiasText}>
+              Mostrando solo los autos de {filtroDias === '+60' ? 'más de 60' : filtroDias} días en stock
+            </Text>
+            <TouchableOpacity onPress={() => setFiltroDias(null)}>
+              <Icon name="circle-xmark" size={14} color={C.teal700} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Listado */}
         <View style={{ gap: 12 }}>
           {filteredStock.length === 0 ? (
@@ -1348,6 +1479,7 @@ function AppInner() {
                   setFilterState('Todos');
                   setFilters({ marca: '', anio: '', precioMax: 20000000, estado: '' });
                   setSearchQuery('');
+                  setFiltroDias(null);
                 }}
               >
                 <Text style={s.resetText}>Restablecer filtros</Text>
@@ -4186,6 +4318,36 @@ function cumpleFiltroCliente(
   }
 }
 
+function cumpleFiltroDias(car: Car, filtro: FiltroDias): boolean {
+  if (!filtro) return true;
+  const d = diasEnStock(car);
+  if (filtro === '0-30') return d <= 30;
+  if (filtro === '31-60') return d > 30 && d <= 60;
+  return d > 60;
+}
+
+/* Los meses que se pueden mirar en los KPIs: el actual y los anteriores en los que
+   efectivamente hubo alguna venta. No se listan meses vacíos. */
+function periodosConVentas(stock: Car[]): string[] {
+  const hoy = new Date();
+  const actual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}`;
+  const meses = new Set<string>([actual]);
+  stock.forEach((c) => {
+    if (c.fechaVenta) meses.add(c.fechaVenta.slice(0, 7));
+  });
+  return Array.from(meses).sort().reverse();
+}
+
+const NOMBRE_MES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+function etiquetaPeriodo(periodo: string): string {
+  const [anio, mes] = periodo.split('-');
+  return `${NOMBRE_MES[Number(mes) - 1]} ${anio}`;
+}
+
 function rolesDeCliente(rels: RelacionClienteVehiculo[]): ClienteRol[] {
   const roles: ClienteRol[] = [];
   if (esClienteDeAdquisicion(rels)) roles.push('Adquisición');
@@ -4587,18 +4749,41 @@ function KpiCard({ label, value, insight, color }: { label: string; value: strin
   return (
     <View style={s.kpiCard}>
       <Text style={s.kpiLabel}>{label}</Text>
-      <Text style={s.kpiValue}>{value}</Text>
+      {/* Lo único que pidieron Jorge y Mauro sobre los KPIs: que el monto no se
+          parta en dos líneas. Se achica solo antes de cortarse. */}
+      <Text style={s.kpiValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        {value}
+      </Text>
       <Text style={[s.kpiInsight, { color }]}>{insight}</Text>
     </View>
   );
 }
 
-function BarsAntiguedad({ data }: { data: { label: string; cantidad: number; color: string }[] }) {
+/* Las barras son navegables: tocar una abre el Stock con ese filtro aplicado. */
+const RANGO_POR_TRAMO: Record<string, FiltroDias> = {
+  '0–30 d': '0-30',
+  '31–60 d': '31-60',
+  '+60 d': '+60',
+};
+
+function BarsAntiguedad({
+  data,
+  onPressBar,
+}: {
+  data: { label: string; cantidad: number; color: string }[];
+  onPressBar?: (rango: FiltroDias) => void;
+}) {
   const max = Math.max(1, ...data.map((d) => d.cantidad));
   return (
     <View style={s.barsRow}>
       {data.map((d) => (
-        <View key={d.label} style={s.barCol}>
+        <TouchableOpacity
+          key={d.label}
+          activeOpacity={onPressBar && d.cantidad > 0 ? 0.7 : 1}
+          disabled={!onPressBar || d.cantidad === 0}
+          onPress={() => onPressBar?.(RANGO_POR_TRAMO[d.label] ?? null)}
+          style={s.barCol}
+        >
           <Text style={s.barValue}>{d.cantidad}</Text>
           <View style={s.barTrack}>
             <View
@@ -4606,18 +4791,32 @@ function BarsAntiguedad({ data }: { data: { label: string; cantidad: number; col
             />
           </View>
           <Text style={s.barLabel}>{d.label}</Text>
-        </View>
+        </TouchableOpacity>
       ))}
     </View>
   );
 }
 
-function BarsEstado({ data, total }: { data: { estado: string; cantidad: number }[]; total: number }) {
+function BarsEstado({
+  data,
+  total,
+  onPressBar,
+}: {
+  data: { estado: string; cantidad: number }[];
+  total: number;
+  onPressBar?: (estado: string) => void;
+}) {
   const max = Math.max(1, ...data.map((d) => d.cantidad));
   return (
     <View style={{ gap: 10 }}>
       {data.map((d) => (
-        <View key={d.estado} style={s.hbarRow}>
+        <TouchableOpacity
+          key={d.estado}
+          activeOpacity={onPressBar && d.cantidad > 0 ? 0.7 : 1}
+          disabled={!onPressBar || d.cantidad === 0}
+          onPress={() => onPressBar?.(d.estado)}
+          style={s.hbarRow}
+        >
           <Text style={s.hbarLabel} numberOfLines={1}>
             {d.estado}
           </Text>
@@ -4625,7 +4824,7 @@ function BarsEstado({ data, total }: { data: { estado: string; cantidad: number 
             <View style={[s.hbarFill, { width: `${(d.cantidad / max) * 100}%` }]} />
           </View>
           <Text style={s.hbarValue}>{d.cantidad}</Text>
-        </View>
+        </TouchableOpacity>
       ))}
       <Text style={s.chartFoot}>
         {total} {total === 1 ? 'auto activo' : 'autos activos'} en total
@@ -6097,6 +6296,10 @@ const s = StyleSheet.create({
   sheetTitleSm: { fontWeight: W.bold, fontSize: 14, color: C.slate800 },
   sheetFieldLabel: { fontSize: 12, fontWeight: W.bold, color: C.slate400, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   sheetInput: { borderWidth: 1, borderColor: C.slate200, borderRadius: 12, padding: 10, fontSize: 12, fontWeight: W.semibold, color: C.slate700, backgroundColor: C.white },
+  filtroDiasBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.teal50, borderRadius: 12, borderWidth: 1, borderColor: C.teal200, paddingVertical: 8, paddingHorizontal: 12 },
+  filtroDiasText: { flex: 1, fontSize: 11, fontWeight: W.semibold, color: C.teal700 },
+  kpiNota: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: C.amber50, borderRadius: 12, borderWidth: 1, borderColor: C.amber200, padding: 10 },
+  kpiNotaText: { flex: 1, fontSize: 10, fontWeight: W.medium, color: C.amber700, lineHeight: 14 },
   motorAltaBox: { backgroundColor: C.teal50, borderRadius: 16, borderWidth: 1, borderColor: C.teal200, padding: 14 },
   motorAltaTitle: { fontSize: 12, fontWeight: W.extrabold, color: C.teal700, textTransform: 'uppercase', letterSpacing: 0.5 },
   motorAltaPrecio: { fontSize: 26, fontWeight: W.extrabold, color: C.slate800, marginTop: 8 },
