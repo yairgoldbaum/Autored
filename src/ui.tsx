@@ -189,7 +189,7 @@ export function Sheet({
 
   return (
     <View style={sheetStyles.container} pointerEvents="box-none">
-      <Animated.View style={[StyleSheet.absoluteFillObject, sheetStyles.backdrop, { opacity: anim }]}>
+      <Animated.View style={[StyleSheet.absoluteFill, sheetStyles.backdrop, { opacity: anim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
       <Animated.View
@@ -219,7 +219,7 @@ export function PageOverlay({ children }: { children: React.ReactNode }) {
   }, [anim]);
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
   return (
-    <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: anim, transform: [{ translateY }], backgroundColor: C.chileanBg }]}>
+    <Animated.View style={[StyleSheet.absoluteFill, { opacity: anim, transform: [{ translateY }], backgroundColor: C.chileanBg }]}>
       {children}
     </Animated.View>
   );
@@ -227,7 +227,7 @@ export function PageOverlay({ children }: { children: React.ReactNode }) {
 
 const sheetStyles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'flex-end',
     zIndex: 40,
   },
