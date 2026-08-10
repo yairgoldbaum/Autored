@@ -1101,7 +1101,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     nombre: 'Carolina Soto',
     telefono: '+56 9 5544 3322',
     tipo: 'Particular',
-    estado: 'Interesado',
+    estado: 'Caliente',
     canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
     busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.' },
     archivado: false,
