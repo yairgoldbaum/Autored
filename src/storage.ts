@@ -140,6 +140,14 @@ function normalizeCar(car: Partial<Car> & { id: number }): Car {
     clienteAdquisicion: normalizeContact(car.clienteAdquisicion),
     comprador: normalizeContact(car.comprador),
     desdeSubastaId: car.desdeSubastaId || null,
+    // Autos guardados antes de que existiera la tenencia: se asumen propios, que
+    // es lo que eran cuando se cargaron.
+    tenencia: car.tenencia === 'Consignado' ? 'Consignado' : 'Propio',
+    consignante: normalizeContact(car.consignante),
+    precioPisoConsignacion: Number(car.precioPisoConsignacion || 0),
+    fechaVenta: car.fechaVenta || null,
+    financiado: typeof car.financiado === 'boolean' ? car.financiado : null,
+    visitas: Array.isArray(car.visitas) ? car.visitas : [],
     transferencia: normalizeTransferencia(car.transferencia),
     informesEnviados: Array.isArray(car.informesEnviados) ? car.informesEnviados : [],
   };
