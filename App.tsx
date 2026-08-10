@@ -1689,9 +1689,6 @@ function AppInner() {
 
   /* ======================= PANTALLA CLIENTES ======================= */
   function renderClientes() {
-    const contarPorRol = (rol: ClienteRol) =>
-      customers.filter((c) => rolesDeCliente(relacionesPorCliente.get(c.id) || []).includes(rol)).length;
-
     const contarFiltro = (filtro: ClienteFiltro) =>
       customers.filter(
         (c) =>
@@ -1712,21 +1709,9 @@ function AppInner() {
           </TouchableOpacity>
         </View>
 
-        {/* Métricas */}
-        <View style={s.metricRow}>
-          <View style={s.metricCell}>
-            <Text style={s.metricLabel}>Total</Text>
-            <Text style={s.metricValue}>{customers.length}</Text>
-          </View>
-          <View style={s.metricCell}>
-            <Text style={s.metricLabel}>Adquisición</Text>
-            <Text style={s.metricValue}>{contarPorRol('Adquisición')}</Text>
-          </View>
-          <View style={s.metricCell}>
-            <Text style={s.metricLabel}>Venta</Text>
-            <Text style={s.metricValue}>{contarPorRol('Venta')}</Text>
-          </View>
-        </View>
+        {/* Las tres tarjetas de Total / Adquisición / Venta que estaban acá se sacaron:
+            contaban roles que ya no existen y ocupaban la mejor parte de la pantalla
+            sin accionar nada. Los chips ya traen el conteo. */}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
           {CLIENTE_FILTROS.map((filtro) => {
