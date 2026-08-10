@@ -221,7 +221,7 @@ function normalizeCustomer(customer: Partial<Customer> & { id: number }): Custom
     nombre: customer.nombre || '',
     telefono: customer.telefono || '',
     tipo: customer.tipo || 'Particular',
-    estado: customer.estado || 'Nuevo',
+    estado: normalizeEstadoCliente(customer.estado),
     canal: customer.canal === 'Tasador web' ? 'Tasador web' : 'Carga manual',
     // Los clientes guardados antes de que existiera `busca` traen el viejo `interes`,
     // que era un auto del stock propio. Se rescata como el modelo que buscan.
@@ -231,6 +231,22 @@ function normalizeCustomer(customer: Partial<Customer> & { id: number }): Custom
     // vehiculosVentaIds, reservadoId) se descartan: esa relación ahora vive en
     // `relaciones`, y syncStockAndCustomers la rearma desde los contactos del auto.
   };
+}
+
+/* El estado del trato bajó de siete a tres. Los cuatro que salieron repetían lo que
+   ahora dicen las relaciones con autos, así que un cliente guardado con uno de esos
+   cae al estado del trato que más se le parece. */
+function normalizeEstadoCliente(estado: string | undefined): string {
+  switch (estado) {
+    case 'Caliente':
+    case 'Frecuente':
+      return estado;
+    case 'Interesado':
+    case 'Reserva':
+      return 'Caliente';
+    default:
+      return 'Nuevo';
+  }
 }
 
 function normalizeBusqueda(customer: Partial<Customer> & { interes?: unknown }): BusquedaCliente | null {

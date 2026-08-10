@@ -238,6 +238,7 @@ function AppInner() {
   const [clienteSearch, setClienteSearch] = useState('');
   const [clienteFiltro, setClienteFiltro] = useState<ClienteFiltro>('Todos');
   const [isNewClientSheetOpen, setIsNewClientSheetOpen] = useState(false);
+  const [newClientExtrasOpen, setNewClientExtrasOpen] = useState(false);
   const [newClient, setNewClient] = useState<NewClientData>(emptyNewClient());
 
   // AutoSave: informe (derivado, no se persiste) y transferencia notarial
@@ -965,6 +966,7 @@ function AppInner() {
 
   const handleAbrirNuevoCliente = () => {
     setNewClient(emptyNewClient());
+    setNewClientExtrasOpen(false);
     setIsNewClientSheetOpen(true);
   };
 
@@ -978,11 +980,14 @@ function AppInner() {
       buscaModelo: client.busca?.modelo || '',
       buscaComentario: client.busca?.comentario || '',
     });
+    // Al editar se abre desplegado, si no lo cargado queda escondido detrás del toggle.
+    setNewClientExtrasOpen(!!client.busca || client.tipo === 'Empresa');
     setIsNewClientSheetOpen(true);
   };
 
   const handleGuardarCliente = () => {
-    if (!newClient.nombre) return;
+    // Nombre y teléfono son los dos únicos obligatorios.
+    if (!newClient.nombre.trim() || !newClient.telefono.trim()) return;
     if (newClient.id) {
       const existing = customers.find((c) => c.id === newClient.id);
       const updated: Customer = {
@@ -4140,6 +4145,7 @@ function AppInner() {
 
   /* ======================= SHEET: NUEVO/EDITAR CLIENTE ======================= */
   function renderNewClientSheet() {
+    const clienteFormListo = !!newClient.nombre.trim() && !!newClient.telefono.trim();
     return (
       <Sheet visible={isNewClientSheetOpen} onClose={() => setIsNewClientSheetOpen(false)} maxHeightPct={90}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -4173,23 +4179,42 @@ function AppInner() {
                   style={s.sheetInput}
                 />
               </View>
-              <View>
-                <Text style={s.sheetFieldLabel}>Estado del trato</Text>
-                <Dropdown
-                  value={newClient.estado}
-                  onChange={(v) => setNewClient({ ...newClient, estado: v })}
-                  options={ESTADO_CLIENTE_OPTIONS}
-                />
-              </View>
-              <ModeloBuscadoField
-                modelo={newClient.buscaModelo}
-                comentario={newClient.buscaComentario}
-                onChangeModelo={(v) => setNewClient({ ...newClient, buscaModelo: v })}
-                onChangeComentario={(v) => setNewClient({ ...newClient, buscaComentario: v })}
-              />
+              {/* Todo lo demás es opcional y va plegado: el alta se cierra con nombre
+                  y teléfono. El estado del trato no se pregunta acá, se marca después
+                  desde la tarjeta. */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setNewClientExtrasOpen((v) => !v)}
+                style={s.sheetToggleRow}
+              >
+                <Text style={s.sheetToggleText}>Qué busca y tipo de cliente (opcional)</Text>
+                <Icon name={newClientExtrasOpen ? 'chevron-up' : 'chevron-down'} size={12} color={C.slate400} />
+              </TouchableOpacity>
+              {newClientExtrasOpen ? (
+                <>
+                  <View>
+                    <Text style={s.sheetFieldLabel}>Tipo de cliente</Text>
+                    <Dropdown
+                      value={newClient.tipo}
+                      onChange={(v) => setNewClient({ ...newClient, tipo: v as NewClientData['tipo'] })}
+                      options={TIPO_CLIENTE_OPTIONS}
+                    />
+                  </View>
+                  <ModeloBuscadoField
+                    modelo={newClient.buscaModelo}
+                    comentario={newClient.buscaComentario}
+                    onChangeModelo={(v) => setNewClient({ ...newClient, buscaModelo: v })}
+                    onChangeComentario={(v) => setNewClient({ ...newClient, buscaComentario: v })}
+                  />
+                </>
+              ) : null}
             </View>
 
-            <TouchableOpacity onPress={handleGuardarCliente} style={s.sheetPrimaryBtn}>
+            <TouchableOpacity
+              onPress={handleGuardarCliente}
+              disabled={!clienteFormListo}
+              style={[s.sheetPrimaryBtn, !clienteFormListo && { opacity: 0.45 }]}
+            >
               <Text style={s.sheetPrimaryText}>{newClient.id ? 'Guardar Cambios' : 'Registrar Cliente'}</Text>
             </TouchableOpacity>
           </View>
@@ -4200,37 +4225,33 @@ function AppInner() {
 }
 
 /* ============================ HELPERS / SUBCOMPONENTES ============================ */
-// Estados del trato de un lead (sin emojis, tono CRM corporativo)
+/* Estado del trato: describe la relación comercial y nada más. Eran siete y cuatro
+   de ellos (Interesado, Adquisición, Reserva, Comprador) repetían lo que ahora dicen
+   las relaciones con autos. "Adquisición" además aparecía a la vez acá y como rol
+   comercial, así que se elegía lo mismo dos veces. */
 const ESTADO_CLIENTE_OPTIONS = [
   { label: 'Nuevo', value: 'Nuevo' },
-  { label: 'Interesado', value: 'Interesado' },
   { label: 'Caliente', value: 'Caliente' },
   { label: 'Frecuente', value: 'Frecuente' },
-  { label: 'Adquisición', value: 'Adquisición' },
-  { label: 'Reserva', value: 'Reserva' },
-  { label: 'Comprador', value: 'Comprador' },
 ];
 
-// Color del badge según el estado del lead
+// Color del badge según el estado del trato
 function badgeForEstadoCliente(estado: string) {
   switch (estado) {
     case 'Caliente':
       return { bg: C.red50, color: C.red700 };
     case 'Frecuente':
       return { bg: C.emerald50, color: C.emerald700 };
-    case 'Interesado':
-      return { bg: C.amber50, color: C.amber700 };
-    case 'Adquisición':
-      return { bg: C.teal50, color: C.teal700 };
-    case 'Reserva':
-      return { bg: C.blue50, color: C.blue700 };
-    case 'Comprador':
-      return { bg: C.emerald50, color: C.emerald700 };
     case 'Nuevo':
     default:
       return { bg: C.blue50, color: C.blue700 };
   }
 }
+
+const TIPO_CLIENTE_OPTIONS = [
+  { label: 'Particular', value: 'Particular' },
+  { label: 'Empresa', value: 'Empresa' },
+];
 
 function badgeForClienteRol(role: ClienteRol) {
   if (role === 'Adquisición') return { bg: C.teal50, color: C.teal700 };
@@ -6135,6 +6156,8 @@ const s = StyleSheet.create({
   sheetTitleSm: { fontWeight: W.bold, fontSize: 14, color: C.slate800 },
   sheetFieldLabel: { fontSize: 12, fontWeight: W.bold, color: C.slate400, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
   sheetInput: { borderWidth: 1, borderColor: C.slate200, borderRadius: 12, padding: 10, fontSize: 12, fontWeight: W.semibold, color: C.slate700, backgroundColor: C.white },
+  sheetToggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: C.slate50, borderWidth: 1, borderColor: C.slate200 },
+  sheetToggleText: { fontSize: 12, fontWeight: W.bold, color: C.slate600 },
   sugerenciaChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: C.slate100, borderWidth: 1, borderColor: C.slate200 },
   sugerenciaText: { fontSize: 11, fontWeight: W.semibold, color: C.slate600 },
   sheetRangeValue: { fontSize: 12, fontWeight: W.extrabold, color: C.chileanTeal },
