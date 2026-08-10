@@ -51,7 +51,6 @@ export interface Car {
   precioVentaEstimado: number;
   costoAdquisicion: number; // 0 en consignación: no hubo compra
   estado: EstadoAuto;
-  diasStock: number;
   fotos: string[];
   comentario: string;
   documentos: VehicleDocument[];
@@ -102,6 +101,18 @@ export interface VehicleDocument {
    cambia esta función y no las pantallas. */
 export function costoBase(car: Car): number {
   return car.tenencia === 'Consignado' ? car.precioPisoConsignacion : car.costoAdquisicion;
+}
+
+/* Días que el auto lleva en el patio, calculados desde fechaIngreso.
+
+   Antes era un número guardado (`diasStock`) que se escribía una vez al crear el auto
+   y nunca más se movía, así que el distintivo "+60 DÍAS", el promedio de días y el
+   gráfico de antigüedad empezaban a mentir a la semana de uso real. */
+export function diasEnStock(car: Pick<Car, 'fechaIngreso'>, hoy: Date = new Date()): number {
+  if (!car.fechaIngreso) return 0;
+  const ingreso = new Date(car.fechaIngreso + 'T00:00:00');
+  const ms = hoy.getTime() - ingreso.getTime();
+  return Math.max(0, Math.floor(ms / 86400000));
 }
 
 /* ===================== AUTOSAVE — INFORME DEL VEHÍCULO =====================
@@ -325,7 +336,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioVentaEstimado: 7800000,
     costoAdquisicion: 5900000,
     estado: 'En venta',
-    diasStock: 12,
     fotos: [
       'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
@@ -375,7 +385,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioVentaEstimado: 9300000,
     costoAdquisicion: 7200000,
     estado: 'En preparación',
-    diasStock: 5,
     fotos: [
       'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80',
       'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=600&q=80',
@@ -419,7 +428,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioVentaEstimado: 8800000,
     costoAdquisicion: 0, // consignado: no se compró
     estado: 'En venta',
-    diasStock: 65,
     fotos: [
       'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
     ],
@@ -470,7 +478,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioVentaEstimado: 12990000,
     costoAdquisicion: 10800000,
     estado: 'Reservado',
-    diasStock: 22,
     fotos: [
       'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=600&q=80',
     ],
@@ -520,7 +527,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioVentaEstimado: 10990000,
     costoAdquisicion: 8900000,
     estado: 'Vendido',
-    diasStock: 45,
     fotos: [
       'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=600&q=80',
     ],
@@ -623,7 +629,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioVentaEstimado: 6300000,
     costoAdquisicion: 4800000,
     estado: 'Pre-stock',
-    diasStock: 2,
     fotos: [
       'https://images.unsplash.com/photo-1532581291347-9c39cf10a73c?auto=format&fit=crop&w=600&q=80',
     ],

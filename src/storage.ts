@@ -102,6 +102,10 @@ export async function clearState(): Promise<void> {
   } catch {}
 }
 
+function hoyISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function normalizeCar(car: Partial<Car> & { id: number }): Car {
   const precioVenta = Number(car.precioVenta || car.precioPublicacionContado || 0);
   const anio = Number(car.anio || 0);
@@ -116,7 +120,9 @@ function normalizeCar(car: Partial<Car> & { id: number }): Car {
     anio,
     anioFabricacion: Number(car.anioFabricacion || anio || 0),
     sucursal: car.sucursal || 'Mayorista',
-    fechaIngreso: car.fechaIngreso || '',
+    // Los días en stock se calculan desde acá, así que un auto sin fecha empieza
+    // a contar hoy en vez de quedarse pegado en cero para siempre.
+    fechaIngreso: car.fechaIngreso || hoyISO(),
     km: Number(car.km || 0),
     color: car.color || '',
     transmision: car.transmision || 'Manual',
@@ -133,7 +139,8 @@ function normalizeCar(car: Partial<Car> & { id: number }): Car {
     precioVentaEstimado: Number(car.precioVentaEstimado || precioVenta || 0),
     costoAdquisicion: Number(car.costoAdquisicion || 0),
     estado: car.estado || 'En preparación',
-    diasStock: Number(car.diasStock || 1),
+    // `diasStock` ya no se guarda: se calcula con diasEnStock() desde fechaIngreso.
+    // Si un auto viejo no la tiene, se le pone la de hoy y empieza a contar desde acá.
     fotos: Array.isArray(car.fotos) ? car.fotos : [],
     comentario: car.comentario || '',
     documentos: Array.isArray(car.documentos) ? car.documentos : [],
