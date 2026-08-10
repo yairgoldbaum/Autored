@@ -8,6 +8,21 @@ export type EstadoAuto =
   | 'Reservado'
   | 'Vendido';
 
+/* Tenencia: de quién es el auto que está en el patio. Un consignado no se compró,
+   sigue siendo del cliente que lo dejó, y por eso ni el capital ni el margen se
+   calculan igual que en uno propio. */
+export type TenenciaVehiculo = 'Propio' | 'Consignado';
+
+/* Una visita al auto. Sin vendedor asociado: ese concepto todavía no existe en la
+   app y cuando existan roles se le cuelga sin tocar lo ya cargado. El cliente es
+   opcional porque muchas visitas no dejan datos. */
+export interface VisitaVehiculo {
+  id: number;
+  fecha: string; // YYYY-MM-DD
+  clienteId: number | null;
+  nombre: string; // '' cuando la visita no se identificó
+}
+
 export interface Car {
   id: number;
   patente: string;
@@ -34,7 +49,7 @@ export interface Car {
   precioPublicacionContado: number;
   precioPublicacionFinanciado: number;
   precioVentaEstimado: number;
-  costoAdquisicion: number;
+  costoAdquisicion: number; // 0 en consignación: no hubo compra
   estado: EstadoAuto;
   diasStock: number;
   fotos: string[];
@@ -43,6 +58,15 @@ export interface Car {
   clienteAdquisicion: VehicleContact | null;
   comprador: VehicleContact | null;
   desdeSubastaId?: number | null;
+  // Tenencia (paso 1)
+  tenencia: TenenciaVehiculo;
+  consignante: VehicleContact | null; // el dueño, solo cuando está consignado
+  precioPisoConsignacion: number; // lo pactado con el dueño; 0 si el auto es propio
+  // Venta (paso 2) — sin fechaVenta no existe ningún KPI del mes
+  fechaVenta: string | null; // YYYY-MM-DD
+  financiado: boolean | null; // null mientras el auto no se haya vendido
+  // Visitas (paso 3)
+  visitas: VisitaVehiculo[];
   // AutoSave (opcionales: el wizard construye autos sin ellos)
   transferencia?: TransferenciaNotarial | null;
   informesEnviados?: EnvioInforme[];
@@ -64,6 +88,20 @@ export interface VehicleDocument {
   nombre: string;
   fechaVencimiento: string;
   archivoNombre: string;
+}
+
+/* Lo que el auto tiene que rendir antes de que exista ganancia: en uno propio es lo
+   que se pagó por él, y en uno consignado lo que hay que entregarle al dueño. Existe
+   como función única porque el margen se muestra en tres pantallas y antes cada una
+   restaba `costoAdquisicion`, que en consignación es 0 y devolvía el precio completo
+   del auto como si fuera utilidad.
+
+   PENDIENTE CON AUTORED: todavía no definen cómo se calcula la comisión de una
+   consignación. Acá se asume precio piso pactado (la compraventa se queda con lo que
+   pase de ese monto). Si resulta ser un porcentaje o un monto fijo por auto, se
+   cambia esta función y no las pantallas. */
+export function costoBase(car: Car): number {
+  return car.tenencia === 'Consignado' ? car.precioPisoConsignacion : car.costoAdquisicion;
 }
 
 /* ===================== AUTOSAVE — INFORME DEL VEHÍCULO =====================
@@ -300,6 +338,14 @@ export const INITIAL_STOCK_DATA: Car[] = [
       telefono: '',
     },
     comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+    visitas: [
+      { id: 1, fecha: '2026-08-06', clienteId: 3, nombre: 'Carolina Soto' },
+    ],
   },
   {
     id: 2,
@@ -338,6 +384,12 @@ export const INITIAL_STOCK_DATA: Car[] = [
     documentos: [],
     clienteAdquisicion: null,
     comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+    visitas: [],
   },
   {
     id: 3,
@@ -365,16 +417,30 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPublicacionContado: 8990000,
     precioPublicacionFinanciado: 9290000,
     precioVentaEstimado: 8800000,
-    costoAdquisicion: 6700000,
+    costoAdquisicion: 0, // consignado: no se compró
     estado: 'En venta',
     diasStock: 65,
     fotos: [
       'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
     ],
-    comentario: 'Lleva más de 60 días. Requiere revisión de precio o promo.',
+    comentario:
+      'Consignado por Automotora Melipilla. Lleva más de 60 días. Requiere revisión de precio o promo.',
     documentos: [],
     clienteAdquisicion: null,
     comprador: null,
+    tenencia: 'Consignado',
+    consignante: {
+      clienteId: 2,
+      nombre: 'Automotora Melipilla SpA',
+      telefono: '+56 9 7123 9988',
+    },
+    precioPisoConsignacion: 7500000,
+    fechaVenta: null,
+    financiado: null,
+    visitas: [
+      { id: 1, fecha: '2026-07-28', clienteId: null, nombre: '' },
+      { id: 2, fecha: '2026-08-05', clienteId: null, nombre: '' },
+    ],
   },
   {
     id: 4,
@@ -417,6 +483,14 @@ export const INITIAL_STOCK_DATA: Car[] = [
       nombre: 'Marcelo Aravena',
       telefono: '+56 9 8456 1234',
     },
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null, // reservado, todavía no vendido
+    financiado: null,
+    visitas: [
+      { id: 1, fecha: '2026-07-30', clienteId: 1, nombre: 'Marcelo Aravena' },
+    ],
   },
   {
     id: 5,
@@ -450,7 +524,7 @@ export const INITIAL_STOCK_DATA: Car[] = [
     fotos: [
       'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?auto=format&fit=crop&w=600&q=80',
     ],
-    comentario: 'Vendido al contado el 05 de Julio.',
+    comentario: 'Vendido al contado el 04 de Agosto.',
     documentos: [],
     clienteAdquisicion: null,
     comprador: {
@@ -458,6 +532,14 @@ export const INITIAL_STOCK_DATA: Car[] = [
       nombre: 'Rodrigo Fuentes',
       telefono: '+56 9 6677 1122',
     },
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: '2026-08-04',
+    financiado: false, // se pagó al contado
+    visitas: [
+      { id: 1, fecha: '2026-07-22', clienteId: null, nombre: 'Rodrigo Fuentes' },
+    ],
     // Transferencia notarial ya en curso: es el auto que muestra el seguimiento de AutoSave
     // sin tener que generarla primero. Los montos coinciden con cotizarTransferencia().
     transferencia: {
@@ -553,6 +635,12 @@ export const INITIAL_STOCK_DATA: Car[] = [
       telefono: '',
     },
     comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+    visitas: [],
   },
 ];
 

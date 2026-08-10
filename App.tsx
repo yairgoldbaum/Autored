@@ -42,6 +42,7 @@ import {
   INITIAL_AUCTIONS,
   INITIAL_CUSTOMERS,
   ESTADOS,
+  costoBase,
 } from './src/data';
 import { Icon, Ping, Spinner, Wiggle, Pulse, Sheet, Dropdown, PageOverlay } from './src/ui';
 import { loadState, saveState } from './src/storage';
@@ -341,11 +342,15 @@ function AppInner() {
     const valorStock = activos.reduce((sum, c) => sum + c.costoAdquisicion, 0);
     const promedioDias =
       activos.length > 0 ? Math.round(activos.reduce((sum, c) => sum + c.diasStock, 0) / activos.length) : 0;
+    // El margen se mide contra costoBase, no contra costoAdquisicion: en un auto
+    // consignado no hubo compra y restar 0 devolvía el precio completo como utilidad.
+    // valorStock, en cambio, sí es costoAdquisicion, porque mide capital propio metido.
     const margenPromedio =
       activos.length > 0
-        ? Math.round(activos.reduce((sum, c) => sum + (c.precioVenta - c.costoAdquisicion), 0) / activos.length)
+        ? Math.round(activos.reduce((sum, c) => sum + (c.precioVenta - costoBase(c)), 0) / activos.length)
         : 0;
-    const costoPromedio = activos.length > 0 ? valorStock / activos.length : 0;
+    const costoPromedio =
+      activos.length > 0 ? activos.reduce((sum, c) => sum + costoBase(c), 0) / activos.length : 0;
     const margenPct = costoPromedio > 0 ? Math.round((margenPromedio / costoPromedio) * 100) : 0;
 
     // Autos que llevan demasiado tiempo sin venderse y cuánto capital tienen inmovilizado
@@ -551,6 +556,12 @@ function AppInner() {
       clienteAdquisicion: null,
       comprador: null,
       desdeSubastaId: auction.id,
+      tenencia: 'Propio', // un auto adjudicado en subasta se compró
+      consignante: null,
+      precioPisoConsignacion: 0,
+      fechaVenta: null,
+      financiado: null,
+      visitas: [],
     });
     setDocumentDraft({ tipo: '', nombre: '', fechaVencimiento: '', archivoNombre: '' });
     setCargarStep(1);
@@ -2360,8 +2371,9 @@ function AppInner() {
 
   function renderWizardStep4() {
     const precioBase = wizardData.precioVentaEstimado || wizardData.precioPublicacionContado || wizardData.precioVenta;
-    const margen = precioBase - wizardData.costoAdquisicion;
-    const pct = Math.round((margen / wizardData.costoAdquisicion) * 100) || 0;
+    const base = costoBase(wizardData as Car);
+    const margen = precioBase - base;
+    const pct = Math.round((margen / base) * 100) || 0;
     return (
       <View style={{ gap: 16 }}>
         <View>
@@ -2611,8 +2623,10 @@ function AppInner() {
                 {/* Margen */}
                 <View style={s.detailMargenCard}>
                   <View style={s.rowBetween}>
-                    <Text style={s.detailMiniLabel}>Costo Adquisición</Text>
-                    <Text style={s.detailMiniValue}>{fmtCLP(car.costoAdquisicion)}</Text>
+                    <Text style={s.detailMiniLabel}>
+                      {car.tenencia === 'Consignado' ? 'Piso Consignación' : 'Costo Adquisición'}
+                    </Text>
+                    <Text style={s.detailMiniValue}>{fmtCLP(costoBase(car))}</Text>
                   </View>
                   <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
                     <View>
@@ -2621,7 +2635,7 @@ function AppInner() {
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
-                      <Text style={s.detailMargen}>+{fmtCLP((car.precioVentaEstimado || car.precioVenta) - car.costoAdquisicion)}</Text>
+                      <Text style={s.detailMargen}>+{fmtCLP((car.precioVentaEstimado || car.precioVenta) - costoBase(car))}</Text>
                     </View>
                   </View>
                   <View style={s.detailFinanceGrid}>
@@ -4398,6 +4412,12 @@ function makeEmptyWizard(): WizardData {
     clienteAdquisicion: null,
     comprador: null,
     desdeSubastaId: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+    visitas: [],
   };
 }
 
@@ -4671,7 +4691,7 @@ function DateField({
       </TouchableOpacity>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)} statusBarTranslucent>
         <View style={s.calendarBackdrop}>
-          <TouchableOpacity activeOpacity={1} onPress={() => setOpen(false)} style={StyleSheet.absoluteFillObject} />
+          <TouchableOpacity activeOpacity={1} onPress={() => setOpen(false)} style={StyleSheet.absoluteFill} />
           <View style={s.calendarCard}>
             <View style={s.calendarHeader}>
               <TouchableOpacity activeOpacity={0.8} onPress={() => moveMonth(-1)} style={s.calendarNavBtn}>
