@@ -166,6 +166,9 @@ function AppInner() {
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [statusNote, setStatusNote] = useState('');
   const [statusBuyer, setStatusBuyer] = useState<VehicleContact>(emptyContact());
+  // Si la venta fue financiada: alimenta la penetración de financiamiento de
+  // los KPIs del mes (el dato que P2 necesita desde esta ficha).
+  const [statusFinanciado, setStatusFinanciado] = useState(false);
 
   // Oferta subasta
   const [bidAmount, setBidAmount] = useState(0);
@@ -726,6 +729,11 @@ function AppInner() {
         estado: nextStatus,
         comprador: requiresBuyer(nextStatus) ? cleanVehicleContact(statusBuyer) : c.comprador,
         comentario: statusNote || c.comentario,
+        // Sin fechaVenta la venta no existe para los KPIs del mes (nota de
+        // CONTEXTO-P1). Se conserva la fecha si el auto ya estaba vendido, y
+        // ambos campos se limpian si el estado deja de ser Vendido.
+        fechaVenta: nextStatus === 'Vendido' ? c.fechaVenta || todayIsoDate() : null,
+        financiado: nextStatus === 'Vendido' ? statusFinanciado : null,
       };
     });
     const synced = syncStockAndCustomers(nextStock, customers, relaciones);
@@ -750,6 +758,15 @@ function AppInner() {
   const patchCar = (id: number, patch: Partial<Car>) => {
     setStock((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
     setActiveCar((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
+  };
+
+  /* La visita del día, sin pedir datos: el modelo acepta visitas anónimas y la
+     mayoría no deja nombre. Es el segundo dato que P2 necesita desde la ficha
+     (nota de CONTEXTO-P1) y alimenta el orden "Más visitas" de la bandeja. */
+  const handleMarcarVisita = (car: Car) => {
+    const visita = { id: Date.now(), fecha: todayIsoDate(), clienteId: null, nombre: '' };
+    patchCar(car.id, { visitas: [...(car.visitas || []), visita] });
+    showNotification(`Visita registrada al ${car.marca} ${car.modelo}.`);
   };
 
   const handleAbrirEnvioInforme = (car: Car) => {
@@ -1281,7 +1298,9 @@ function AppInner() {
           setSelectedStatus={setSelectedStatus}
           setStatusNote={setStatusNote}
           setStatusBuyer={setStatusBuyer}
+          setStatusFinanciado={setStatusFinanciado}
           setIsStatusSheetOpen={setIsStatusSheetOpen}
+          handleMarcarVisita={handleMarcarVisita}
           handleEditarAuto={handleEditarAuto}
           handleEliminarAuto={handleEliminarAuto}
         />
@@ -1359,6 +1378,8 @@ function AppInner() {
           setStatusNote={setStatusNote}
           statusBuyer={statusBuyer}
           setStatusBuyer={setStatusBuyer}
+          statusFinanciado={statusFinanciado}
+          setStatusFinanciado={setStatusFinanciado}
           handleGuardarEstado={handleGuardarEstado}
         />
         <AuctionBidSheet
