@@ -150,7 +150,13 @@ function AppInner() {
   // auto más Todos; si David define tabs nuevos en la reunión (punto 10), se
   // agregan a `chips` en screens/Stock.tsx.
   const [filterState, setFilterState] = useState('En venta');
-  const [filters, setFilters] = useState<StockFilters>({ marca: '', anio: '', precioMax: 20000000, estado: '' });
+  const [filters, setFilters] = useState<StockFilters>({
+    marca: '',
+    anio: '',
+    precioMax: 20000000,
+    estado: '',
+    tenencia: '',
+  });
 
   // Ajuste de precio
   const [adjustedPrice, setAdjustedPrice] = useState(0);
@@ -376,9 +382,17 @@ function AppInner() {
       const matchesAnio = !filters.anio || car.anio.toString() === filters.anio;
       const matchesPrecio = car.precioVenta <= filters.precioMax;
       const matchesEstado = !filters.estado || car.estado === filters.estado;
+      const matchesTenencia = !filters.tenencia || car.tenencia === filters.tenencia;
       const matchesDias = cumpleFiltroDias(car, filtroDias);
       return (
-        matchesSearch && matchesChip && matchesMarca && matchesAnio && matchesPrecio && matchesEstado && matchesDias
+        matchesSearch &&
+        matchesChip &&
+        matchesMarca &&
+        matchesAnio &&
+        matchesPrecio &&
+        matchesEstado &&
+        matchesTenencia &&
+        matchesDias
       );
     });
   }, [stock, searchQuery, filterState, filters, filtroDias]);
