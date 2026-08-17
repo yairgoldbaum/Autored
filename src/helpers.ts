@@ -128,6 +128,7 @@ export interface StockFilters {
   anio: string;
   precioMax: number;
   estado: string;
+  tenencia: string; // '' = todas, o 'Propio' | 'Consignado' (punto 11)
 }
 
 /* Estado del trato: describe la relación comercial y nada más. Eran siete y cuatro

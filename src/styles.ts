@@ -614,6 +614,18 @@ export const s = StyleSheet.create({
   estadoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 9999, borderWidth: 1 },
   stockAuctionPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.amber50, borderWidth: 1, borderColor: C.amber200, borderRadius: 9999, paddingHorizontal: 7, paddingVertical: 2 },
   stockAuctionText: { fontSize: 9, color: C.amber700, fontWeight: W.extrabold, textTransform: 'uppercase' },
+  /* Tenencia: el consignado se distingue de un vistazo (Mauro, punto 11). Morado
+     porque ningún estado de la tarjeta lo usa: no compite con esa semántica. */
+  consignadoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: C.purple100,
+    borderRadius: 9999,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  consignadoText: { fontSize: 9, color: C.purple700, fontWeight: W.extrabold, textTransform: 'uppercase' },
   diasStock: { fontSize: 9, color: C.slate400, fontWeight: W.medium },
 
   /* Subastas */

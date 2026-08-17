@@ -113,7 +113,7 @@ export function StockScreen({
             <TouchableOpacity
               onPress={() => {
                 setFilterState('Todos');
-                setFilters({ marca: '', anio: '', precioMax: 20000000, estado: '' });
+                setFilters({ marca: '', anio: '', precioMax: 20000000, estado: '', tenencia: '' });
                 setSearchQuery('');
                 setFiltroDias(null);
               }}
@@ -191,6 +191,14 @@ export function StockScreen({
                       <View style={[s.estadoBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
                         <Text style={{ fontSize: 10, fontWeight: W.extrabold, color: badge.color }}>{car.estado}</Text>
                       </View>
+                      {/* Propio y consignado dejan de verse iguales (Mauro, punto 11):
+                          el consignado no es tuyo y su margen se calcula distinto. */}
+                      {car.tenencia === 'Consignado' && (
+                        <View style={s.consignadoPill}>
+                          <Icon name="handshake" size={8} color={C.purple700} />
+                          <Text style={s.consignadoText}>Consignado</Text>
+                        </View>
+                      )}
                       {activeStockAuction && (
                         <View style={s.stockAuctionPill}>
                           <Icon name="clock" size={8} color={C.amber700} />
@@ -275,11 +283,29 @@ export function FilterSheet({
             thumbTintColor={C.chileanTeal}
           />
         </View>
+        <View>
+          <Text style={s.sheetFieldLabel}>Tenencia</Text>
+          <View style={s.asChipRow}>
+            {[
+              { label: 'Todas', value: '' },
+              { label: 'Propio', value: 'Propio' },
+              { label: 'Consignado', value: 'Consignado' },
+            ].map((op) => (
+              <TouchableOpacity
+                key={op.label}
+                onPress={() => setFilters({ ...filters, tenencia: op.value })}
+                style={[s.asChip, filters.tenencia === op.value && s.asChipActive]}
+              >
+                <Text style={[s.asChipText, filters.tenencia === op.value && { color: C.white }]}>{op.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       </ScrollView>
       <View style={[s.sheetFooter, { paddingBottom: (insets.bottom || 0) + 16 }]}>
         <TouchableOpacity
           onPress={() => {
-            setFilters({ marca: '', anio: '', precioMax: 20000000, estado: '' });
+            setFilters({ marca: '', anio: '', precioMax: 20000000, estado: '', tenencia: '' });
             setIsFilterSheetOpen(false);
           }}
           style={s.sheetBtnGray}
