@@ -6,6 +6,7 @@ import {
   Keyboard,
   Linking,
   ScrollView,
+  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -82,7 +83,6 @@ import {
   updateCarContactForCustomer,
 } from './src/helpers';
 import { NavButton, NotificationBanner } from './components/shared';
-import { InicioScreen } from './screens/Inicio';
 import { KpisScreen } from './screens/Kpis';
 import { FilterSheet, StockScreen } from './screens/Stock';
 import {
@@ -123,17 +123,12 @@ function AppInner() {
   // adentro de ninguno de los dos.
   const [relaciones, setRelaciones] = useState<RelacionClienteVehiculo[]>(initialSyncedState.relaciones);
 
-  const [activeTab, setActiveTab] = useState<TabKey>('inicio');
+  // La app abre en la bandeja del stock: es lo que el mayorista entra a ver
+  // todos los días (David, punto 4). Los KPIs pasaron al final de la barra.
+  const [activeTab, setActiveTab] = useState<TabKey>('stock');
   const [filtroDias, setFiltroDias] = useState<FiltroDias>(null);
   // Mes que muestran los KPIs. Arranca en el actual.
   const [periodoKpi, setPeriodoKpi] = useState(() => new Date().toISOString().slice(0, 7));
-
-  // El botón del Motor de Precios sólo rebota en las 2 primeras entradas a Inicio.
-  const [inicioVisitas, setInicioVisitas] = useState(0);
-  useEffect(() => {
-    if (activeTab === 'inicio') setInicioVisitas((n) => n + 1);
-  }, [activeTab]);
-  const motorRebotes = inicioVisitas > 0 && inicioVisitas <= 2 ? 2 : 0;
 
   // Modales / sheets
   const [activeCar, setActiveCar] = useState<Car | null>(null);
@@ -1092,6 +1087,28 @@ function AppInner() {
           ]}
         >
           <Image source={require('./logoauto.jpg')} style={s.logoImg} resizeMode="contain" />
+          {/* Lo que salió de la barra inferior pero sigue en la app: el Motor de
+              Precios (era la pantalla de Inicio) y Subastas, que espera la
+              decisión de Autored sobre si sale de la app (punto 46). */}
+          <View style={s.headerActions}>
+            <TouchableOpacity activeOpacity={0.8} onPress={handleAbrirMotor} style={s.headerIconBtn}>
+              <Icon name="gauge-high" size={16} color={C.slate600} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setActiveTab('subastas')}
+              style={s.headerIconBtn}
+            >
+              <View>
+                <Icon name="gavel" size={16} color={activeTab === 'subastas' ? C.chileanTeal : C.slate600} />
+                {adjudicadasCount > 0 ? (
+                  <View style={s.navBadge}>
+                    <Text style={s.navBadgeText}>{adjudicadasCount}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* MAIN SCROLL */}
@@ -1103,13 +1120,6 @@ function AppInner() {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {activeTab === 'inicio' && (
-            <InicioScreen
-              motorRebotes={motorRebotes}
-              inicioVisitas={inicioVisitas}
-              handleAbrirMotor={handleAbrirMotor}
-            />
-          )}
           {activeTab === 'stock' && (
             <StockScreen
               stock={stock}
@@ -1185,8 +1195,11 @@ function AppInner() {
             { paddingBottom: insets.bottom || 8, paddingLeft: 8 + insets.left, paddingRight: 8 + insets.right },
           ]}
         >
-          <NavButton icon="house-chimney" label="Inicio" active={activeTab === 'inicio'} onPress={() => setActiveTab('inicio')} />
+          {/* El orden de David (punto 44): Stock, Clientes y al final los KPIs.
+              Cuando Autored decida si la transferencia digital entra al alcance
+              (punto 48), Transferencias se suma entre Clientes y KPIs. */}
           <NavButton icon="warehouse" label="Stock" active={activeTab === 'stock'} onPress={() => setActiveTab('stock')} />
+          <NavButton icon="user-group" label="Clientes" active={activeTab === 'clientes'} onPress={() => setActiveTab('clientes')} />
 
           {/* Botón + flotante */}
           <View style={s.fabWrap}>
@@ -1195,16 +1208,6 @@ function AppInner() {
             </TouchableOpacity>
           </View>
 
-          <NavButton
-            icon="gavel"
-            label="Subastas"
-            active={activeTab === 'subastas'}
-            onPress={() => setActiveTab('subastas')}
-            badge={adjudicadasCount}
-          />
-          <NavButton icon="user-group" label="Clientes" active={activeTab === 'clientes'} onPress={() => setActiveTab('clientes')} />
-          {/* Última de la barra. NOTA PARA P1: cuando reordenes la barra inferior,
-              esta pestaña va al final. */}
           <NavButton icon="chart-simple" label="KPIs" active={activeTab === 'kpis'} onPress={() => setActiveTab('kpis')} />
         </View>
 
