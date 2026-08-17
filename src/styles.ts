@@ -841,6 +841,11 @@ export const s = StyleSheet.create({
   detailFinanceGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 10, columnGap: 16, borderTopWidth: 1, borderTopColor: C.slate100, paddingTop: 10, marginTop: 2 },
   detailTechCard: { backgroundColor: C.white, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.slate100 },
   detailTechTitle: { fontWeight: W.bold, fontSize: 12, color: C.slate400, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 },
+  /* Sección colapsable de la ficha (punto 23): cerrada muestra el título con un
+     resumen de una línea; abierta, el contenido completo. */
+  seccionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  seccionTitulo: { fontWeight: W.bold, fontSize: 12, color: C.slate400, textTransform: 'uppercase', letterSpacing: 0.5 },
+  seccionResumen: { fontSize: 12, color: C.slate600, fontWeight: W.semibold, marginTop: 4 },
   detailTechGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, columnGap: 16 },
   techLabel: { color: C.slate400, fontWeight: W.bold, fontSize: 12 },
   techValue: { fontWeight: W.semibold, color: C.slate800, fontSize: 12 },

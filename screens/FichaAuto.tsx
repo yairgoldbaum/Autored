@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -23,7 +23,7 @@ import {
   progresoTransferencia,
   resumenVeredictos,
 } from '../src/autosave';
-import { emptyContact, requiresBuyer, totalAntecedentes, veredictoColor } from '../src/helpers';
+import { emptyContact, hasContactData, requiresBuyer, totalAntecedentes, veredictoColor } from '../src/helpers';
 import { Field, PhotoGallery, TechItem, TransferMetaRow, VehicleContactCard } from '../components/shared';
 
 interface FichaAutoProps {
@@ -76,12 +76,58 @@ export function FichaAuto({
 }: FichaAutoProps) {
   const insets = useSafeAreaInsets();
 
+  /* La ficha dejó de ser una tira con todo desplegado: cada sección arranca
+     cerrada y el usuario abre lo que le interesa (David, punto 23). El estado
+     se resetea al cambiar de auto. */
+  const [seccionesAbiertas, setSeccionesAbiertas] = useState<Record<string, boolean>>({});
+  const carId = activeCar?.id ?? null;
+  useEffect(() => {
+    setSeccionesAbiertas({});
+  }, [carId]);
+
+  const toggleSeccion = (id: string) =>
+    setSeccionesAbiertas((prev) => ({ ...prev, [id]: !prev[id] }));
+
   return renderCarDetail();
+
+  /* Una sección de la ficha. Sin `contenido`, la tarjeta es solo el encabezado
+     y el que llama pinta el cuerpo aparte (lo usa AutoSave, que conserva su
+     bloque propio con la barra de marca). */
+  function renderSeccion(
+    id: string,
+    titulo: string,
+    resumen: string,
+    contenido?: () => React.ReactNode,
+  ) {
+    const abierta = !!seccionesAbiertas[id];
+    return (
+      <View style={s.detailTechCard}>
+        <TouchableOpacity activeOpacity={0.75} onPress={() => toggleSeccion(id)} style={s.seccionHead}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.seccionTitulo}>{titulo}</Text>
+            {!abierta && resumen ? (
+              <Text style={s.seccionResumen} numberOfLines={1}>
+                {resumen}
+              </Text>
+            ) : null}
+          </View>
+          <Icon name={abierta ? 'chevron-up' : 'chevron-down'} size={12} color={C.slate400} />
+        </TouchableOpacity>
+        {abierta && contenido ? <View style={{ marginTop: 12 }}>{contenido()}</View> : null}
+      </View>
+    );
+  }
 
   function renderCarDetail() {
     if (!activeCar) return null;
     const car = activeCar;
     const activeStockAuction = activeStockAuctionMap.get(car.id);
+    const precioContado = car.precioPublicacionContado || car.precioVenta;
+    const margenNeto = (car.precioVentaEstimado || car.precioVenta) - costoBase(car);
+    const clientesRegistrados = [car.comprador, car.clienteAdquisicion].filter((c) =>
+      hasContactData(c),
+    ).length;
+    const alertaInforme = activeInforme ? alertaPrincipal(activeInforme) : null;
     return (
       <PageOverlay>
             <View style={[s.overlayHeader, { paddingTop: insets.top + 16 }]}>
@@ -121,57 +167,71 @@ export function FichaAuto({
                   </View>
                 </View>
 
-                {/* Margen */}
-                <View style={s.detailMargenCard}>
-                  <View style={s.rowBetween}>
-                    <Text style={s.detailMiniLabel}>
-                      {car.tenencia === 'Consignado' ? 'Piso Consignación' : 'Costo Adquisición'}
-                    </Text>
-                    <Text style={s.detailMiniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                      {fmtCLP(costoBase(car))}
-                    </Text>
-                  </View>
-                  <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
-                    <View>
-                      <Text style={s.detailMiniLabel}>Publicación Contado</Text>
-                      <Text style={s.detailPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                        {fmtCLP(car.precioPublicacionContado || car.precioVenta)}
-                      </Text>
+                {/* Precios y margen: cerrada, el resumen igual deja lo esencial
+                    a la vista sin ocupar la pantalla entera. */}
+                {renderSeccion(
+                  'precios',
+                  'Precios y Margen',
+                  `${fmtCLP(precioContado)} · margen +${fmtCLP(margenNeto)}`,
+                  () => (
+                    <View style={{ gap: 8 }}>
+                      <View style={s.rowBetween}>
+                        <Text style={s.detailMiniLabel}>
+                          {car.tenencia === 'Consignado' ? 'Piso Consignación' : 'Costo Adquisición'}
+                        </Text>
+                        <Text style={s.detailMiniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                          {fmtCLP(costoBase(car))}
+                        </Text>
+                      </View>
+                      <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
+                        <View>
+                          <Text style={s.detailMiniLabel}>Publicación Contado</Text>
+                          <Text style={s.detailPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                            {fmtCLP(precioContado)}
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
+                          <Text style={s.detailMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                            +{fmtCLP(margenNeto)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={s.detailFinanceGrid}>
+                        <TechItem label="Financiado" value={car.precioPublicacionFinanciado ? fmtCLP(car.precioPublicacionFinanciado) : '—'} />
+                        <TechItem label="Venta Estimada" value={fmtCLP(car.precioVentaEstimado || car.precioVenta)} />
+                      </View>
                     </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
-                      <Text style={s.detailMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                        +{fmtCLP((car.precioVentaEstimado || car.precioVenta) - costoBase(car))}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={s.detailFinanceGrid}>
-                    <TechItem label="Financiado" value={car.precioPublicacionFinanciado ? fmtCLP(car.precioPublicacionFinanciado) : '—'} />
-                    <TechItem label="Venta Estimada" value={fmtCLP(car.precioVentaEstimado || car.precioVenta)} />
-                  </View>
-                </View>
+                  ),
+                )}
 
-                <View style={s.detailTechCard}>
-                  <Text style={s.detailTechTitle}>Clientes del Vehículo</Text>
-                  <View style={{ gap: 10 }}>
-                    <VehicleContactCard
-                      title="Cliente de adquisición"
-                      contact={car.clienteAdquisicion}
-                      emptyText="Sin cliente de adquisición registrado."
-                      onCall={handleLlamar}
-                      onWhatsapp={handleWhatsapp}
-                    />
-                    {requiresBuyer(car.estado) ? (
+                {renderSeccion(
+                  'clientes',
+                  'Clientes del Vehículo',
+                  clientesRegistrados > 0
+                    ? `${clientesRegistrados} ${clientesRegistrados === 1 ? 'contacto registrado' : 'contactos registrados'}`
+                    : 'Sin contactos registrados',
+                  () => (
+                    <View style={{ gap: 10 }}>
                       <VehicleContactCard
-                        title={car.estado === 'Reservado' ? 'Comprador / reserva' : 'Comprador final'}
-                        contact={car.comprador}
-                        emptyText="Registra el comprador para completar este estado."
+                        title="Cliente de adquisición"
+                        contact={car.clienteAdquisicion}
+                        emptyText="Sin cliente de adquisición registrado."
                         onCall={handleLlamar}
                         onWhatsapp={handleWhatsapp}
                       />
-                    ) : null}
-                  </View>
-                </View>
+                      {requiresBuyer(car.estado) ? (
+                        <VehicleContactCard
+                          title={car.estado === 'Reservado' ? 'Comprador / reserva' : 'Comprador final'}
+                          contact={car.comprador}
+                          emptyText="Registra el comprador para completar este estado."
+                          onCall={handleLlamar}
+                          onWhatsapp={handleWhatsapp}
+                        />
+                      ) : null}
+                    </View>
+                  ),
+                )}
 
                 {/* Inspección de recepción con IA */}
                 {car.inspeccion ? (
@@ -211,91 +271,123 @@ export function FichaAuto({
                   </TouchableOpacity>
                 )}
 
-                {/* AutoSave: historial del vehículo y transferencia notarial */}
-                {renderAutosaveBlock(car)}
+                {/* AutoSave conserva su bloque propio con la barra de marca: la
+                    sección solo aporta el encabezado colapsable. */}
+                {activeInforme ? (
+                  <>
+                    {renderSeccion(
+                      'autosave',
+                      'AutoSave · Historial y Transferencia',
+                      alertaInforme ? alertaInforme.titulo : 'Sin hallazgos',
+                    )}
+                    {seccionesAbiertas['autosave'] ? renderAutosaveBlock(car) : null}
+                  </>
+                ) : null}
 
-                {/* Identificación */}
-                <View style={s.detailTechCard}>
-                  <Text style={s.detailTechTitle}>Identificación</Text>
-                  <View style={s.detailTechGrid}>
-                    <TechItem label="VIN" value={car.vin || '—'} />
-                    <TechItem label="Tipo" value={car.tipoVehiculo || '—'} />
-                    <TechItem label="Sucursal" value={car.sucursal || '—'} />
-                    <TechItem label="Fecha Ingreso" value={car.fechaIngreso || '—'} />
-                    <TechItem label="Año Modelo" value={car.anio ? String(car.anio) : '—'} />
-                    <TechItem label="Año Fabricación" value={car.anioFabricacion ? String(car.anioFabricacion) : '—'} />
-                    <TechItem label="Origen" value={car.origen || '—'} />
-                    <TechItem
-                      label="Días en Stock"
-                      value={`${diasEnStock(car)} días`}
-                      warn={diasEnStock(car) > 60}
-                    />
-                  </View>
-                </View>
+                {renderSeccion(
+                  'identificacion',
+                  'Identificación',
+                  `${car.sucursal || '—'} · ingreso ${car.fechaIngreso || '—'}`,
+                  () => (
+                    <View style={s.detailTechGrid}>
+                      <TechItem label="VIN" value={car.vin || '—'} />
+                      <TechItem label="Tipo" value={car.tipoVehiculo || '—'} />
+                      <TechItem label="Sucursal" value={car.sucursal || '—'} />
+                      <TechItem label="Fecha Ingreso" value={car.fechaIngreso || '—'} />
+                      <TechItem label="Año Modelo" value={car.anio ? String(car.anio) : '—'} />
+                      <TechItem label="Año Fabricación" value={car.anioFabricacion ? String(car.anioFabricacion) : '—'} />
+                      <TechItem label="Origen" value={car.origen || '—'} />
+                      <TechItem
+                        label="Días en Stock"
+                        value={`${diasEnStock(car)} días`}
+                        warn={diasEnStock(car) > 60}
+                      />
+                    </View>
+                  ),
+                )}
 
-                {/* Datos técnicos */}
-                <View style={s.detailTechCard}>
-                  <Text style={s.detailTechTitle}>Detalle del Vehículo</Text>
-                  <View style={s.detailTechGrid}>
-                    <TechItem label="Kilometraje" value={`${fmtMiles(car.km)} km`} />
-                    <TechItem label="Color" value={car.color} />
-                    <TechItem label="Transmisión" value={car.transmision} />
-                    <TechItem label="Combustible" value={car.combustible} />
-                    <TechItem label="Tracción" value={car.traccion || '—'} />
-                    <TechItem label="Cilindrada" value={car.cilindrada ? `${fmtMiles(car.cilindrada)} cc` : '—'} />
-                    <TechItem label="Puertas" value={car.puertas || '—'} />
-                  </View>
-                </View>
+                {renderSeccion(
+                  'detalle',
+                  'Detalle del Vehículo',
+                  `${fmtMiles(car.km)} km · ${car.color || '—'} · ${car.transmision}`,
+                  () => (
+                    <View style={s.detailTechGrid}>
+                      <TechItem label="Kilometraje" value={`${fmtMiles(car.km)} km`} />
+                      <TechItem label="Color" value={car.color} />
+                      <TechItem label="Transmisión" value={car.transmision} />
+                      <TechItem label="Combustible" value={car.combustible} />
+                      <TechItem label="Tracción" value={car.traccion || '—'} />
+                      <TechItem label="Cilindrada" value={car.cilindrada ? `${fmtMiles(car.cilindrada)} cc` : '—'} />
+                      <TechItem label="Puertas" value={car.puertas || '—'} />
+                    </View>
+                  ),
+                )}
 
-                <View style={s.detailTechCard}>
-                  <Text style={s.detailTechTitle}>Equipamiento</Text>
-                  {car.equipamiento.length > 0 ? (
-                    <View style={s.equipmentList}>
-                      {car.equipamiento.map((item) => (
-                        <View key={item} style={s.equipmentPill}>
-                          <Icon name="check" size={9} color={C.teal700} />
-                          <Text style={s.equipmentText}>{item}</Text>
+                {renderSeccion(
+                  'equipamiento',
+                  'Equipamiento',
+                  car.equipamiento.length > 0
+                    ? `${car.equipamiento.length} ${car.equipamiento.length === 1 ? 'ítem' : 'ítems'}${car.otros ? ' · con observaciones' : ''}`
+                    : 'Sin equipamiento registrado',
+                  () => (
+                    <>
+                      {car.equipamiento.length > 0 ? (
+                        <View style={s.equipmentList}>
+                          {car.equipamiento.map((item) => (
+                            <View key={item} style={s.equipmentPill}>
+                              <Icon name="check" size={9} color={C.teal700} />
+                              <Text style={s.equipmentText}>{item}</Text>
+                            </View>
+                          ))}
                         </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={s.emptySectionText}>Sin equipamiento registrado.</Text>
-                  )}
-                  {car.otros ? (
-                    <View style={s.detailNoteInset}>
-                      <Text style={s.detailNoteInsetLabel}>Otros</Text>
-                      <Text style={s.detailNoteInsetText}>{car.otros}</Text>
-                    </View>
-                  ) : null}
-                </View>
+                      ) : (
+                        <Text style={s.emptySectionText}>Sin equipamiento registrado.</Text>
+                      )}
+                      {car.otros ? (
+                        <View style={s.detailNoteInset}>
+                          <Text style={s.detailNoteInsetLabel}>Otros</Text>
+                          <Text style={s.detailNoteInsetText}>{car.otros}</Text>
+                        </View>
+                      ) : null}
+                    </>
+                  ),
+                )}
 
-                <View style={s.detailTechCard}>
-                  <Text style={s.detailTechTitle}>Documentos</Text>
-                  {car.documentos.length > 0 ? (
-                    <View style={{ gap: 8 }}>
-                      {car.documentos.map((doc) => (
-                        <View key={doc.id} style={s.docRow}>
-                          <View style={{ flex: 1 }}>
-                            <Text style={s.docTitle}>{doc.nombre || doc.tipo}</Text>
-                            <Text style={s.docMeta}>
-                              {doc.tipo}
-                              {doc.fechaVencimiento ? ` • vence ${doc.fechaVencimiento}` : ''}
-                              {doc.archivoNombre ? ` • ${doc.archivoNombre}` : ''}
-                            </Text>
+                {renderSeccion(
+                  'documentos',
+                  'Documentos',
+                  car.documentos.length > 0
+                    ? `${car.documentos.length} ${car.documentos.length === 1 ? 'documento' : 'documentos'}`
+                    : 'No hay documentos preparados',
+                  () =>
+                    car.documentos.length > 0 ? (
+                      <View style={{ gap: 8 }}>
+                        {car.documentos.map((doc) => (
+                          <View key={doc.id} style={s.docRow}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={s.docTitle}>{doc.nombre || doc.tipo}</Text>
+                              <Text style={s.docMeta}>
+                                {doc.tipo}
+                                {doc.fechaVencimiento ? ` • vence ${doc.fechaVencimiento}` : ''}
+                                {doc.archivoNombre ? ` • ${doc.archivoNombre}` : ''}
+                              </Text>
+                            </View>
                           </View>
-                        </View>
-                      ))}
-                    </View>
-                  ) : (
-                    <Text style={s.emptySectionText}>No hay documentos preparados.</Text>
-                  )}
-                </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <Text style={s.emptySectionText}>No hay documentos preparados.</Text>
+                    ),
+                )}
 
-                {/* Notas */}
-                <View style={s.notasBox}>
-                  <Text style={s.notasLabel}>Notas de Stock:</Text>
-                  <Text style={s.notasText}>{car.comentario || 'Sin notas u observaciones especiales.'}</Text>
-                </View>
+                {renderSeccion(
+                  'notas',
+                  'Notas de Stock',
+                  car.comentario || 'Sin notas u observaciones especiales',
+                  () => (
+                    <Text style={s.notasText}>{car.comentario || 'Sin notas u observaciones especiales.'}</Text>
+                  ),
+                )}
               </View>
             </ScrollView>
 
