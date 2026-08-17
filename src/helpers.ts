@@ -19,7 +19,13 @@ import {
   esClienteDeVenta,
 } from './data';
 
-export type TabKey = 'inicio' | 'stock' | 'subastas' | 'clientes' | 'kpis';
+/* El orden que pidió David: primero Stock, luego Clientes y al final los KPIs.
+   Transferencias entra a la barra solo si Autored decide que la transferencia
+   digital es parte del alcance (punto 48). 'inicio' ya no existe como pestaña:
+   la app abre en la bandeja del stock y el Motor de Precios se entra desde el
+   header. 'subastas' tampoco vive en la barra, pero la pantalla sigue (también
+   desde el header) mientras Autored resuelve si sale de la app (punto 46). */
+export type TabKey = 'stock' | 'clientes' | 'subastas' | 'kpis';
 
 /* Tramo de antigüedad, para que tocar una barra del gráfico abra el Stock filtrado.
    NOTA PARA P1: el filtro por rango de días es el cruce 1 y estaba en tu lado. Se

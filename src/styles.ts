@@ -22,6 +22,17 @@ export const s = StyleSheet.create({
     borderBottomColor: C.slate100,
   },
   logoImg: { width: 130, height: 38 },
+  /* Accesos del header: lo que salió de la barra inferior pero sigue en la app
+     (Motor de Precios, y Subastas mientras Autored resuelve el punto 46). */
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.slate100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   main: { flex: 1, backgroundColor: C.chileanBg },
   mainContent: { paddingTop: 16, paddingBottom: 24 },
