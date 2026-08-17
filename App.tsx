@@ -1545,7 +1545,11 @@ function AppInner() {
                     <View style={[s.rowBetween, { alignItems: 'flex-end', marginTop: 8 }]}>
                       <View>
                         <Text style={s.priceLabel}>Precio Venta</Text>
-                        <Text style={s.priceValue}>{fmtCLP(car.precioVenta)}</Text>
+                        {/* Mismo arreglo que en KpiCard: el monto se achica antes de partirse
+                            en dos líneas (feedback de Jorge y Mauro). */}
+                        <Text style={s.priceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                          {fmtCLP(car.precioVenta)}
+                        </Text>
                       </View>
                       <View style={{ alignItems: 'flex-end', gap: 4 }}>
                         <View style={[s.estadoBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
@@ -2133,9 +2137,13 @@ function AppInner() {
         {/* LA CIFRA: rango de compra */}
         <View style={s.motorResultBox}>
           <Text style={s.motorResultLabel}>Ofrécele al cliente entre</Text>
-          <Text style={s.motorResultRange}>{fmtCLP(t.ofertaMin)}</Text>
+          <Text style={s.motorResultRange} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+            {fmtCLP(t.ofertaMin)}
+          </Text>
           <Text style={s.motorResultAnd}>y</Text>
-          <Text style={s.motorResultRange}>{fmtCLP(t.ofertaMax)}</Text>
+          <Text style={s.motorResultRange} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+            {fmtCLP(t.ofertaMax)}
+          </Text>
           <View style={s.motorResultFoot}>
             <Icon name="circle-info" size={11} color={C.teal200} />
             <Text style={s.motorResultFootText}>
@@ -2510,7 +2518,9 @@ function AppInner() {
           <View style={s.margenBox}>
             <View>
               <Text style={s.margenLabel}>Margen de Venta Estimado</Text>
-              <Text style={s.margenValue}>{fmtCLP(margen)}</Text>
+              <Text style={s.margenValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                {fmtCLP(margen)}
+              </Text>
             </View>
             <View style={s.margenTag}>
               <Text style={s.margenTagText}>{pct}% Retorno</Text>
@@ -2657,16 +2667,22 @@ function AppInner() {
                     <Text style={s.detailMiniLabel}>
                       {car.tenencia === 'Consignado' ? 'Piso Consignación' : 'Costo Adquisición'}
                     </Text>
-                    <Text style={s.detailMiniValue}>{fmtCLP(costoBase(car))}</Text>
+                    <Text style={s.detailMiniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                      {fmtCLP(costoBase(car))}
+                    </Text>
                   </View>
                   <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
                     <View>
                       <Text style={s.detailMiniLabel}>Publicación Contado</Text>
-                      <Text style={s.detailPrecio}>{fmtCLP(car.precioPublicacionContado || car.precioVenta)}</Text>
+                      <Text style={s.detailPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                        {fmtCLP(car.precioPublicacionContado || car.precioVenta)}
+                      </Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
                       <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
-                      <Text style={s.detailMargen}>+{fmtCLP((car.precioVentaEstimado || car.precioVenta) - costoBase(car))}</Text>
+                      <Text style={s.detailMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                        +{fmtCLP((car.precioVentaEstimado || car.precioVenta) - costoBase(car))}
+                      </Text>
                     </View>
                   </View>
                   <View style={s.detailFinanceGrid}>
@@ -3741,7 +3757,9 @@ function AppInner() {
 
           <View style={s.bigValueBox}>
             <Text style={s.bigValueLabel}>Nuevo Precio</Text>
-            <Text style={s.bigValue}>{fmtCLP(adjustedPrice)}</Text>
+            <Text style={s.bigValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+              {fmtCLP(adjustedPrice)}
+            </Text>
           </View>
 
           <View style={s.stepperRow}>
@@ -3753,7 +3771,9 @@ function AppInner() {
             </TouchableOpacity>
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={[s.bigValueLabel, { color: C.emerald600 }]}>Nuevo Margen Estimado</Text>
-              <Text style={s.stepperMargen}>+{fmtCLP(adjustedPrice - activeCar.costoAdquisicion)}</Text>
+              <Text style={s.stepperMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                +{fmtCLP(adjustedPrice - activeCar.costoAdquisicion)}
+              </Text>
             </View>
             <TouchableOpacity onPress={() => setAdjustedPrice(adjustedPrice + 100000)} style={s.stepperBtn}>
               <Icon name="plus" size={18} color={C.slate800} />
@@ -3872,7 +3892,9 @@ function AppInner() {
 
           <View style={s.bigValueBox}>
             <Text style={s.bigValueLabel}>Monto de tu Oferta</Text>
-            <Text style={s.bigValue}>{fmtCLP(bidAmount)}</Text>
+            <Text style={s.bigValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+              {fmtCLP(bidAmount)}
+            </Text>
           </View>
 
           <View style={s.sealedInfoBox}>
@@ -4030,16 +4052,22 @@ function AppInner() {
             <View style={s.detailMargenCard}>
               <View style={s.rowBetween}>
                 <Text style={s.detailMiniLabel}>Referencia de compra</Text>
-                <Text style={s.detailMiniValue}>{fmtCLP(auc.costoFinal)}</Text>
+                <Text style={s.detailMiniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {fmtCLP(auc.costoFinal)}
+                </Text>
               </View>
               <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
                 <View>
                   <Text style={s.detailMiniLabel}>Venta sugerida</Text>
-                  <Text style={s.detailPrecio}>{fmtCLP(auc.sugeridoVenta)}</Text>
+                  <Text style={s.detailPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                    {fmtCLP(auc.sugeridoVenta)}
+                  </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen estimado</Text>
-                  <Text style={s.detailMargen}>+{fmtCLP(auc.sugeridoVenta - auc.costoFinal)}</Text>
+                  <Text style={s.detailMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                    +{fmtCLP(auc.sugeridoVenta - auc.costoFinal)}
+                  </Text>
                 </View>
               </View>
               <View style={s.detailFinanceGrid}>
@@ -4933,7 +4961,9 @@ function MotorPreciosPublicacion({
         </View>
       </View>
 
-      <Text style={s.motorAltaPrecio}>{fmtCLP(t.precioVenta)}</Text>
+      <Text style={s.motorAltaPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        {fmtCLP(t.precioVenta)}
+      </Text>
       <Text style={s.motorAltaSub}>
         Referencia {t.vehiculo.anio} {fmtCLP(t.vehiculo.referencia)} · ajuste por {fmtMiles(km)} km{' '}
         {t.ajusteKm >= 0 ? '+' : '−'}
