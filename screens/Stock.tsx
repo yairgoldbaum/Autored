@@ -6,8 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, W, fmtCLP, fmtMiles } from '../src/theme';
 import { Dropdown, Icon, Sheet, Wiggle } from '../src/ui';
 import { s } from '../src/styles';
-import { Auction, Car, diasEnStock } from '../src/data';
-import { FiltroDias, StockFilters, badgeForEstado } from '../src/helpers';
+import { Auction, Car, RelacionClienteVehiculo, costoBase, diasEnStock } from '../src/data';
+import { FiltroDias, StockFilters, badgeForEstado, leadsDeVehiculo } from '../src/helpers';
 
 interface StockScreenProps {
   stock: Car[];
@@ -20,6 +20,7 @@ interface StockScreenProps {
   setFiltroDias: React.Dispatch<React.SetStateAction<FiltroDias>>;
   setFilters: React.Dispatch<React.SetStateAction<StockFilters>>;
   activeStockAuctionMap: Map<number, Auction>;
+  relaciones: RelacionClienteVehiculo[];
   setActiveCar: (car: Car | null) => void;
   setIsFilterSheetOpen: (open: boolean) => void;
   handleEliminarAuto: (car: Car) => void;
@@ -37,6 +38,7 @@ export function StockScreen({
   setFiltroDias,
   setFilters,
   activeStockAuctionMap,
+  relaciones,
   setActiveCar,
   setIsFilterSheetOpen,
   handleEliminarAuto,
@@ -126,6 +128,11 @@ export function StockScreen({
             const badge = badgeForEstado(car.estado);
             const activeStockAuction = activeStockAuctionMap.get(car.id);
             const dias = diasEnStock(car);
+            // Lo que David quiere ver en la tarjeta (puntos 12 y 13): margen,
+            // versión y leads. El margen SIEMPRE contra costoBase, nunca
+            // restando costoAdquisicion a mano (en consignación es 0).
+            const margen = car.precioVenta - costoBase(car);
+            const leads = leadsDeVehiculo(relaciones, car.id);
             return (
               <TouchableOpacity key={car.id} activeOpacity={0.9} onPress={() => setActiveCar(car)} style={s.carCard}>
                 <View style={s.carThumb}>
@@ -173,6 +180,11 @@ export function StockScreen({
                         </TouchableOpacity>
                       </View>
                     </View>
+                    {car.version ? (
+                      <Text style={s.carVersion} numberOfLines={1}>
+                        {car.version}
+                      </Text>
+                    ) : null}
                     <Text style={s.carSpecs}>
                       {car.anio} • {fmtMiles(car.km)} km • {car.transmision}
                     </Text>
@@ -185,6 +197,15 @@ export function StockScreen({
                           en dos líneas (feedback de Jorge y Mauro). */}
                       <Text style={s.priceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                         {fmtCLP(car.precioVenta)}
+                      </Text>
+                      <Text
+                        style={[s.carMargen, margen < 0 && { color: C.red600 }]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.6}
+                      >
+                        Margen {margen >= 0 ? '+' : '−'}
+                        {fmtCLP(Math.abs(margen))}
                       </Text>
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 4 }}>
@@ -206,7 +227,7 @@ export function StockScreen({
                         </View>
                       )}
                       <Text style={s.diasStock}>
-                        {dias} {dias === 1 ? 'día' : 'días'} en stock
+                        {leads} {leads === 1 ? 'lead' : 'leads'} · {dias} {dias === 1 ? 'día' : 'días'} en stock
                       </Text>
                     </View>
                   </View>

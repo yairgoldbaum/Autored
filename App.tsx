@@ -1151,6 +1151,7 @@ function AppInner() {
               setFiltroDias={setFiltroDias}
               setFilters={setFilters}
               activeStockAuctionMap={activeStockAuctionMap}
+              relaciones={relaciones}
               setActiveCar={setActiveCar}
               setIsFilterSheetOpen={setIsFilterSheetOpen}
               handleEliminarAuto={handleEliminarAuto}

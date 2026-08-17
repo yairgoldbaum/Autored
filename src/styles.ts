@@ -609,6 +609,8 @@ export const s = StyleSheet.create({
     justifyContent: 'center',
   },
   carSpecs: { fontSize: 11, color: C.slate500, marginTop: 2 },
+  carVersion: { fontSize: 11, color: C.slate600, fontWeight: W.semibold, marginTop: 2 },
+  carMargen: { fontSize: 10, color: C.emerald600, fontWeight: W.bold, marginTop: 2 },
   priceLabel: { fontSize: 10, fontWeight: W.semibold, color: C.slate400 },
   priceValue: { fontWeight: W.extrabold, fontSize: 16, color: C.slate800, letterSpacing: -0.3 },
   estadoBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 9999, borderWidth: 1 },

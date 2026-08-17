@@ -238,6 +238,15 @@ export function cumpleFiltroCliente(
   }
 }
 
+/* Cuántos leads tiene un auto (cruce 3 con P2). Hoy el único lead que el modelo
+   sabe representar es la relación de tipo 'oportunidad': alguien se interesó en
+   ese auto puntual y quedó en seguimiento. Cuando los leads entrantes por canal
+   existan como entidad propia (paso 8 de P2), este conteo crece acá y ninguna
+   tarjeta se toca. Sin datos devuelve 0 y no rompe nada. */
+export function leadsDeVehiculo(relaciones: RelacionClienteVehiculo[], vehiculoId: number): number {
+  return relaciones.filter((r) => r.vehiculoId === vehiculoId && r.tipo === 'oportunidad').length;
+}
+
 export function cumpleFiltroDias(car: Car, filtro: FiltroDias): boolean {
   if (!filtro) return true;
   const d = diasEnStock(car);
