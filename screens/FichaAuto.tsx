@@ -29,6 +29,10 @@ import { Field, PhotoGallery, TechItem, TransferMetaRow, VehicleContactCard } fr
 interface FichaAutoProps {
   activeCar: Car | null;
   setActiveCar: (car: Car | null) => void;
+  /* La bandera compartida del modo cliente (cruce 4): vive en AppInner para
+     que cualquier pantalla que muestre precios use la misma. */
+  modoCliente: boolean;
+  setModoCliente: (on: boolean) => void;
   activeStockAuctionMap: Map<number, Auction>;
   activeInforme: InformeAutosave | null;
   activeBloqueos: string[];
@@ -54,6 +58,8 @@ interface FichaAutoProps {
 export function FichaAuto({
   activeCar,
   setActiveCar,
+  modoCliente,
+  setModoCliente,
   activeStockAuctionMap,
   activeInforme,
   activeBloqueos,
@@ -167,43 +173,74 @@ export function FichaAuto({
                   </View>
                 </View>
 
+                {/* Modo cliente (punto 24): el mayorista le muestra el auto al
+                    cliente desde su propio teléfono, y ahí no puede aparecer
+                    cuánto pagó ni cuánto gana. Pendiente con Autored qué más se
+                    oculta (¿los días en stock también?). */}
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => setModoCliente(!modoCliente)}
+                  style={[s.modoClienteBar, modoCliente && s.modoClienteBarOn]}
+                >
+                  <Icon name={modoCliente ? 'eye-slash' : 'eye'} size={15} color={modoCliente ? C.white : C.slate500} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.modoClienteTitle, modoCliente && { color: C.white }]}>Modo cliente</Text>
+                    <Text style={[s.modoClienteSub, modoCliente && { color: C.teal200 }]}>
+                      {modoCliente
+                        ? 'Costos y margen ocultos. Toca para volver a gestión.'
+                        : 'Oculta el costo y el margen para mostrar el auto.'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
                 {/* Precios y margen: cerrada, el resumen igual deja lo esencial
-                    a la vista sin ocupar la pantalla entera. */}
-                {renderSeccion(
-                  'precios',
-                  'Precios y Margen',
-                  `${fmtCLP(precioContado)} · margen +${fmtCLP(margenNeto)}`,
-                  () => (
-                    <View style={{ gap: 8 }}>
-                      <View style={s.rowBetween}>
-                        <Text style={s.detailMiniLabel}>
-                          {car.tenencia === 'Consignado' ? 'Piso Consignación' : 'Costo Adquisición'}
-                        </Text>
-                        <Text style={s.detailMiniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                          {fmtCLP(costoBase(car))}
-                        </Text>
-                      </View>
-                      <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
-                        <View>
-                          <Text style={s.detailMiniLabel}>Publicación Contado</Text>
-                          <Text style={s.detailPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                            {fmtCLP(precioContado)}
-                          </Text>
-                        </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
-                          <Text style={s.detailMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                            +{fmtCLP(margenNeto)}
-                          </Text>
-                        </View>
-                      </View>
+                    a la vista sin ocupar la pantalla entera. En modo cliente la
+                    sección solo muestra los precios de publicación. */}
+                {modoCliente
+                  ? renderSeccion('precios', 'Precios', fmtCLP(precioContado), () => (
                       <View style={s.detailFinanceGrid}>
-                        <TechItem label="Financiado" value={car.precioPublicacionFinanciado ? fmtCLP(car.precioPublicacionFinanciado) : '—'} />
-                        <TechItem label="Venta Estimada" value={fmtCLP(car.precioVentaEstimado || car.precioVenta)} />
+                        <TechItem label="Contado" value={fmtCLP(precioContado)} />
+                        <TechItem
+                          label="Financiado"
+                          value={car.precioPublicacionFinanciado ? fmtCLP(car.precioPublicacionFinanciado) : '—'}
+                        />
                       </View>
-                    </View>
-                  ),
-                )}
+                    ))
+                  : renderSeccion(
+                      'precios',
+                      'Precios y Margen',
+                      `${fmtCLP(precioContado)} · margen +${fmtCLP(margenNeto)}`,
+                      () => (
+                        <View style={{ gap: 8 }}>
+                          <View style={s.rowBetween}>
+                            <Text style={s.detailMiniLabel}>
+                              {car.tenencia === 'Consignado' ? 'Piso Consignación' : 'Costo Adquisición'}
+                            </Text>
+                            <Text style={s.detailMiniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                              {fmtCLP(costoBase(car))}
+                            </Text>
+                          </View>
+                          <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
+                            <View>
+                              <Text style={s.detailMiniLabel}>Publicación Contado</Text>
+                              <Text style={s.detailPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                                {fmtCLP(precioContado)}
+                              </Text>
+                            </View>
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
+                              <Text style={s.detailMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                                +{fmtCLP(margenNeto)}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={s.detailFinanceGrid}>
+                            <TechItem label="Financiado" value={car.precioPublicacionFinanciado ? fmtCLP(car.precioPublicacionFinanciado) : '—'} />
+                            <TechItem label="Venta Estimada" value={fmtCLP(car.precioVentaEstimado || car.precioVenta)} />
+                          </View>
+                        </View>
+                      ),
+                    )}
 
                 {renderSeccion(
                   'clientes',
@@ -391,7 +428,10 @@ export function FichaAuto({
               </View>
             </ScrollView>
 
-            {/* Botonera */}
+            {/* Botonera de gestión: en modo cliente no va. "Ajustar Precio"
+                abre un sheet que muestra el margen, y el resto es operación
+                interna que el cliente no tiene por qué ver. */}
+            {modoCliente ? null : (
             <View style={[s.detailFooter, { paddingBottom: (insets.bottom || 8) + 16 }]}>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TouchableOpacity
@@ -428,6 +468,7 @@ export function FichaAuto({
                 <Text style={s.detailDeleteText}>Eliminar Publicación</Text>
               </TouchableOpacity>
             </View>
+            )}
       </PageOverlay>
     );
   }

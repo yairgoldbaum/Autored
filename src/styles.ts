@@ -846,6 +846,22 @@ export const s = StyleSheet.create({
   seccionHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   seccionTitulo: { fontWeight: W.bold, fontSize: 12, color: C.slate400, textTransform: 'uppercase', letterSpacing: 0.5 },
   seccionResumen: { fontSize: 12, color: C.slate600, fontWeight: W.semibold, marginTop: 4 },
+  /* Modo cliente (punto 24): el mayorista muestra el auto desde su propio
+     teléfono, y ahí el costo y el margen no pueden aparecer. */
+  modoClienteBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: C.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.slate100,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  modoClienteBarOn: { backgroundColor: C.chileanNavy, borderColor: C.chileanNavy },
+  modoClienteTitle: { fontSize: 12, fontWeight: W.extrabold, color: C.slate700 },
+  modoClienteSub: { fontSize: 11, color: C.slate500, marginTop: 1 },
   detailTechGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12, columnGap: 16 },
   techLabel: { color: C.slate400, fontWeight: W.bold, fontSize: 12 },
   techValue: { fontWeight: W.semibold, color: C.slate800, fontSize: 12 },

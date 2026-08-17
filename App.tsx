@@ -133,6 +133,11 @@ function AppInner() {
 
   // Modales / sheets
   const [activeCar, setActiveCar] = useState<Car | null>(null);
+  /* Modo cliente (punto 24): oculta el costo y el margen mientras el mayorista
+     muestra el auto desde su teléfono. Es LA bandera compartida (cruce 4): si
+     otra pantalla llega a mostrar precios delante del cliente, usa esta misma.
+     No se persiste: al reabrir la app se vuelve al modo de gestión. */
+  const [modoCliente, setModoCliente] = useState(false);
   // Inspección de recepción con IA (se abre desde la ficha del auto)
   const [inspectingCar, setInspectingCar] = useState<Car | null>(null);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
@@ -1258,6 +1263,8 @@ function AppInner() {
         <FichaAuto
           activeCar={activeCar}
           setActiveCar={setActiveCar}
+          modoCliente={modoCliente}
+          setModoCliente={setModoCliente}
           activeStockAuctionMap={activeStockAuctionMap}
           activeInforme={activeInforme}
           activeBloqueos={activeBloqueos}
