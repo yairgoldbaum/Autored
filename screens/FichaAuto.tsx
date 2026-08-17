@@ -137,9 +137,11 @@ export function FichaAuto({
     const activeStockAuction = activeStockAuctionMap.get(car.id);
     const precioContado = car.precioPublicacionContado || car.precioVenta;
     const margenNeto = (car.precioVentaEstimado || car.precioVenta) - costoBase(car);
-    const clientesRegistrados = [car.comprador, car.clienteAdquisicion].filter((c) =>
-      hasContactData(c),
-    ).length;
+    const clientesRegistrados = [
+      car.comprador,
+      car.tenencia === 'Consignado' ? car.consignante : null,
+      car.clienteAdquisicion,
+    ].filter((c) => hasContactData(c)).length;
     const alertaInforme = activeInforme ? alertaPrincipal(activeInforme) : null;
     return (
       <PageOverlay>
@@ -276,14 +278,12 @@ export function FichaAuto({
                     ? `${clientesRegistrados} ${clientesRegistrados === 1 ? 'contacto registrado' : 'contactos registrados'}`
                     : 'Sin contactos registrados',
                   () => (
+                    /* Punto 27, con lo que hay mientras la reunión no cierre el
+                       alcance: David acotaría esto al cliente de la reserva o
+                       venta (por eso va primero), Mauro quiere al consignante
+                       también (va segundo, solo en autos consignados). El
+                       cliente de adquisición queda al final. */
                     <View style={{ gap: 10 }}>
-                      <VehicleContactCard
-                        title="Cliente de adquisición"
-                        contact={car.clienteAdquisicion}
-                        emptyText="Sin cliente de adquisición registrado."
-                        onCall={handleLlamar}
-                        onWhatsapp={handleWhatsapp}
-                      />
                       {requiresBuyer(car.estado) ? (
                         <VehicleContactCard
                           title={car.estado === 'Reservado' ? 'Comprador / reserva' : 'Comprador final'}
@@ -293,6 +293,22 @@ export function FichaAuto({
                           onWhatsapp={handleWhatsapp}
                         />
                       ) : null}
+                      {car.tenencia === 'Consignado' ? (
+                        <VehicleContactCard
+                          title="Consignante (dueño del auto)"
+                          contact={car.consignante}
+                          emptyText="Sin consignante registrado."
+                          onCall={handleLlamar}
+                          onWhatsapp={handleWhatsapp}
+                        />
+                      ) : null}
+                      <VehicleContactCard
+                        title="Cliente de adquisición"
+                        contact={car.clienteAdquisicion}
+                        emptyText="Sin cliente de adquisición registrado."
+                        onCall={handleLlamar}
+                        onWhatsapp={handleWhatsapp}
+                      />
                     </View>
                   ),
                 )}
