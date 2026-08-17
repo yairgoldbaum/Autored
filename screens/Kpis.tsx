@@ -38,7 +38,9 @@ interface KpisScreenProps {
   setPeriodoKpi: React.Dispatch<React.SetStateAction<string>>;
   periodosDisponibles: string[];
   setFilterState: React.Dispatch<React.SetStateAction<string>>;
-  setFiltroDias: React.Dispatch<React.SetStateAction<FiltroDias>>;
+  // El filtro por días vive dentro de StockFilters; AppInner entrega esta
+  // función ya apuntando ahí (cruce 1 con P2).
+  setFiltroDias: (filtro: FiltroDias) => void;
   setActiveTab: React.Dispatch<React.SetStateAction<TabKey>>;
 }
 

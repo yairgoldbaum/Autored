@@ -55,7 +55,6 @@ import { InspectionReport } from './src/inspection/types';
 import {
   AUCTION_DURATION_MS,
   ClienteFiltro,
-  FiltroDias,
   NewClientData,
   StockFilters,
   SubastaTabKey,
@@ -68,13 +67,16 @@ import {
   cumpleFiltroDias,
   emptyContact,
   emptyNewClient,
+  emptyStockFilters,
   busquedaFromForm,
   getAuctionMsLeft,
   getCustomerVehicleLabels,
   hasContactData,
   isAuctionFinal,
+  leadsDeVehiculo,
   makeEmptyWizard,
   mergeAuctionsWithInitial,
+  OrdenStock,
   periodosConVentas,
   requiresBuyer,
   rolesDeCliente,
@@ -126,7 +128,6 @@ function AppInner() {
   // La app abre en la bandeja del stock: es lo que el mayorista entra a ver
   // todos los días (David, punto 4). Los KPIs pasaron al final de la barra.
   const [activeTab, setActiveTab] = useState<TabKey>('stock');
-  const [filtroDias, setFiltroDias] = useState<FiltroDias>(null);
   // Mes que muestran los KPIs. Arranca en el actual.
   const [periodoKpi, setPeriodoKpi] = useState(() => new Date().toISOString().slice(0, 7));
 
@@ -150,13 +151,8 @@ function AppInner() {
   // auto más Todos; si David define tabs nuevos en la reunión (punto 10), se
   // agregan a `chips` en screens/Stock.tsx.
   const [filterState, setFilterState] = useState('En venta');
-  const [filters, setFilters] = useState<StockFilters>({
-    marca: '',
-    anio: '',
-    precioMax: 20000000,
-    estado: '',
-    tenencia: '',
-  });
+  const [filters, setFilters] = useState<StockFilters>(emptyStockFilters());
+  const [ordenStock, setOrdenStock] = useState<OrdenStock>('ingreso');
 
   // Ajuste de precio
   const [adjustedPrice, setAdjustedPrice] = useState(0);
@@ -371,7 +367,13 @@ function AppInner() {
   }, [stock, periodoKpi]);
 
   const filteredStock = useMemo(() => {
-    return stock.filter((car) => {
+    // Año y precio como rangos desde-hasta (puntos 18 y 19). Vacío = sin
+    // límite, así ningún filtro esconde autos si el usuario no lo pidió.
+    const anioDesde = parseInt(filters.anioDesde, 10) || 0;
+    const anioHasta = parseInt(filters.anioHasta, 10) || 0;
+    const precioDesde = parseInt(filters.precioDesde, 10) || 0;
+    const precioHasta = parseInt(filters.precioHasta, 10) || 0;
+    const filtrados = stock.filter((car) => {
       const query = searchQuery.toLowerCase();
       const matchesSearch =
         car.marca.toLowerCase().includes(query) ||
@@ -379,23 +381,45 @@ function AppInner() {
         car.patente.toLowerCase().includes(query);
       const matchesChip = filterState === 'Todos' || car.estado === filterState;
       const matchesMarca = !filters.marca || car.marca === filters.marca;
-      const matchesAnio = !filters.anio || car.anio.toString() === filters.anio;
-      const matchesPrecio = car.precioVenta <= filters.precioMax;
-      const matchesEstado = !filters.estado || car.estado === filters.estado;
+      const matchesModelo = !filters.modelo || car.modelo === filters.modelo;
+      const matchesAnio = (!anioDesde || car.anio >= anioDesde) && (!anioHasta || car.anio <= anioHasta);
+      const matchesPrecio =
+        (!precioDesde || car.precioVenta >= precioDesde) && (!precioHasta || car.precioVenta <= precioHasta);
+      const matchesSucursal = !filters.sucursal || car.sucursal === filters.sucursal;
       const matchesTenencia = !filters.tenencia || car.tenencia === filters.tenencia;
-      const matchesDias = cumpleFiltroDias(car, filtroDias);
+      const matchesDias = cumpleFiltroDias(car, filters.dias);
       return (
         matchesSearch &&
         matchesChip &&
         matchesMarca &&
+        matchesModelo &&
         matchesAnio &&
         matchesPrecio &&
-        matchesEstado &&
+        matchesSucursal &&
         matchesTenencia &&
         matchesDias
       );
     });
-  }, [stock, searchQuery, filterState, filters, filtroDias]);
+
+    // El orden lo elige el usuario (punto 22). 'ingreso' conserva el orden de
+    // carga, que ya deja lo más nuevo arriba.
+    switch (ordenStock) {
+      case 'dias':
+        return [...filtrados].sort((a, b) => diasEnStock(b) - diasEnStock(a));
+      case 'visitas':
+        return [...filtrados].sort((a, b) => (b.visitas?.length || 0) - (a.visitas?.length || 0));
+      case 'leads':
+        return [...filtrados].sort(
+          (a, b) => leadsDeVehiculo(relaciones, b.id) - leadsDeVehiculo(relaciones, a.id),
+        );
+      case 'precio-asc':
+        return [...filtrados].sort((a, b) => a.precioVenta - b.precioVenta);
+      case 'precio-desc':
+        return [...filtrados].sort((a, b) => b.precioVenta - a.precioVenta);
+      default:
+        return filtrados;
+    }
+  }, [stock, searchQuery, filterState, filters, ordenStock, relaciones]);
 
   const marcasDisponibles = useMemo(() => [...new Set(stock.map((c) => c.marca))], [stock]);
   const stockById = useMemo(() => new Map(stock.map((car) => [car.id, car])), [stock]);
@@ -1147,8 +1171,7 @@ function AppInner() {
               setSearchQuery={setSearchQuery}
               filterState={filterState}
               setFilterState={setFilterState}
-              filtroDias={filtroDias}
-              setFiltroDias={setFiltroDias}
+              filters={filters}
               setFilters={setFilters}
               activeStockAuctionMap={activeStockAuctionMap}
               relaciones={relaciones}
@@ -1202,7 +1225,7 @@ function AppInner() {
               setPeriodoKpi={setPeriodoKpi}
               periodosDisponibles={periodosDisponibles}
               setFilterState={setFilterState}
-              setFiltroDias={setFiltroDias}
+              setFiltroDias={(dias) => setFilters((prev) => ({ ...prev, dias }))}
               setActiveTab={setActiveTab}
             />
           )}
@@ -1307,6 +1330,9 @@ function AppInner() {
           filters={filters}
           setFilters={setFilters}
           marcasDisponibles={marcasDisponibles}
+          stock={stock}
+          ordenStock={ordenStock}
+          setOrdenStock={setOrdenStock}
         />
         <PriceSheet
           activeCar={activeCar}

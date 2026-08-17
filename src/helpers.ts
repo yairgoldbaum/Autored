@@ -27,10 +27,9 @@ import {
    desde el header) mientras Autored resuelve si sale de la app (punto 46). */
 export type TabKey = 'stock' | 'clientes' | 'subastas' | 'kpis';
 
-/* Tramo de antigüedad, para que tocar una barra del gráfico abra el Stock filtrado.
-   NOTA PARA P1: el filtro por rango de días es el cruce 1 y estaba en tu lado. Se
-   implementó acá lo mínimo (`filtroDias` en filteredStock) para no dejar la barra
-   muerta; cuando armes el filtro de verdad, esto se reemplaza. */
+/* Tramo de antigüedad. Es a la vez un filtro del panel del Stock y el destino de
+   las barras del gráfico de KPIs (cruce 1 con P2): tocar una barra deja la
+   bandeja mostrando ese tramo. */
 export type FiltroDias = null | '0-30' | '31-60' | '+60';
 /* Etiqueta de pantalla, ya no un campo del cliente: se deduce de sus relaciones
    con autos. Vive acá y no en el modelo porque el modelo ya no lo guarda. */
@@ -122,14 +121,47 @@ export const DOCUMENTO_OPTIONS = ['Permiso de circulación', 'Revisión técnica
    estado más cliente. Eran cinco. */
 export const WIZARD_PASOS = 3;
 
-/* La forma del panel de filtros del Stock. */
+/* El panel de filtros del Stock (puntos 17 a 20). El año y el precio son rangos
+   desde-hasta, no un valor suelto; string vacío o null significa "sin límite",
+   así que por defecto ningún filtro esconde autos. */
 export interface StockFilters {
   marca: string;
-  anio: string;
-  precioMax: number;
-  estado: string;
+  modelo: string; // punto 17
+  anioDesde: string; // punto 18: rango, no un año exacto
+  anioHasta: string;
+  precioDesde: string; // punto 19: rango, no solo un tope
+  precioHasta: string;
+  sucursal: string; // punto 20: el campo existía en el modelo y no se usaba
   tenencia: string; // '' = todas, o 'Propio' | 'Consignado' (punto 11)
+  dias: FiltroDias; // el tramo de antigüedad que llega desde las barras de KPIs
 }
+
+export function emptyStockFilters(): StockFilters {
+  return {
+    marca: '',
+    modelo: '',
+    anioDesde: '',
+    anioHasta: '',
+    precioDesde: '',
+    precioHasta: '',
+    sucursal: '',
+    tenencia: '',
+    dias: null,
+  };
+}
+
+/* Cómo se ordena la bandeja (punto 22). Antes el orden era fijo (los autos según
+   se cargaban); ahora el usuario lo elige desde el panel de filtros. */
+export type OrdenStock = 'ingreso' | 'dias' | 'visitas' | 'leads' | 'precio-asc' | 'precio-desc';
+
+export const ORDEN_STOCK_OPTIONS: { label: string; value: OrdenStock }[] = [
+  { label: 'Ingreso reciente', value: 'ingreso' },
+  { label: 'Más días en stock', value: 'dias' },
+  { label: 'Más visitas', value: 'visitas' },
+  { label: 'Más leads', value: 'leads' },
+  { label: 'Precio menor', value: 'precio-asc' },
+  { label: 'Precio mayor', value: 'precio-desc' },
+];
 
 /* Estado del trato: describe la relación comercial y nada más. Eran siete y cuatro
    de ellos (Interesado, Adquisición, Reserva, Comprador) repetían lo que ahora dicen
