@@ -28,6 +28,7 @@ import {
   Field,
   MotorPreciosPublicacion,
   PhotoGallery,
+  SegBtn,
   TechItem,
   TransferMetaRow,
   VehicleContactCard,
@@ -56,7 +57,9 @@ interface FichaAutoProps {
   setSelectedStatus: React.Dispatch<React.SetStateAction<string>>;
   setStatusNote: React.Dispatch<React.SetStateAction<string>>;
   setStatusBuyer: React.Dispatch<React.SetStateAction<VehicleContact>>;
+  setStatusFinanciado: React.Dispatch<React.SetStateAction<boolean>>;
   setIsStatusSheetOpen: (open: boolean) => void;
+  handleMarcarVisita: (car: Car) => void;
   handleEditarAuto: (car: Car) => void;
   handleEliminarAuto: (car: Car) => void;
 }
@@ -83,7 +86,9 @@ export function FichaAuto({
   setSelectedStatus,
   setStatusNote,
   setStatusBuyer,
+  setStatusFinanciado,
   setIsStatusSheetOpen,
+  handleMarcarVisita,
   handleEditarAuto,
   handleEliminarAuto,
 }: FichaAutoProps) {
@@ -218,7 +223,7 @@ export function FichaAuto({
                   : renderSeccion(
                       'precios',
                       'Precios y Margen',
-                      `${fmtCLP(precioContado)} · margen +${fmtCLP(margenNeto)}`,
+                      `${fmtCLP(precioContado)} · margen ${margenNeto >= 0 ? '+' : '−'}${fmtCLP(Math.abs(margenNeto))}`,
                       () => (
                         <View style={{ gap: 8 }}>
                           <View style={s.rowBetween}>
@@ -238,8 +243,14 @@ export function FichaAuto({
                             </View>
                             <View style={{ alignItems: 'flex-end' }}>
                               <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
-                              <Text style={s.detailMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                                +{fmtCLP(margenNeto)}
+                              <Text
+                                style={[s.detailMargen, margenNeto < 0 && { color: C.red600 }]}
+                                numberOfLines={1}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.6}
+                              >
+                                {margenNeto >= 0 ? '+' : '−'}
+                                {fmtCLP(Math.abs(margenNeto))}
                               </Text>
                             </View>
                           </View>
@@ -492,12 +503,20 @@ export function FichaAuto({
                     setSelectedStatus(car.estado);
                     setStatusNote('');
                     setStatusBuyer(car.comprador || emptyContact());
+                    setStatusFinanciado(car.financiado ?? false);
                     setIsStatusSheetOpen(true);
                   }}
                   style={s.detailActionGray}
                 >
                   <Icon name="rotate" size={12} color={C.slate700} />
                   <Text style={s.detailActionGrayText}>Cambiar Estado</Text>
+                </TouchableOpacity>
+                {/* El otro dato que P2 necesita desde la ficha: las visitas.
+                    Alimentan el orden "Más visitas" de la bandeja. Sin pedir
+                    datos: el modelo acepta visitas anónimas. */}
+                <TouchableOpacity onPress={() => handleMarcarVisita(car)} style={s.detailActionGray}>
+                  <Icon name="person-walking" size={12} color={C.slate700} />
+                  <Text style={s.detailActionGrayText}>Visita</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => handleEditarAuto(car)} style={s.detailEditBtn}>
@@ -799,7 +818,7 @@ export function PriceSheet({
 
         <View style={s.stepperRow}>
           <TouchableOpacity
-            onPress={() => setAdjustedPrice(Math.max(adjustedPrice - 100000, activeCar.costoAdquisicion))}
+            onPress={() => setAdjustedPrice(Math.max(adjustedPrice - 100000, costoBase(activeCar)))}
             style={s.stepperBtn}
           >
             <Icon name="minus" size={18} color={C.slate800} />
@@ -807,7 +826,10 @@ export function PriceSheet({
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={[s.bigValueLabel, { color: C.emerald600 }]}>Nuevo Margen Estimado</Text>
             <Text style={s.stepperMargen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-              +{fmtCLP(adjustedPrice - activeCar.costoAdquisicion)}
+              {/* Contra costoBase, nunca costoAdquisicion: en un consignado la
+                  resta a mano devolvía el precio completo como utilidad y
+                  dejaba bajar el precio hasta cero. */}
+              +{fmtCLP(adjustedPrice - costoBase(activeCar))}
             </Text>
           </View>
           <TouchableOpacity onPress={() => setAdjustedPrice(adjustedPrice + 100000)} style={s.stepperBtn}>
@@ -833,6 +855,8 @@ interface StatusSheetProps {
   setStatusNote: React.Dispatch<React.SetStateAction<string>>;
   statusBuyer: VehicleContact;
   setStatusBuyer: React.Dispatch<React.SetStateAction<VehicleContact>>;
+  statusFinanciado: boolean;
+  setStatusFinanciado: React.Dispatch<React.SetStateAction<boolean>>;
   handleGuardarEstado: () => void;
 }
 
@@ -847,6 +871,8 @@ export function StatusSheet({
   setStatusNote,
   statusBuyer,
   setStatusBuyer,
+  statusFinanciado,
+  setStatusFinanciado,
   handleGuardarEstado,
 }: StatusSheetProps) {
   const insets = useSafeAreaInsets();
@@ -903,6 +929,18 @@ export function StatusSheet({
                     value={statusBuyer.telefono}
                     onChange={(telefono) => setStatusBuyer({ ...statusBuyer, telefono })}
                   />
+                </View>
+              </View>
+            ) : null}
+
+            {/* Solo al vender: sin esto la penetración de financiamiento de
+                los KPIs del mes no tiene de dónde salir. */}
+            {selectedStatus === 'Vendido' ? (
+              <View>
+                <Text style={s.sheetFieldLabel}>¿Cómo se pagó?</Text>
+                <View style={s.segment}>
+                  <SegBtn label="Contado" active={!statusFinanciado} onPress={() => setStatusFinanciado(false)} />
+                  <SegBtn label="Financiado" active={statusFinanciado} onPress={() => setStatusFinanciado(true)} />
                 </View>
               </View>
             ) : null}
