@@ -1,13 +1,20 @@
 import React from 'react';
 import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { C, W, fmtCLP, fmtMiles } from '../src/theme';
 import { Dropdown, Icon, Sheet, Wiggle } from '../src/ui';
 import { s } from '../src/styles';
 import { Auction, Car, RelacionClienteVehiculo, costoBase, diasEnStock } from '../src/data';
-import { FiltroDias, StockFilters, badgeForEstado, leadsDeVehiculo } from '../src/helpers';
+import {
+  FiltroDias,
+  ORDEN_STOCK_OPTIONS,
+  OrdenStock,
+  StockFilters,
+  badgeForEstado,
+  emptyStockFilters,
+  leadsDeVehiculo,
+} from '../src/helpers';
 
 interface StockScreenProps {
   stock: Car[];
@@ -16,8 +23,7 @@ interface StockScreenProps {
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
   filterState: string;
   setFilterState: React.Dispatch<React.SetStateAction<string>>;
-  filtroDias: FiltroDias;
-  setFiltroDias: React.Dispatch<React.SetStateAction<FiltroDias>>;
+  filters: StockFilters;
   setFilters: React.Dispatch<React.SetStateAction<StockFilters>>;
   activeStockAuctionMap: Map<number, Auction>;
   relaciones: RelacionClienteVehiculo[];
@@ -34,8 +40,7 @@ export function StockScreen({
   setSearchQuery,
   filterState,
   setFilterState,
-  filtroDias,
-  setFiltroDias,
+  filters,
   setFilters,
   activeStockAuctionMap,
   relaciones,
@@ -94,13 +99,13 @@ export function StockScreen({
 
       {/* Aviso del filtro por días, que llega desde el gráfico de antigüedad de KPIs.
           Sin esto el usuario no tiene cómo saber por qué ve menos autos. */}
-      {filtroDias ? (
+      {filters.dias ? (
         <View style={s.filtroDiasBanner}>
           <Icon name="clock" size={11} color={C.teal700} />
           <Text style={s.filtroDiasText}>
-            Mostrando solo los autos de {filtroDias === '+60' ? 'más de 60' : filtroDias} días en stock
+            Mostrando solo los autos de {filters.dias === '+60' ? 'más de 60' : filters.dias} días en stock
           </Text>
-          <TouchableOpacity onPress={() => setFiltroDias(null)}>
+          <TouchableOpacity onPress={() => setFilters((prev) => ({ ...prev, dias: null }))}>
             <Icon name="circle-xmark" size={14} color={C.teal700} />
           </TouchableOpacity>
         </View>
@@ -115,9 +120,8 @@ export function StockScreen({
             <TouchableOpacity
               onPress={() => {
                 setFilterState('Todos');
-                setFilters({ marca: '', anio: '', precioMax: 20000000, estado: '', tenencia: '' });
+                setFilters(emptyStockFilters());
                 setSearchQuery('');
-                setFiltroDias(null);
               }}
             >
               <Text style={s.resetText}>Restablecer filtros</Text>
@@ -247,7 +251,23 @@ interface FilterSheetProps {
   filters: StockFilters;
   setFilters: React.Dispatch<React.SetStateAction<StockFilters>>;
   marcasDisponibles: string[];
+  stock: Car[];
+  ordenStock: OrdenStock;
+  setOrdenStock: React.Dispatch<React.SetStateAction<OrdenStock>>;
 }
+
+const DIAS_OPTIONS: { label: string; value: FiltroDias }[] = [
+  { label: 'Todos', value: null },
+  { label: '0-30 días', value: '0-30' },
+  { label: '31-60 días', value: '31-60' },
+  { label: '+60 días', value: '+60' },
+];
+
+const TENENCIA_OPTIONS = [
+  { label: 'Todas', value: '' },
+  { label: 'Propio', value: 'Propio' },
+  { label: 'Consignado', value: 'Consignado' },
+];
 
 /* ======================= SHEET: FILTROS ======================= */
 export function FilterSheet({
@@ -256,8 +276,19 @@ export function FilterSheet({
   filters,
   setFilters,
   marcasDisponibles,
+  stock,
+  ordenStock,
+  setOrdenStock,
 }: FilterSheetProps) {
   const insets = useSafeAreaInsets();
+  // Los modelos se acotan a la marca elegida, si hay una.
+  const modelosDisponibles = [
+    ...new Set(stock.filter((c) => !filters.marca || c.marca === filters.marca).map((c) => c.modelo)),
+  ].sort();
+  // La sucursal solo se ofrece cuando el stock tiene más de una (punto 20): el
+  // campo existe en el modelo, pero para una compraventa de una sede es ruido.
+  const sucursalesDisponibles = [...new Set(stock.map((c) => c.sucursal).filter(Boolean))].sort();
+
   return (
     <Sheet visible={isFilterSheetOpen} onClose={() => setIsFilterSheetOpen(false)} maxHeightPct={85}>
       <View style={s.sheetHeader}>
@@ -268,50 +299,116 @@ export function FilterSheet({
       </View>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
         <View>
+          <Text style={s.sheetFieldLabel}>Ordenar por</Text>
+          <View style={s.asChipRow}>
+            {ORDEN_STOCK_OPTIONS.map((op) => (
+              <TouchableOpacity
+                key={op.value}
+                onPress={() => setOrdenStock(op.value)}
+                style={[s.asChip, ordenStock === op.value && s.asChipActive]}
+              >
+                <Text style={[s.asChipText, ordenStock === op.value && { color: C.white }]}>{op.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+        <View>
           <Text style={s.sheetFieldLabel}>Marca</Text>
           <Dropdown
             small
             value={filters.marca}
             placeholder="Todas las marcas"
-            onChange={(v) => setFilters({ ...filters, marca: v })}
+            onChange={(v) => setFilters({ ...filters, marca: v, modelo: '' })}
             options={[{ label: 'Todas las marcas', value: '' }, ...marcasDisponibles.map((m) => ({ label: m, value: m }))]}
           />
         </View>
         <View>
-          <Text style={s.sheetFieldLabel}>Año</Text>
-          <TextInput
-            placeholder="Ej: 2021"
-            placeholderTextColor={C.slate400}
-            keyboardType="number-pad"
-            value={filters.anio}
-            onChangeText={(t) => setFilters({ ...filters, anio: t })}
-            style={s.sheetInput}
+          <Text style={s.sheetFieldLabel}>Modelo</Text>
+          <Dropdown
+            small
+            value={filters.modelo}
+            placeholder="Todos los modelos"
+            onChange={(v) => setFilters({ ...filters, modelo: v })}
+            options={[{ label: 'Todos los modelos', value: '' }, ...modelosDisponibles.map((m) => ({ label: m, value: m }))]}
           />
         </View>
         <View>
-          <View style={s.rowBetween}>
-            <Text style={s.sheetFieldLabel}>Precio Máximo</Text>
-            <Text style={s.sheetRangeValue}>{fmtCLP(filters.precioMax)}</Text>
+          <Text style={s.sheetFieldLabel}>Año</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TextInput
+              placeholder="Desde"
+              placeholderTextColor={C.slate400}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={filters.anioDesde}
+              onChangeText={(t) => setFilters({ ...filters, anioDesde: t.replace(/\D/g, '') })}
+              style={[s.sheetInput, { flex: 1 }]}
+            />
+            <TextInput
+              placeholder="Hasta"
+              placeholderTextColor={C.slate400}
+              keyboardType="number-pad"
+              maxLength={4}
+              value={filters.anioHasta}
+              onChangeText={(t) => setFilters({ ...filters, anioHasta: t.replace(/\D/g, '') })}
+              style={[s.sheetInput, { flex: 1 }]}
+            />
           </View>
-          <Slider
-            minimumValue={4000000}
-            maximumValue={20000000}
-            step={500000}
-            value={filters.precioMax}
-            onValueChange={(v) => setFilters({ ...filters, precioMax: v })}
-            minimumTrackTintColor={C.chileanTeal}
-            maximumTrackTintColor={C.slate200}
-            thumbTintColor={C.chileanTeal}
-          />
+        </View>
+        <View>
+          <Text style={s.sheetFieldLabel}>Precio (CLP)</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TextInput
+              placeholder="Desde"
+              placeholderTextColor={C.slate400}
+              keyboardType="number-pad"
+              value={filters.precioDesde}
+              onChangeText={(t) => setFilters({ ...filters, precioDesde: t.replace(/\D/g, '') })}
+              style={[s.sheetInput, { flex: 1 }]}
+            />
+            <TextInput
+              placeholder="Hasta"
+              placeholderTextColor={C.slate400}
+              keyboardType="number-pad"
+              value={filters.precioHasta}
+              onChangeText={(t) => setFilters({ ...filters, precioHasta: t.replace(/\D/g, '') })}
+              style={[s.sheetInput, { flex: 1 }]}
+            />
+          </View>
+        </View>
+        {sucursalesDisponibles.length > 1 ? (
+          <View>
+            <Text style={s.sheetFieldLabel}>Sucursal</Text>
+            <Dropdown
+              small
+              value={filters.sucursal}
+              placeholder="Todas las sucursales"
+              onChange={(v) => setFilters({ ...filters, sucursal: v })}
+              options={[
+                { label: 'Todas las sucursales', value: '' },
+                ...sucursalesDisponibles.map((suc) => ({ label: suc, value: suc })),
+              ]}
+            />
+          </View>
+        ) : null}
+        <View>
+          <Text style={s.sheetFieldLabel}>Días en stock</Text>
+          <View style={s.asChipRow}>
+            {DIAS_OPTIONS.map((op) => (
+              <TouchableOpacity
+                key={op.label}
+                onPress={() => setFilters({ ...filters, dias: op.value })}
+                style={[s.asChip, filters.dias === op.value && s.asChipActive]}
+              >
+                <Text style={[s.asChipText, filters.dias === op.value && { color: C.white }]}>{op.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
         <View>
           <Text style={s.sheetFieldLabel}>Tenencia</Text>
           <View style={s.asChipRow}>
-            {[
-              { label: 'Todas', value: '' },
-              { label: 'Propio', value: 'Propio' },
-              { label: 'Consignado', value: 'Consignado' },
-            ].map((op) => (
+            {TENENCIA_OPTIONS.map((op) => (
               <TouchableOpacity
                 key={op.label}
                 onPress={() => setFilters({ ...filters, tenencia: op.value })}
@@ -326,7 +423,8 @@ export function FilterSheet({
       <View style={[s.sheetFooter, { paddingBottom: (insets.bottom || 0) + 16 }]}>
         <TouchableOpacity
           onPress={() => {
-            setFilters({ marca: '', anio: '', precioMax: 20000000, estado: '', tenencia: '' });
+            setFilters(emptyStockFilters());
+            setOrdenStock('ingreso');
             setIsFilterSheetOpen(false);
           }}
           style={s.sheetBtnGray}
