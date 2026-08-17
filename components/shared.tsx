@@ -169,19 +169,21 @@ export function MotorPreciosPublicacion({
   patente,
   km,
   vehiculo,
+  emptyText = 'Completa la patente y el kilometraje en el paso anterior y acá aparece el precio sugerido.',
 }: {
   patente: string;
   km: number;
   vehiculo: Pick<Car, 'marca' | 'modelo' | 'version' | 'anio' | 'transmision' | 'combustible'>;
+  // El texto del estado vacío depende de dónde vive el componente: en el alta
+  // habla del paso anterior; en la ficha, del expediente del auto.
+  emptyText?: string;
 }) {
   const registro = buscarPatente(patente);
   if (!registro || km <= 0) {
     return (
       <View style={s.motorAltaEmpty}>
         <Icon name="wand-magic-sparkles" size={14} color={C.slate400} />
-        <Text style={s.motorAltaEmptyText}>
-          Completa la patente y el kilometraje en el paso anterior y acá aparece el precio sugerido.
-        </Text>
+        <Text style={s.motorAltaEmptyText}>{emptyText}</Text>
       </View>
     );
   }

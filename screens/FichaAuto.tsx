@@ -24,7 +24,14 @@ import {
   resumenVeredictos,
 } from '../src/autosave';
 import { emptyContact, hasContactData, requiresBuyer, totalAntecedentes, veredictoColor } from '../src/helpers';
-import { Field, PhotoGallery, TechItem, TransferMetaRow, VehicleContactCard } from '../components/shared';
+import {
+  Field,
+  MotorPreciosPublicacion,
+  PhotoGallery,
+  TechItem,
+  TransferMetaRow,
+  VehicleContactCard,
+} from '../components/shared';
 
 interface FichaAutoProps {
   activeCar: Car | null;
@@ -241,6 +248,26 @@ export function FichaAuto({
                         </View>
                       ),
                     )}
+
+                {/* Motor de precios sobre ESTE auto (punto 25): antes vivía solo
+                    en Inicio, desconectado del auto que estabas mirando. Es
+                    asesoría de venta del mayorista, así que en modo cliente no
+                    aparece. Mientras Autored no abra la integración real, corre
+                    contra el motor simulado de src/pricing.ts. */}
+                {!modoCliente &&
+                  renderSeccion(
+                    'motor',
+                    'Motor de Precios',
+                    '¿A cuánto conviene vender este auto?',
+                    () => (
+                      <MotorPreciosPublicacion
+                        patente={car.patente}
+                        km={car.km}
+                        vehiculo={car}
+                        emptyText="El expediente no tiene patente o kilometraje: complétalos con Editar y acá aparece el precio sugerido."
+                      />
+                    ),
+                  )}
 
                 {renderSeccion(
                   'clientes',
