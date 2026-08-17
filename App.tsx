@@ -144,7 +144,12 @@ function AppInner() {
 
   // Filtros stock
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterState, setFilterState] = useState('Todos');
+  // La bandeja abre en "En venta": son los autos que el mayorista monitorea a
+  // diario (David, punto 9). "Restablecer filtros" sí vuelve a Todos, porque
+  // esa acción significa "muéstrame todo". Los tabs son los cinco estados del
+  // auto más Todos; si David define tabs nuevos en la reunión (punto 10), se
+  // agregan a `chips` en screens/Stock.tsx.
+  const [filterState, setFilterState] = useState('En venta');
   const [filters, setFilters] = useState<StockFilters>({ marca: '', anio: '', precioMax: 20000000, estado: '' });
 
   // Ajuste de precio
