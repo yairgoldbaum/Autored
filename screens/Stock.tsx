@@ -3,7 +3,7 @@ import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from 'reac
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { C, W, fmtCLP, fmtMiles } from '../src/theme';
-import { Dropdown, Icon, Sheet, Wiggle } from '../src/ui';
+import { Dropdown, Icon, Sheet } from '../src/ui';
 import { s } from '../src/styles';
 import { Auction, Car, RelacionClienteVehiculo, costoBase, diasEnStock } from '../src/data';
 import {
@@ -173,14 +173,14 @@ export function StockScreen({
                         </View>
                         <TouchableOpacity
                           onPress={(e) => {
-                            e.stopPropagation();
+                            e.stopPropagation?.();
                             handleEliminarAuto(car);
                           }}
+                          activeOpacity={0.75}
+                          hitSlop={8}
                           style={s.trashSm}
                         >
-                          <Wiggle>
-                            <Icon name="trash-can" size={11} color={C.red600} />
-                          </Wiggle>
+                          <Icon name="trash-can" size={11} color={C.red600} />
                         </TouchableOpacity>
                       </View>
                     </View>

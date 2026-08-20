@@ -222,6 +222,7 @@ function normalizeCustomer(customer: Partial<Customer> & { id: number }): Custom
     telefono: customer.telefono || '',
     tipo: customer.tipo || 'Particular',
     estado: normalizeEstadoCliente(customer.estado),
+    notas: typeof customer.notas === 'string' ? customer.notas : '',
     canal: customer.canal === 'Tasador web' ? 'Tasador web' : 'Carga manual',
     // Los clientes guardados antes de que existiera `busca` traen el viejo `interes`,
     // que era un auto del stock propio. Se rescata como el modelo que buscan.
@@ -270,6 +271,6 @@ function normalizeContact(contact: unknown): VehicleContact | null {
     clienteId: typeof c.clienteId === 'number' ? c.clienteId : null,
     nombre,
     telefono,
+    notas: typeof c.notas === 'string' ? c.notas : '',
   };
 }
-

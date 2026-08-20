@@ -323,12 +323,21 @@ export function DateField({
   const month = cursor.getMonth();
   const cells = buildCalendarCells(year, month);
 
+  useEffect(() => {
+    if (open) setCursor(selectedDate || new Date());
+  }, [open, value]);
+
   const moveMonth = (delta: number) => {
     setCursor(new Date(year, month + delta, 1));
   };
 
   const selectDay = (day: number) => {
     onChange(formatIsoDate(new Date(year, month, day)));
+    setOpen(false);
+  };
+
+  const selectToday = () => {
+    onChange(formatIsoDate(new Date()));
     setOpen(false);
   };
 
@@ -381,13 +390,14 @@ export function DateField({
               })}
             </View>
             <View style={s.calendarFooter}>
+              <TouchableOpacity activeOpacity={0.8} onPress={selectToday} style={s.calendarTodayBtn}>
+                <Text style={s.calendarTodayText}>Hoy</Text>
+              </TouchableOpacity>
               {optional && value ? (
                 <TouchableOpacity activeOpacity={0.8} onPress={() => { onChange(''); setOpen(false); }} style={s.calendarClearBtn}>
                   <Text style={s.calendarClearText}>Limpiar</Text>
                 </TouchableOpacity>
-              ) : (
-                <View style={{ flex: 1 }} />
-              )}
+              ) : null}
               <TouchableOpacity activeOpacity={0.8} onPress={() => setOpen(false)} style={s.calendarDoneBtn}>
                 <Text style={s.calendarDoneText}>Listo</Text>
               </TouchableOpacity>

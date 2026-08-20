@@ -5,6 +5,7 @@ import {
   Image,
   Keyboard,
   Linking,
+  Platform,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -477,9 +478,11 @@ function AppInner() {
       if (!q) return true;
       const vehicleLabels = getCustomerVehicleLabels(rels, stockById).join(' ').toLowerCase();
       const busca = `${c.busca?.modelo || ''} ${c.busca?.comentario || ''}`.toLowerCase();
+      const notas = c.notas.toLowerCase();
       return (
         c.nombre.toLowerCase().includes(q) ||
         c.telefono.toLowerCase().includes(q) ||
+        notas.includes(q) ||
         busca.includes(q) ||
         rolesDeCliente(rels).join(' ').toLowerCase().includes(q) ||
         vehicleLabels.includes(q)
@@ -677,26 +680,30 @@ function AppInner() {
   };
 
   const handleEliminarAuto = (car: Car) => {
-    Alert.alert(
-      'Eliminar publicación',
-      `¿Seguro que quieres eliminar el ${car.marca} ${car.modelo} (${car.patente})? Esta acción no se puede deshacer.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => {
-            const nextStock = stock.filter((c) => c.id !== car.id);
-            const synced = syncStockAndCustomers(nextStock, customers, relaciones);
-            setStock(synced.stock);
-            setCustomers(synced.customers);
-            setRelaciones(synced.relaciones);
-            setActiveCar((prev) => (prev && prev.id === car.id ? null : prev));
-            showNotification(`Publicación de ${car.marca} ${car.modelo} eliminada.`);
-          },
-        },
-      ],
-    );
+    const title = 'Eliminar auto del stock';
+    const message = `¿Estás seguro de que quieres eliminar el ${car.marca} ${car.modelo} (${car.patente}) del stock? Esta acción no se puede deshacer.`;
+    const eliminarAuto = () => {
+      const nextStock = stock.filter((c) => c.id !== car.id);
+      const synced = syncStockAndCustomers(nextStock, customers, relaciones);
+      setStock(synced.stock);
+      setCustomers(synced.customers);
+      setRelaciones(synced.relaciones);
+      setActiveCar((prev) => (prev && prev.id === car.id ? null : prev));
+      showNotification(`${car.marca} ${car.modelo} eliminado del stock.`);
+    };
+
+    if (Platform.OS === 'web') {
+      const webConfirm = (globalThis as typeof globalThis & { confirm?: (message?: string) => boolean }).confirm;
+      if (webConfirm ? webConfirm(`${title}\n\n${message}`) : true) {
+        eliminarAuto();
+      }
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: eliminarAuto },
+    ]);
   };
 
   const handleGuardarPrecio = () => {
@@ -994,6 +1001,7 @@ function AppInner() {
       telefono: client.telefono,
       tipo: client.tipo,
       estado: client.estado,
+      notas: client.notas,
       buscaModelo: client.busca?.modelo || '',
       buscaComentario: client.busca?.comentario || '',
     });
@@ -1013,6 +1021,7 @@ function AppInner() {
         telefono: newClient.telefono,
         tipo: newClient.tipo,
         estado: newClient.estado,
+        notas: newClient.notas.trim(),
         canal: existing?.canal ?? 'Carga manual',
         busca: busquedaFromForm(newClient),
         archivado: existing?.archivado ?? false,
@@ -1035,6 +1044,7 @@ function AppInner() {
       telefono: newClient.telefono,
       tipo: newClient.tipo,
       estado: newClient.estado || 'Nuevo',
+      notas: newClient.notas.trim(),
       canal: 'Carga manual',
       busca: busquedaFromForm(newClient),
       archivado: false,
@@ -1092,9 +1102,8 @@ function AppInner() {
     Linking.openURL(url).catch(() => showNotification('No se pudo abrir WhatsApp.', 'warning'));
   };
 
-  // Actualiza el estado del trato directamente desde la tarjeta
-  const handleUpdateClienteEstado = (id: number, estado: string) => {
-    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, estado } : c)));
+  const handleUpdateClienteNotas = (id: number, notas: string) => {
+    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, notas } : c)));
   };
 
   /* ------------------- Cámara / Galería reales ------------------- */
@@ -1236,7 +1245,7 @@ function AppInner() {
               handleEliminarCliente={handleEliminarCliente}
               handleLlamar={handleLlamar}
               handleWhatsapp={handleWhatsapp}
-              handleUpdateClienteEstado={handleUpdateClienteEstado}
+              handleUpdateClienteNotas={handleUpdateClienteNotas}
             />
           )}
           {activeTab === 'kpis' && (
