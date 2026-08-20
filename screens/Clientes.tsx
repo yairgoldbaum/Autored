@@ -17,7 +17,6 @@ import { Car, Customer, RelacionClienteVehiculo } from '../src/data';
 import {
   CLIENTE_FILTROS,
   ClienteFiltro,
-  ESTADO_CLIENTE_OPTIONS,
   NewClientData,
   TIPO_CLIENTE_OPTIONS,
   badgeForClienteRol,
@@ -44,7 +43,7 @@ interface ClientesScreenProps {
   handleEliminarCliente: (client: Customer) => void;
   handleLlamar: (telefono: string) => void;
   handleWhatsapp: (telefono: string) => void;
-  handleUpdateClienteEstado: (id: number, estado: string) => void;
+  handleUpdateClienteNotas: (id: number, notas: string) => void;
 }
 
 /* ======================= PANTALLA CLIENTES ======================= */
@@ -64,7 +63,7 @@ export function ClientesScreen({
   handleEliminarCliente,
   handleLlamar,
   handleWhatsapp,
-  handleUpdateClienteEstado,
+  handleUpdateClienteNotas,
 }: ClientesScreenProps) {
   const contarFiltro = (filtro: ClienteFiltro) =>
     customers.filter(
@@ -77,7 +76,7 @@ export function ClientesScreen({
     <View style={{ gap: 16 }}>
       <View style={s.rowBetween}>
         <View>
-          <Text style={s.h2Black}>Clientes & Leads</Text>
+          <Text style={s.h2Black}>Clientes</Text>
           <Text style={s.subMuted}>Adquisición, reservas y compradores</Text>
         </View>
         <TouchableOpacity activeOpacity={0.85} onPress={handleAbrirNuevoCliente} style={s.newClientBtn}>
@@ -128,7 +127,7 @@ export function ClientesScreen({
         ) : null}
       </View>
 
-      {/* Lista unificada de leads */}
+      {/* Lista unificada de clientes */}
       <View style={{ gap: 12 }}>
         {filteredCustomers.length === 0 ? (
           <View style={s.cliEmpty}>
@@ -205,13 +204,16 @@ export function ClientesScreen({
                   </View>
                 </View>
 
-                {/* Selector de estado táctil a ancho completo */}
+                {/* Notas editables: reemplazan el antiguo control de estado del trato. */}
                 <View style={s.cliStatusBlock}>
-                  <Text style={s.cliGridLabel}>Estado del trato</Text>
-                  <Dropdown
-                    value={cli.estado}
-                    onChange={(v) => handleUpdateClienteEstado(cli.id, v)}
-                    options={ESTADO_CLIENTE_OPTIONS}
+                  <Text style={s.cliGridLabel}>Notas del cliente</Text>
+                  <TextInput
+                    placeholder="Escribe detalles, acuerdos o cuidados al tratar con este cliente..."
+                    placeholderTextColor={C.slate400}
+                    value={cli.notas}
+                    onChangeText={(notas) => handleUpdateClienteNotas(cli.id, notas)}
+                    multiline
+                    style={[s.sheetInput, s.cliNotesInput]}
                   />
                 </View>
 
@@ -290,9 +292,20 @@ export function NewClientSheet({
                 style={s.sheetInput}
               />
             </View>
+            <View>
+              <Text style={s.sheetFieldLabel}>Notas del cliente</Text>
+              <TextInput
+                placeholder="Ej: horarios, preferencias, objeciones, acuerdos pendientes"
+                placeholderTextColor={C.slate400}
+                value={newClient.notas}
+                onChangeText={(t) => setNewClient({ ...newClient, notas: t })}
+                multiline
+                style={[s.sheetInput, s.sheetNotesInput]}
+              />
+            </View>
             {/* Todo lo demás es opcional y va plegado: el alta se cierra con nombre
-                y teléfono. El estado del trato no se pregunta acá, se marca después
-                desde la tarjeta. */}
+                y teléfono. Las notas quedan visibles porque son el espacio libre
+                principal para tratar con el cliente. */}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setNewClientExtrasOpen((v) => !v)}

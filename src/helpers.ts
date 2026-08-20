@@ -35,16 +35,13 @@ export type FiltroDias = null | '0-30' | '31-60' | '+60';
    con autos. Vive acá y no en el modelo porque el modelo ya no lo guarda. */
 export type ClienteRol = 'Adquisición' | 'Venta';
 
-/* Los seis filtros de la lista de clientes, en reemplazo de los de rol comercial.
-   Ninguno se mantiene a mano: los cuatro del medio se derivan del cliente y de sus
-   relaciones. Se pisan a propósito — un lead del tasador con un interés anotado sale
-   en los dos, y no se inventa una regla de prioridad. Archivados es el único que se
-   comporta distinto. */
-export type ClienteFiltro = 'Todos' | 'Clientes' | 'Leads' | 'Intereses' | 'Oportunidades' | 'Archivados';
+/* Filtros de la lista de clientes, en reemplazo de los de rol comercial.
+   "Todos" ya cubre a todos los clientes visibles, e "Intereses" concentra a quienes
+   mostraron intención de compra aunque hayan entrado por distintos canales.
+   Archivados es el único que se comporta distinto. */
+export type ClienteFiltro = 'Todos' | 'Intereses' | 'Oportunidades' | 'Archivados';
 export const CLIENTE_FILTROS: ClienteFiltro[] = [
   'Todos',
-  'Clientes',
-  'Leads',
   'Intereses',
   'Oportunidades',
   'Archivados',
@@ -64,6 +61,7 @@ export interface NewClientData {
   telefono: string;
   tipo: 'Particular' | 'Empresa';
   estado: string;
+  notas: string;
   buscaModelo: string;
   buscaComentario: string;
 }
@@ -197,7 +195,7 @@ export function badgeForClienteRol(role: ClienteRol) {
 }
 
 export function emptyContact(): VehicleContact {
-  return { clienteId: null, nombre: '', telefono: '' };
+  return { clienteId: null, nombre: '', telefono: '', notas: '' };
 }
 
 export function hasContactData(contact: VehicleContact | null | undefined) {
@@ -210,6 +208,7 @@ export function cleanVehicleContact(contact: VehicleContact | null | undefined):
     clienteId: typeof contact.clienteId === 'number' ? contact.clienteId : null,
     nombre: contact.nombre.trim(),
     telefono: contact.telefono.trim(),
+    notas: contact.notas?.trim() || '',
   };
   return hasContactData(clean) ? clean : null;
 }
@@ -225,6 +224,7 @@ export function emptyNewClient(): NewClientData {
     telefono: '',
     tipo: 'Particular',
     estado: 'Nuevo',
+    notas: '',
     buscaModelo: '',
     buscaComentario: '',
   };
@@ -255,10 +255,6 @@ export function cumpleFiltroCliente(
   filtro: ClienteFiltro,
 ): boolean {
   switch (filtro) {
-    case 'Clientes':
-      return rels.length > 0; // tiene alguna relación con un auto
-    case 'Leads':
-      return cliente.canal === 'Tasador web';
     case 'Intereses':
       return !!cliente.busca;
     case 'Oportunidades':
@@ -456,6 +452,7 @@ export function syncStockAndCustomers(
         telefono: contact.telefono,
         tipo: 'Particular',
         estado: 'Nuevo',
+        notas: contact.notas?.trim() || '',
         // Nace desde el auto, no desde el tasador web, y no busca nada: ya tiene
         // este auto asociado. `busca` es para el que quiere algo que no tienes.
         canal: 'Carga manual',
@@ -471,6 +468,7 @@ export function syncStockAndCustomers(
       ...existing,
       nombre: contact.nombre || existing.nombre,
       telefono: contact.telefono || existing.telefono,
+      notas: contact.notas?.trim() || existing.notas,
     };
     return { contact: { ...contact, clienteId: existing.id }, clienteId: existing.id };
   };

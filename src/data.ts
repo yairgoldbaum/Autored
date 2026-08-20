@@ -77,6 +77,7 @@ export interface VehicleContact {
   clienteId: number | null;
   nombre: string;
   telefono: string;
+  notas?: string;
 }
 
 export interface VehicleDocument {
@@ -311,6 +312,7 @@ export interface Customer {
   telefono: string;
   tipo: 'Particular' | 'Empresa';
   estado: string;
+  notas: string;
   canal: CanalCliente;
   busca: BusquedaCliente | null;
   archivado: boolean;
@@ -1082,6 +1084,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 8456 1234',
     tipo: 'Particular',
     estado: 'Caliente',
+    notas: 'Prefiere coordinar por WhatsApp. Quiere cerrar con financiamiento aprobado.',
     canal: 'Carga manual',
     busca: null, // ya encontró lo suyo: tiene el Mazda 3 reservado
     archivado: false,
@@ -1092,6 +1095,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 7123 9988',
     tipo: 'Empresa',
     estado: 'Frecuente',
+    notas: 'Revendedor habitual. Le interesan lotes con margen para reventa rapida.',
     canal: 'Carga manual',
     busca: { modelo: '', comentario: 'Revendedor: compra varios, sin modelo fijo.' },
     archivado: false,
@@ -1102,6 +1106,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 5544 3322',
     tipo: 'Particular',
     estado: 'Caliente',
+    notas: 'Busca automatico y responde mejor despues de las 18:00.',
     canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
     busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.' },
     archivado: false,
@@ -1114,6 +1119,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 3311 7788',
     tipo: 'Particular',
     estado: 'Caliente',
+    notas: 'Vino a ver el Yaris, pidio confirmar con su pareja antes de reservar.',
     canal: 'Carga manual',
     busca: null,
     archivado: false,
@@ -1126,6 +1132,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     telefono: '+56 9 2200 6655',
     tipo: 'Particular',
     estado: 'Nuevo',
+    notas: 'Lead frio. Probar un ultimo contacto antes de descartarlo.',
     canal: 'Tasador web',
     busca: { modelo: 'Ford Ranger', comentario: 'Dejó de responder hace un mes.' },
     archivado: true,

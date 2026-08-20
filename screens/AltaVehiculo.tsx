@@ -434,6 +434,22 @@ export function AltaVehiculoWizard({
                       })
                     }
                   />
+                  <View>
+                    <Text style={s.fieldLabel}>Notas del cliente</Text>
+                    <TextInput
+                      placeholder="Ej: preferencias, acuerdos o cuidados al tratarlo"
+                      placeholderTextColor={C.slate400}
+                      value={wizardData.comprador?.notas || ''}
+                      onChangeText={(notas) =>
+                        setWizardData({
+                          ...wizardData,
+                          comprador: { ...(wizardData.comprador || emptyContact()), notas },
+                        })
+                      }
+                      multiline
+                      style={[s.textArea, { minHeight: 72 }]}
+                    />
+                  </View>
                 </View>
               </View>
               <View style={s.inlinePanel}>
@@ -463,6 +479,22 @@ export function AltaVehiculoWizard({
                       })
                     }
                   />
+                  <View>
+                    <Text style={s.fieldLabel}>Notas del cliente</Text>
+                    <TextInput
+                      placeholder="Ej: motivo de venta, disponibilidad o condiciones acordadas"
+                      placeholderTextColor={C.slate400}
+                      value={wizardData.clienteAdquisicion?.notas || ''}
+                      onChangeText={(notas) =>
+                        setWizardData({
+                          ...wizardData,
+                          clienteAdquisicion: { ...(wizardData.clienteAdquisicion || emptyContact()), notas },
+                        })
+                      }
+                      multiline
+                      style={[s.textArea, { minHeight: 72 }]}
+                    />
+                  </View>
                 </View>
               </View>
             </>

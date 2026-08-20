@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { C, W, fmtCLP, fmtMiles } from '../src/theme';
-import { Icon, PageOverlay, Ping, Sheet, Wiggle } from '../src/ui';
+import { Icon, PageOverlay, Ping, Sheet } from '../src/ui';
 import { s } from '../src/styles';
 import { Auction, Car, ESTADOS, EstadoAuto, InformeAutosave, VehicleContact, costoBase, diasEnStock } from '../src/data';
 import {
@@ -141,7 +141,7 @@ export function FichaAuto({
     const car = activeCar;
     const activeStockAuction = activeStockAuctionMap.get(car.id);
     const precioContado = car.precioPublicacionContado || car.precioVenta;
-    const margenNeto = (car.precioVentaEstimado || car.precioVenta) - costoBase(car);
+    const margenNeto = precioContado - costoBase(car);
     const clientesRegistrados = [
       car.comprador,
       car.tenencia === 'Consignado' ? car.consignante : null,
@@ -524,9 +524,7 @@ export function FichaAuto({
                 <Text style={s.detailEditText}>Editar Todo el Expediente</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleEliminarAuto(car)} style={s.detailDeleteBtn}>
-                <Wiggle>
-                  <Icon name="trash-can" size={12} color={C.red700} />
-                </Wiggle>
+                <Icon name="trash-can" size={12} color={C.red700} />
                 <Text style={s.detailDeleteText}>Eliminar Publicación</Text>
               </TouchableOpacity>
             </View>
@@ -929,6 +927,17 @@ export function StatusSheet({
                     value={statusBuyer.telefono}
                     onChange={(telefono) => setStatusBuyer({ ...statusBuyer, telefono })}
                   />
+                  <View>
+                    <Text style={s.sheetFieldLabel}>Notas del cliente</Text>
+                    <TextInput
+                      placeholder="Ej: forma de pago, horarios, objeciones o acuerdos"
+                      placeholderTextColor={C.slate400}
+                      value={statusBuyer.notas || ''}
+                      onChangeText={(notas) => setStatusBuyer({ ...statusBuyer, notas })}
+                      multiline
+                      style={[s.textArea, { minHeight: 72 }]}
+                    />
+                  </View>
                 </View>
               </View>
             ) : null}
