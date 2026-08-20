@@ -144,12 +144,12 @@ export function AltaVehiculoWizard({
           <Icon name="camera" size={40} color={C.slate500} />
           <Text style={s.cameraTitle}>Cámara Integrada</Text>
           <Text style={s.cameraSub}>Saca fotos del auto directamente o elige desde tu galería.</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-            <TouchableOpacity onPress={handleCapturarFoto} style={s.captureBtn}>
+          <View style={s.cameraActions}>
+            <TouchableOpacity onPress={handleCapturarFoto} style={[s.captureBtn, s.cameraActionBtn]}>
               <Icon name="camera" size={12} color={C.white} />
               <Text style={s.captureText}>Capturar Foto</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleGaleria} style={s.galleryBtn}>
+            <TouchableOpacity onPress={handleGaleria} style={[s.galleryBtn, s.cameraActionBtn]}>
               <Icon name="images" size={12} color={C.slate200} />
               <Text style={s.galleryText}>Galería</Text>
             </TouchableOpacity>
@@ -247,8 +247,8 @@ export function AltaVehiculoWizard({
             onChange={(t) => setWizardData({ ...wizardData, km: parseInt(t) || 0 })}
           />
           <Field label="Color" placeholder="Ej: Gris Plata" value={wizardData.color} onChange={(t) => setWizardData({ ...wizardData, color: t })} />
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ flex: 1 }}>
+          <View style={s.fieldPair}>
+            <View style={s.fieldPairItem}>
               <Text style={s.fieldLabel}>Transmisión</Text>
               <Dropdown
                 value={wizardData.transmision}
@@ -256,7 +256,7 @@ export function AltaVehiculoWizard({
                 options={TRANSMISION_OPTIONS.map((v) => ({ label: v, value: v }))}
               />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={s.fieldPairItem}>
               <Text style={s.fieldLabel}>Combustible</Text>
               <Dropdown
                 value={wizardData.combustible}
@@ -265,8 +265,8 @@ export function AltaVehiculoWizard({
               />
             </View>
           </View>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ flex: 1 }}>
+          <View style={s.fieldPair}>
+            <View style={s.fieldPairItem}>
               <Text style={s.fieldLabel}>Tracción</Text>
               <Dropdown
                 value={wizardData.traccion}
@@ -274,7 +274,7 @@ export function AltaVehiculoWizard({
                 options={TRACCION_OPTIONS.map((v) => ({ label: v, value: v }))}
               />
             </View>
-            <View style={{ flex: 1 }}>
+            <View style={s.fieldPairItem}>
               <Text style={s.fieldLabel}>Puertas</Text>
               <Dropdown
                 value={wizardData.puertas}
@@ -375,7 +375,7 @@ export function AltaVehiculoWizard({
             />
           </View>
           <View style={s.margenBox}>
-            <View>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={s.margenLabel}>Margen de Venta Estimado</Text>
               <Text style={s.margenValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                 {fmtCLP(margen)}

@@ -203,8 +203,8 @@ export function MotorPreciosPublicacion({
 
   return (
     <View style={s.motorAltaBox}>
-      <View style={s.rowBetween}>
-        <View style={s.rowCenter}>
+      <View style={s.detailMoneyRow}>
+        <View style={[s.rowCenter, { flex: 1, minWidth: 0 }]}>
           <Icon name="wand-magic-sparkles" size={13} color={C.teal700} />
           <Text style={s.motorAltaTitle}> Precio sugerido</Text>
         </View>
@@ -226,7 +226,7 @@ export function MotorPreciosPublicacion({
         <Text style={s.sectionLabel}>Publicaciones similares</Text>
         {t.comparables.map((c) => (
           <View key={c.fuente} style={s.motorCompRow}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={s.motorCompTitle} numberOfLines={1}>
                 {c.titulo}
               </Text>
@@ -500,7 +500,7 @@ export function ToggleChip({ label, active, onPress }: { label: string; active: 
 
 export function TechItem({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <View style={{ width: '48%' }}>
+    <View style={s.techItem}>
       <Text style={s.techLabel}>{label}</Text>
       <Text style={[s.techValue, warn && { color: C.amber600 }]}>{value}</Text>
     </View>
@@ -573,7 +573,7 @@ export function VehicleContactCard({
   const hasContact = hasContactData(contact);
   return (
     <View style={s.vehicleContactCard}>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={s.vehicleContactLabel}>{title}</Text>
         {hasContact && contact ? (
           <>

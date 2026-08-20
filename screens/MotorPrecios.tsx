@@ -169,7 +169,7 @@ export function MotorPreciosOverlay({
           <View style={s.motorCarIcon}>
             <Icon name="car-side" size={18} color={C.teal700} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={s.motorCarTitle}>
               {v.marca} {v.modelo} {v.anio}
             </Text>
@@ -234,7 +234,7 @@ export function MotorPreciosOverlay({
           <Text style={s.sectionLabel}>Publicaciones similares</Text>
           {t.comparables.map((c) => (
             <View key={c.fuente} style={s.motorCompRow}>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={s.motorCompTitle} numberOfLines={1}>
                   {c.titulo}
                 </Text>
