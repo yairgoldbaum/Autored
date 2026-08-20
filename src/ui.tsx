@@ -272,6 +272,8 @@ export function Dropdown({
       >
         <Text
           style={{
+            flex: 1,
+            minWidth: 0,
             fontSize: small ? 12 : 14,
             fontWeight: W.semibold,
             color: selected ? C.slate800 : C.slate400,
@@ -323,6 +325,8 @@ const ddStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
+    minWidth: 0,
   },
   backdrop: {
     flex: 1,

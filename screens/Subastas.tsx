@@ -77,19 +77,19 @@ export function SubastasScreen({
   };
   return (
     <View style={{ gap: 16 }}>
-      <View style={s.rowBetween}>
-        <View style={{ flex: 1 }}>
+      <View style={s.screenHead}>
+        <View style={s.screenHeadText}>
           <Text style={s.h2Black}>Mesa de Subastas</Text>
           <Text style={s.subMuted}>Compra y vende stock en subastas selladas de 4 horas</Text>
         </View>
-        <TouchableOpacity activeOpacity={0.85} onPress={handleAbrirPublicarSubasta} style={s.publishAuctionBtn}>
+        <TouchableOpacity activeOpacity={0.85} onPress={handleAbrirPublicarSubasta} style={[s.publishAuctionBtn, s.screenHeadAction]}>
           <Icon name="plus" size={12} color={C.white} />
-          <Text style={s.publishAuctionText}>Subastar</Text>
+          <Text style={s.publishAuctionText} numberOfLines={1}>Subastar</Text>
         </TouchableOpacity>
       </View>
 
       {/* Sub-tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+      <View style={s.chipWrap}>
         {(
           [
             { key: 'disponibles', label: 'Disponibles', count: counts.disponibles },
@@ -113,7 +113,7 @@ export function SubastasScreen({
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       <View style={{ gap: 12 }}>
         {lista.map((auc) => {
@@ -125,10 +125,10 @@ export function SubastasScreen({
           const auctionImageUrl = getAuctionImageUrl(auc, stockCar);
           return (
             <View key={auc.id} style={s.aucCard}>
-              <View style={[s.rowBetween, { alignItems: 'flex-start' }]}>
+              <View style={s.auctionTopRow}>
                 <View style={s.auctionLead}>
                   <Image source={{ uri: auctionImageUrl }} style={s.auctionThumb} />
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={s.aucBadgeRow}>
                       <View style={s.origenPill}>
                         <Text style={s.origenText}>{auc.origen}</Text>
@@ -143,7 +143,7 @@ export function SubastasScreen({
                         onPress={() => setActiveCar(stockCar)}
                         style={s.auctionTitleTap}
                       >
-                        <Text style={[s.aucTitle, { color: C.chileanTeal }]}>
+                        <Text style={[s.aucTitle, { color: C.chileanTeal }]} numberOfLines={2}>
                           {auc.marca} {auc.modelo}
                         </Text>
                         <Icon name="arrow-up-right-from-square" size={9} color={C.chileanTeal} />
@@ -154,13 +154,13 @@ export function SubastasScreen({
                         onPress={() => handleAbrirCaracteristicasSubasta(auc)}
                         style={s.auctionTitleTap}
                       >
-                        <Text style={[s.aucTitle, { color: C.chileanTeal }]}>
+                        <Text style={[s.aucTitle, { color: C.chileanTeal }]} numberOfLines={2}>
                           {auc.marca} {auc.modelo}
                         </Text>
                         <Icon name="circle-info" size={10} color={C.chileanTeal} />
                       </TouchableOpacity>
                     )}
-                    <Text style={s.aucSub}>
+                    <Text style={s.aucSub} numberOfLines={2}>
                       {auc.anio} • {auc.version}
                     </Text>
                     {stockCar ? <Text style={s.aucStockLink}>Desde stock: {stockCar.estado}</Text> : null}
@@ -176,7 +176,7 @@ export function SubastasScreen({
                     )}
                   </View>
                 </View>
-                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <View style={s.auctionSideMeta}>
                   <Text style={s.aucId}>ID: #{auc.id}</Text>
                   <View style={[s.timePill, !active && s.timePillDone]}>
                     <Icon name="clock" size={9} color={active ? C.amber700 : C.slate500} />
@@ -195,15 +195,15 @@ export function SubastasScreen({
               <View style={s.aucSpecs}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.aucSpecLabel}>Patente</Text>
-                  <Text style={s.aucSpecValue}>{auc.patente || 'Por asignar'}</Text>
+                  <Text style={s.aucSpecValue} numberOfLines={2}>{auc.patente || 'Por asignar'}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.aucSpecLabel}>Kilometraje</Text>
-                  <Text style={s.aucSpecValue}>{fmtMiles(auc.km)} km</Text>
+                  <Text style={s.aucSpecValue} numberOfLines={2}>{fmtMiles(auc.km)} km</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.aucSpecLabel}>Transmisión</Text>
-                  <Text style={s.aucSpecValue}>{auc.transmision}</Text>
+                  <Text style={s.aucSpecValue} numberOfLines={2}>{auc.transmision}</Text>
                 </View>
               </View>
 
@@ -211,8 +211,8 @@ export function SubastasScreen({
                 <View style={[s.auctionProgressFill, { width: `${getAuctionProgressPct(auc, nowTs)}%` }]} />
               </View>
 
-              <View style={[s.rowBetween, { paddingTop: 8, borderTopWidth: 1, borderTopColor: C.slate100 }]}>
-                <View style={{ flex: 1 }}>
+              <View style={s.aucFooterRow}>
+                <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 150 }}>
                   {auc.estado === 'Cancelada' ? (
                     <>
                       <Text style={s.aucMoneyLabel}>Estado</Text>
@@ -268,7 +268,7 @@ export function SubastasScreen({
                 )}
 
                 {auc.estado === 'Mi Subasta' && active && (
-                  <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                  <View style={s.aucFooterActions}>
                     <View style={s.pendingPill}>
                       <Icon name="lock" size={10} color={C.amber600} />
                       <Text style={s.pendingText}>Sellada</Text>
@@ -290,7 +290,7 @@ export function SubastasScreen({
                   <Pulse>
                     <TouchableOpacity activeOpacity={0.85} onPress={() => handleAgregarDesdeSubasta(auc)} style={s.addStockBtn}>
                       <Icon name="cloud-arrow-down" size={11} color={C.white} />
-                      <Text style={s.addStockText}>Agregar al Stock</Text>
+                      <Text style={s.addStockText} numberOfLines={1}>Agregar al Stock</Text>
                     </TouchableOpacity>
                   </Pulse>
                 )}

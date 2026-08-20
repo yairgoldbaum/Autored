@@ -121,7 +121,7 @@ export function FichaAuto({
     return (
       <View style={s.detailTechCard}>
         <TouchableOpacity activeOpacity={0.75} onPress={() => toggleSeccion(id)} style={s.seccionHead}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={s.seccionTitulo}>{titulo}</Text>
             {!abierta && resumen ? (
               <Text style={s.seccionResumen} numberOfLines={1}>
@@ -165,8 +165,8 @@ export function FichaAuto({
               <PhotoGallery fotos={car.fotos} />
 
               <View style={{ padding: 16, gap: 16 }}>
-                <View style={[s.rowBetween, { alignItems: 'flex-start' }]}>
-                  <View style={{ flex: 1 }}>
+                <View style={s.detailHeaderRow}>
+                  <View style={s.detailHeaderText}>
                     <Text style={s.detailTitle}>
                       {car.marca} {car.modelo}
                     </Text>
@@ -174,7 +174,7 @@ export function FichaAuto({
                       {car.version} • Año {car.anio}
                     </Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <View style={s.detailHeaderBadges}>
                     <View style={s.detailEstado}>
                       <Text style={{ fontSize: 12, fontWeight: W.extrabold, color: C.teal700 }}>{car.estado}</Text>
                     </View>
@@ -226,7 +226,7 @@ export function FichaAuto({
                       `${fmtCLP(precioContado)} · margen ${margenNeto >= 0 ? '+' : '−'}${fmtCLP(Math.abs(margenNeto))}`,
                       () => (
                         <View style={{ gap: 8 }}>
-                          <View style={s.rowBetween}>
+                          <View style={s.detailMoneyRow}>
                             <Text style={s.detailMiniLabel}>
                               {car.tenencia === 'Consignado' ? 'Piso Consignación' : 'Costo Adquisición'}
                             </Text>
@@ -234,14 +234,14 @@ export function FichaAuto({
                               {fmtCLP(costoBase(car))}
                             </Text>
                           </View>
-                          <View style={[s.rowBetween, { alignItems: 'flex-end' }]}>
-                            <View>
+                          <View style={s.detailMoneyRow}>
+                            <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 130 }}>
                               <Text style={s.detailMiniLabel}>Publicación Contado</Text>
                               <Text style={s.detailPrecio} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                                 {fmtCLP(precioContado)}
                               </Text>
                             </View>
-                            <View style={{ alignItems: 'flex-end' }}>
+                            <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 120 }}>
                               <Text style={[s.detailMiniLabel, { color: C.emerald600 }]}>Margen Neto</Text>
                               <Text
                                 style={[s.detailMargen, margenNeto < 0 && { color: C.red600 }]}
@@ -327,12 +327,12 @@ export function FichaAuto({
                 {/* Inspección de recepción con IA */}
                 {car.inspeccion ? (
                   <TouchableOpacity onPress={() => setInspectingCar(car)} style={s.inspDoneCard} activeOpacity={0.8}>
-                    <View style={s.rowBetween}>
-                      <View style={s.rowCenter}>
+                    <View style={s.detailHeaderRow}>
+                      <View style={[s.rowCenter, { flex: 1, minWidth: 0 }]}>
                         <View style={s.inspDoneIcon}>
                           <Icon name="clipboard-check" size={16} color={C.teal700} />
                         </View>
-                        <View style={{ marginLeft: 10 }}>
+                        <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                           <Text style={s.inspTitle}>Inspección de Recepción</Text>
                           <Text style={s.inspSub}>
                             Nota {car.inspeccion.notaCondicion}/10 • Reparaciones est.{' '}
@@ -487,16 +487,18 @@ export function FichaAuto({
                 interna que el cliente no tiene por qué ver. */}
             {modoCliente ? null : (
             <View style={[s.detailFooter, { paddingBottom: (insets.bottom || 8) + 16 }]}>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={s.detailFooterActions}>
                 <TouchableOpacity
                   onPress={() => {
                     setAdjustedPrice(car.precioVenta);
                     setIsPriceSheetOpen(true);
                   }}
-                  style={s.detailActionGray}
+                  style={[s.detailActionGray, s.detailFooterAction]}
                 >
                   <Icon name="dollar-sign" size={12} color={C.slate700} />
-                  <Text style={s.detailActionGrayText}>Ajustar Precio</Text>
+                  <Text style={s.detailActionGrayText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                    Ajustar Precio
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -506,17 +508,19 @@ export function FichaAuto({
                     setStatusFinanciado(car.financiado ?? false);
                     setIsStatusSheetOpen(true);
                   }}
-                  style={s.detailActionGray}
+                  style={[s.detailActionGray, s.detailFooterAction]}
                 >
                   <Icon name="rotate" size={12} color={C.slate700} />
-                  <Text style={s.detailActionGrayText}>Cambiar Estado</Text>
+                  <Text style={s.detailActionGrayText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                    Cambiar Estado
+                  </Text>
                 </TouchableOpacity>
                 {/* El otro dato que P2 necesita desde la ficha: las visitas.
                     Alimentan el orden "Más visitas" de la bandeja. Sin pedir
                     datos: el modelo acepta visitas anónimas. */}
-                <TouchableOpacity onPress={() => handleMarcarVisita(car)} style={s.detailActionGray}>
+                <TouchableOpacity onPress={() => handleMarcarVisita(car)} style={[s.detailActionGray, s.detailFooterAction]}>
                   <Icon name="person-walking" size={12} color={C.slate700} />
-                  <Text style={s.detailActionGrayText}>Visita</Text>
+                  <Text style={s.detailActionGrayText} numberOfLines={1}>Visita</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => handleEditarAuto(car)} style={s.detailEditBtn}>
@@ -716,10 +720,10 @@ export function FichaAuto({
                   {!ultimo ? <View style={[s.asTimelineLine, completado && { backgroundColor: C.slate800 }]} /> : null}
                 </View>
                 <View style={{ flex: 1, paddingBottom: ultimo ? 0 : 14 }}>
-                  <View style={s.rowBetween}>
+                  <View style={s.detailMoneyRow}>
                     <Text
                       style={[s.asTimelineLabel, (completado || actual) && { color: C.slate800 }]}
-                      numberOfLines={1}
+                      numberOfLines={2}
                     >
                       {hito.estado}
                     </Text>
@@ -749,10 +753,10 @@ export function FichaAuto({
           <TransferMetaRow label="Total" value={`${fmtCLP(t.total)} · paga ${t.responsablePago.toLowerCase()}`} strong />
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+        <View style={[s.detailFooterActions, { marginTop: 12 }]}>
           <TouchableOpacity onPress={() => handleCompartirTransferencia(car)} style={s.detailActionGray}>
             <Icon name="comment-dots" size={12} color={C.slate700} />
-            <Text style={s.detailActionGrayText}>Compartir</Text>
+            <Text style={s.detailActionGrayText} numberOfLines={1}>Compartir</Text>
           </TouchableOpacity>
           {!finalizado ? (
             <TouchableOpacity

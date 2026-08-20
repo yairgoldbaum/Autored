@@ -255,7 +255,7 @@ export function InspectionScreen({
                     <View style={[st.stepIcon, foto && { backgroundColor: C.teal100 }]}>
                       <Icon name={step.icon as any} size={14} color={foto ? C.teal700 : C.slate500} />
                     </View>
-                    <View style={{ marginLeft: 10, flex: 1 }}>
+                    <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                       <View style={st.rowCenter}>
                         <Text style={st.stepTitle}>{step.titulo}</Text>
                         {!step.obligatoria && <Text style={st.optionalTag}> opcional</Text>}
@@ -269,7 +269,7 @@ export function InspectionScreen({
                 {foto ? (
                   <View style={st.fotoRow}>
                     <Image source={{ uri: foto.uri }} style={st.fotoThumb} />
-                    <View style={{ flex: 1, gap: 8 }}>
+                    <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
                       <TouchableOpacity onPress={() => tomarFoto(step)} style={st.btnGhost}>
                         <Icon name="rotate" size={11} color={C.slate600} />
                         <Text style={st.btnGhostText}>Repetir foto</Text>
@@ -346,7 +346,9 @@ export function InspectionScreen({
             </View>
             <View style={st.kpiCard}>
               <Text style={st.kpiLabel}>Costo Reparaciones</Text>
-              <Text style={st.kpiValue}>{fmtCLP(rep.costoTotalEstimadoCLP)}</Text>
+              <Text style={st.kpiValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>
+                {fmtCLP(rep.costoTotalEstimadoCLP)}
+              </Text>
             </View>
           </View>
 
@@ -376,7 +378,7 @@ export function InspectionScreen({
                 <View style={st.rowBetween}>
                   <View style={[st.rowCenter, { flex: 1 }]}>
                     <Image source={{ uri: a.uri }} style={st.zonaThumb} />
-                    <View style={{ marginLeft: 10, flex: 1 }}>
+                    <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
                       <Text style={st.stepTitle}>{a.stepTitulo}</Text>
                       <Text style={st.stepDesc} numberOfLines={3}>{a.resumen}</Text>
                     </View>
@@ -393,7 +395,7 @@ export function InspectionScreen({
                       <View style={[st.sevChip, { backgroundColor: sev.bg }]}>
                         <Text style={[st.sevChipText, { color: sev.text }]}>{SEVERIDAD_LABEL[h.severidad]}</Text>
                       </View>
-                      <View style={{ flex: 1 }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={st.hallazgoTitulo}>{h.titulo}</Text>
                         <Text style={st.hallazgoDesc}>{h.descripcion}</Text>
                         <Text style={st.hallazgoAccion}>→ {h.accionSugerida}</Text>
@@ -446,17 +448,18 @@ const st = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 12,
     backgroundColor: C.white,
     borderBottomWidth: 1,
     borderBottomColor: C.slate100,
   },
-  rowCenter: { flexDirection: 'row', alignItems: 'center' },
-  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowCenter: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 },
   backText: { fontSize: 14, fontWeight: W.semibold, color: C.slate500 },
-  headerTitle: { fontSize: 15, fontWeight: W.extrabold, color: C.slate900 },
-  patentePill: { backgroundColor: C.slate900, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  headerTitle: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 15, fontWeight: W.extrabold, color: C.slate900 },
+  patentePill: { backgroundColor: C.slate900, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
   patenteText: { color: C.white, fontSize: 11, fontWeight: W.extrabold, letterSpacing: 1 },
 
   h2: { fontSize: 19, fontWeight: W.extrabold, color: C.slate900 },
@@ -465,6 +468,7 @@ const st = StyleSheet.create({
   progressBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
     backgroundColor: C.teal50,
     borderWidth: 1,
@@ -472,7 +476,7 @@ const st = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
   },
-  progressText: { fontSize: 13, fontWeight: W.bold, color: C.teal800 },
+  progressText: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: W.bold, color: C.teal800 },
 
   stepCard: {
     backgroundColor: C.white,
@@ -490,13 +494,14 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepTitle: { fontSize: 14, fontWeight: W.bold, color: C.slate800 },
+  stepTitle: { fontSize: 14, fontWeight: W.bold, color: C.slate800, flexShrink: 1 },
   optionalTag: { fontSize: 11, color: C.slate400, fontWeight: W.semibold },
-  stepDesc: { fontSize: 12, color: C.slate500, marginTop: 1 },
+  stepDesc: { fontSize: 12, color: C.slate500, marginTop: 1, lineHeight: 16 },
 
-  captureRow: { flexDirection: 'row', gap: 10 },
+  captureRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   btnCamera: {
     flex: 1,
+    minWidth: 116,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -508,6 +513,7 @@ const st = StyleSheet.create({
   btnCameraText: { color: C.white, fontSize: 12, fontWeight: W.bold },
   btnGallery: {
     flex: 1,
+    minWidth: 116,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -518,8 +524,8 @@ const st = StyleSheet.create({
   },
   btnGalleryText: { color: C.slate700, fontSize: 12, fontWeight: W.bold },
 
-  fotoRow: { flexDirection: 'row', gap: 12 },
-  fotoThumb: { width: 110, height: 82, borderRadius: 10, backgroundColor: C.slate100 },
+  fotoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  fotoThumb: { width: 104, height: 78, borderRadius: 10, backgroundColor: C.slate100, flexShrink: 0 },
   btnGhost: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -570,9 +576,10 @@ const st = StyleSheet.create({
   loadingSub: { fontSize: 14, fontWeight: W.semibold, color: C.teal700 },
   loadingHint: { fontSize: 12, color: C.slate400, textAlign: 'center', lineHeight: 18, marginTop: 8 },
 
-  kpiRow: { flexDirection: 'row', gap: 10 },
+  kpiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   kpiCard: {
     flex: 1,
+    minWidth: 128,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.slate200,
@@ -614,11 +621,12 @@ const st = StyleSheet.create({
     gap: 10,
   },
   zonaThumb: { width: 54, height: 54, borderRadius: 10, backgroundColor: C.slate100 },
-  condChip: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8 },
+  condChip: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
   condChipText: { fontSize: 10, fontWeight: W.extrabold, textTransform: 'uppercase' },
 
   hallazgoRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     borderTopWidth: 1,
     borderTopColor: C.slate100,
@@ -630,7 +638,7 @@ const st = StyleSheet.create({
   hallazgoTitulo: { fontSize: 13, fontWeight: W.bold, color: C.slate800 },
   hallazgoDesc: { fontSize: 12, color: C.slate500, marginTop: 2, lineHeight: 17 },
   hallazgoAccion: { fontSize: 12, color: C.teal700, fontWeight: W.semibold, marginTop: 3 },
-  hallazgoCosto: { fontSize: 12, fontWeight: W.extrabold, color: C.slate800 },
+  hallazgoCosto: { fontSize: 12, fontWeight: W.extrabold, color: C.slate800, flexShrink: 1 },
   sinHallazgos: {
     fontSize: 12,
     color: C.emerald600,

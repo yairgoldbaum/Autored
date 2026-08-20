@@ -74,14 +74,14 @@ export function ClientesScreen({
 
   return (
     <View style={{ gap: 16 }}>
-      <View style={s.rowBetween}>
-        <View>
+      <View style={s.screenHead}>
+        <View style={s.screenHeadText}>
           <Text style={s.h2Black}>Clientes</Text>
           <Text style={s.subMuted}>Adquisición, reservas y compradores</Text>
         </View>
-        <TouchableOpacity activeOpacity={0.85} onPress={handleAbrirNuevoCliente} style={s.newClientBtn}>
+        <TouchableOpacity activeOpacity={0.85} onPress={handleAbrirNuevoCliente} style={[s.newClientBtn, s.screenHeadAction]}>
           <Icon name="user-plus" size={12} color={C.white} />
-          <Text style={s.newClientText}>Nuevo</Text>
+          <Text style={s.newClientText} numberOfLines={1}>Nuevo</Text>
         </TouchableOpacity>
       </View>
 
@@ -89,7 +89,7 @@ export function ClientesScreen({
           contaban roles que ya no existen y ocupaban la mejor parte de la pantalla
           sin accionar nada. Los chips ya traen el conteo. */}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+      <View style={s.chipWrap}>
         {CLIENTE_FILTROS.map((filtro) => {
           const isSelected = clienteFiltro === filtro;
           return (
@@ -108,7 +108,7 @@ export function ClientesScreen({
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Buscador */}
       <View style={s.searchWrap}>
@@ -144,7 +144,7 @@ export function ClientesScreen({
               <View key={cli.id} style={s.cliCard}>
                 {/* Cabecera: nombre + estado + acciones */}
                 <View style={s.cliCardHead}>
-                  <View style={{ flex: 1, gap: 6 }}>
+                  <View style={s.cliTitleBlock}>
                     <Text style={s.cliNombre}>{cli.nombre}</Text>
                     <View style={s.cliBadgeRow}>
                       <View style={[s.cliEstadoBadge, { backgroundColor: eb.bg }]}>
@@ -188,8 +188,8 @@ export function ClientesScreen({
                     </Text>
                   </View>
                   <View style={[s.cliGridCell, s.cliGridCellRight]}>
-                    <View style={s.rowBetween}>
-                      <Text style={s.cliGridLabel} numberOfLines={1}>
+                    <View style={s.cliGridLabelRow}>
+                      <Text style={[s.cliGridLabel, { flex: 1, minWidth: 0 }]} numberOfLines={2}>
                         {linea.etiqueta}
                       </Text>
                       {linea.vehiculo ? (
@@ -198,7 +198,7 @@ export function ClientesScreen({
                         </TouchableOpacity>
                       ) : null}
                     </View>
-                    <Text style={s.cliGridValue} numberOfLines={1}>
+                    <Text style={s.cliGridValue} numberOfLines={2}>
                       {linea.valor}
                     </Text>
                   </View>

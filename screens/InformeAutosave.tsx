@@ -153,7 +153,7 @@ export function InformeAutosaveOverlay({
                   const col = grave ? C.red600 : sn.gravedad === 'Moderado' ? C.amber600 : C.slate300;
                   return (
                     <View key={`${sn.fecha}-${i}`} style={[s.asEventCard, { borderLeftColor: col }]}>
-                      <View style={s.rowBetween}>
+                      <View style={s.detailMoneyRow}>
                         <Text style={s.asEventTitle}>{sn.tipo}</Text>
                         <Text style={[s.asEventTag, { color: col }]}>{sn.gravedad.toUpperCase()}</Text>
                       </View>
@@ -178,7 +178,7 @@ export function InformeAutosaveOverlay({
               <View style={{ gap: 12 }}>
                 {informe.revisiones.map((rt, i) => (
                   <View key={`${rt.fecha}-${i}`}>
-                    <View style={s.rowBetween}>
+                    <View style={s.detailMoneyRow}>
                       <Text style={s.asKmFecha}>{fmtFecha(rt.fecha)}</Text>
                       <Text style={[s.asKmValue, rt.inconsistente && { color: C.red600 }]}>
                         {fmtMiles(rt.km)} km
@@ -225,7 +225,7 @@ export function InformeAutosaveOverlay({
             <View style={{ gap: 10 }}>
               {informe.titulares.map((tit, i) => (
                 <View key={`${tit.desde}-${i}`} style={s.asEventCard}>
-                  <View style={s.rowBetween}>
+                  <View style={s.detailMoneyRow}>
                     <Text style={s.asEventTitle}>{tit.titular}</Text>
                     <Text style={s.asEventTag}>{tit.patente}</Text>
                   </View>
@@ -244,7 +244,7 @@ export function InformeAutosaveOverlay({
               <View style={{ gap: 10 }}>
                 {informe.multas.map((m, i) => (
                   <View key={`${m.fecha}-${i}`} style={[s.asEventCard, { borderLeftColor: m.pagada ? C.slate300 : C.red600 }]}>
-                    <View style={s.rowBetween}>
+                    <View style={s.detailMoneyRow}>
                       <Text style={s.asEventTitle}>{m.motivo}</Text>
                       <Text style={[s.asEventTag, !m.pagada && { color: C.red600 }]}>
                         {m.pagada ? 'PAGADA' : 'IMPAGA'}
@@ -284,7 +284,7 @@ export function InformeAutosaveOverlay({
       </ScrollView>
 
       <View style={[s.detailFooter, { paddingBottom: (insets.bottom || 8) + 16 }]}>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={s.detailFooterActions}>
           <TouchableOpacity
             onPress={() => {
               setIsAutosaveReportOpen(false);
@@ -293,7 +293,9 @@ export function InformeAutosaveOverlay({
             style={s.detailActionGray}
           >
             <Icon name="paper-plane" size={12} color={C.slate700} />
-            <Text style={s.detailActionGrayText}>Enviar al cliente</Text>
+            <Text style={s.detailActionGrayText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+              Enviar al cliente
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             disabled={car.estado !== 'Vendido' || activeBloqueos.length > 0 || !!car.transferencia}
@@ -317,6 +319,9 @@ export function InformeAutosaveOverlay({
                 s.detailActionGrayText,
                 { color: car.estado !== 'Vendido' || activeBloqueos.length > 0 || !!car.transferencia ? C.slate400 : C.white },
               ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
             >
               Transferencia
             </Text>

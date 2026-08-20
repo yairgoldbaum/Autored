@@ -51,9 +51,11 @@ export function StockScreen({
   const chips = ['Todos', 'Pre-stock', 'En preparación', 'En venta', 'Reservado', 'Vendido'];
   return (
     <View style={{ gap: 16 }}>
-      <View style={s.rowBetween}>
-        <Text style={s.h2Black}>Stock de Vehículos</Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setIsFilterSheetOpen(true)} style={s.filterBtn}>
+      <View style={s.screenHead}>
+        <View style={s.screenHeadText}>
+          <Text style={s.h2Black}>Stock de Vehículos</Text>
+        </View>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setIsFilterSheetOpen(true)} style={[s.filterBtn, s.screenHeadAction]}>
           <Icon name="sliders" size={12} color={C.slate700} />
           <Text style={s.filterBtnText}>Filtros</Text>
         </TouchableOpacity>
@@ -77,7 +79,7 @@ export function StockScreen({
       </View>
 
       {/* Chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+      <View style={s.chipWrap}>
         {chips.map((est) => {
           const cant = est === 'Todos' ? stock.length : stock.filter((c) => c.estado === est).length;
           const isSelected = filterState === est;
@@ -95,7 +97,7 @@ export function StockScreen({
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Aviso del filtro por días, que llega desde el gráfico de antigüedad de KPIs.
           Sin esto el usuario no tiene cómo saber por qué ve menos autos. */}
@@ -137,6 +139,7 @@ export function StockScreen({
             // restando costoAdquisicion a mano (en consignación es 0).
             const margen = car.precioVenta - costoBase(car);
             const leads = leadsDeVehiculo(relaciones, car.id);
+            const visitas = car.visitas?.length || 0;
             return (
               <TouchableOpacity key={car.id} activeOpacity={0.9} onPress={() => setActiveCar(car)} style={s.carCard}>
                 <View style={s.carThumb}>
@@ -161,15 +164,17 @@ export function StockScreen({
                   )}
                 </View>
 
-                <View style={{ flex: 1, justifyContent: 'space-between' }}>
-                  <View>
-                    <View style={[s.rowBetween, { alignItems: 'flex-start' }]}>
-                      <Text style={s.carTitle} numberOfLines={1}>
-                        {car.marca} {car.modelo}
-                      </Text>
-                      <View style={s.rowCenter}>
+                <View style={s.carInfo}>
+                  <View style={s.carTop}>
+                    <View style={s.carHead}>
+                      <View style={s.carTitleWrap}>
+                        <Text style={s.carTitle} numberOfLines={1}>
+                          {car.marca} {car.modelo}
+                        </Text>
+                      </View>
+                      <View style={s.carHeadActions}>
                         <View style={s.patentePill}>
-                          <Text style={s.patenteText}>{car.patente}</Text>
+                          <Text style={s.patenteText} numberOfLines={1}>{car.patente}</Text>
                         </View>
                         <TouchableOpacity
                           onPress={(e) => {
@@ -194,8 +199,8 @@ export function StockScreen({
                     </Text>
                   </View>
 
-                  <View style={[s.rowBetween, { alignItems: 'flex-end', marginTop: 8 }]}>
-                    <View>
+                  <View style={s.carCommercial}>
+                    <View style={s.carPriceBlock}>
                       <Text style={s.priceLabel}>Precio Venta</Text>
                       {/* Mismo arreglo que en KpiCard: el monto se achica antes de partirse
                           en dos líneas (feedback de Jorge y Mauro). */}
@@ -212,9 +217,11 @@ export function StockScreen({
                         {fmtCLP(Math.abs(margen))}
                       </Text>
                     </View>
-                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <View style={s.carBadgeRow}>
                       <View style={[s.estadoBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                        <Text style={{ fontSize: 10, fontWeight: W.extrabold, color: badge.color }}>{car.estado}</Text>
+                        <Text style={[s.estadoBadgeText, { color: badge.color }]} numberOfLines={1}>
+                          {car.estado}
+                        </Text>
                       </View>
                       {/* Propio y consignado dejan de verse iguales (Mauro, punto 11):
                           el consignado no es tuyo y su margen se calcula distinto. */}
@@ -230,10 +237,11 @@ export function StockScreen({
                           <Text style={s.stockAuctionText}>En subasta</Text>
                         </View>
                       )}
-                      <Text style={s.diasStock}>
-                        {leads} {leads === 1 ? 'lead' : 'leads'} · {dias} {dias === 1 ? 'día' : 'días'} en stock
-                      </Text>
                     </View>
+                    <Text style={s.diasStock}>
+                      {visitas} {visitas === 1 ? 'visita' : 'visitas'} · {leads} {leads === 1 ? 'lead' : 'leads'} · {dias}{' '}
+                      {dias === 1 ? 'día' : 'días'} en stock
+                    </Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -334,7 +342,7 @@ export function FilterSheet({
         </View>
         <View>
           <Text style={s.sheetFieldLabel}>Año</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={s.fieldPair}>
             <TextInput
               placeholder="Desde"
               placeholderTextColor={C.slate400}
@@ -342,7 +350,7 @@ export function FilterSheet({
               maxLength={4}
               value={filters.anioDesde}
               onChangeText={(t) => setFilters({ ...filters, anioDesde: t.replace(/\D/g, '') })}
-              style={[s.sheetInput, { flex: 1 }]}
+              style={[s.sheetInput, s.fieldPairItem]}
             />
             <TextInput
               placeholder="Hasta"
@@ -351,20 +359,20 @@ export function FilterSheet({
               maxLength={4}
               value={filters.anioHasta}
               onChangeText={(t) => setFilters({ ...filters, anioHasta: t.replace(/\D/g, '') })}
-              style={[s.sheetInput, { flex: 1 }]}
+              style={[s.sheetInput, s.fieldPairItem]}
             />
           </View>
         </View>
         <View>
           <Text style={s.sheetFieldLabel}>Precio (CLP)</Text>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={s.fieldPair}>
             <TextInput
               placeholder="Desde"
               placeholderTextColor={C.slate400}
               keyboardType="number-pad"
               value={filters.precioDesde}
               onChangeText={(t) => setFilters({ ...filters, precioDesde: t.replace(/\D/g, '') })}
-              style={[s.sheetInput, { flex: 1 }]}
+              style={[s.sheetInput, s.fieldPairItem]}
             />
             <TextInput
               placeholder="Hasta"
@@ -372,7 +380,7 @@ export function FilterSheet({
               keyboardType="number-pad"
               value={filters.precioHasta}
               onChangeText={(t) => setFilters({ ...filters, precioHasta: t.replace(/\D/g, '') })}
-              style={[s.sheetInput, { flex: 1 }]}
+              style={[s.sheetInput, s.fieldPairItem]}
             />
           </View>
         </View>
