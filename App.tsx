@@ -1237,6 +1237,8 @@ function AppInner() {
         {/* MAIN SCROLL */}
         <ScrollView
           style={s.main}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={[
             s.mainContent,
             {
