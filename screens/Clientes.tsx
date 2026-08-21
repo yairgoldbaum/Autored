@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { C, W } from '../src/theme';
-import { Dropdown, Icon, Sheet, Wiggle } from '../src/ui';
+import { Dropdown, Icon, Sheet } from '../src/ui';
 import { s } from '../src/styles';
 import { Car, Customer, RelacionClienteVehiculo } from '../src/data';
 import {
@@ -171,10 +171,16 @@ export function ClientesScreen({
                         color={cli.archivado ? C.chileanTeal : C.slate500}
                       />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleEliminarCliente(cli)} style={s.cliIconBtn}>
-                      <Wiggle>
-                        <Icon name="trash-can" size={12} color={C.red600} />
-                      </Wiggle>
+                    <TouchableOpacity
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        handleEliminarCliente(cli);
+                      }}
+                      activeOpacity={0.75}
+                      hitSlop={8}
+                      style={s.cliIconBtn}
+                    >
+                      <Icon name="trash-can" size={12} color={C.red600} />
                     </TouchableOpacity>
                   </View>
                 </View>

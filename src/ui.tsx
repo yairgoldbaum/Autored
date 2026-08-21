@@ -95,24 +95,9 @@ export function Spinner({ size = 12, color = C.amber600 }: { size?: number; colo
   );
 }
 
-/* ---------------- Wiggle del tacho (trashWiggle) ---------------- */
+/* ---------------- Wrapper quieto para tachos heredados ---------------- */
 export function Wiggle({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
-  const rot = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(rot, { toValue: -1, duration: 280, useNativeDriver: true }),
-        Animated.timing(rot, { toValue: 1, duration: 280, useNativeDriver: true }),
-        Animated.timing(rot, { toValue: -0.5, duration: 280, useNativeDriver: true }),
-        Animated.timing(rot, { toValue: 0.5, duration: 280, useNativeDriver: true }),
-        Animated.timing(rot, { toValue: 0, duration: 280, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [rot]);
-  const rotate = rot.interpolate({ inputRange: [-1, 1], outputRange: ['-8deg', '8deg'] });
-  return <Animated.View style={[style, { transform: [{ rotate }] }]}>{children}</Animated.View>;
+  return <View style={style}>{children}</View>;
 }
 
 /* ---------------- Pulso suave (pulse-teal) ----------------

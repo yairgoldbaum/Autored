@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -99,6 +100,11 @@ import { MotorPreciosOverlay } from './screens/MotorPrecios';
 import { AltaVehiculoWizard } from './screens/AltaVehiculo';
 import { FichaAuto, PriceSheet, StatusSheet } from './screens/FichaAuto';
 import { EnvioInformeSheet, InformeAutosaveOverlay, TransferSheet } from './screens/InformeAutosave';
+
+const STOCK_FAB_SIZE = 60;
+const STOCK_FAB_GAP = 18;
+const STOCK_FAB_SIDE_OFFSET = 20;
+const STOCK_SCROLL_BOTTOM_PADDING = STOCK_FAB_SIZE + STOCK_FAB_GAP + 40;
 
 /* ============================ APP ROOT ============================ */
 export default function App() {
@@ -196,6 +202,7 @@ function AppInner() {
   const [transferNotaria, setTransferNotaria] = useState<string>(NOTARIAS[0]);
   const [transferPagador, setTransferPagador] = useState<ResponsablePago>('Comprador');
   const [transferProcesando, setTransferProcesando] = useState(false);
+  const [bottomNavHeight, setBottomNavHeight] = useState(0);
 
   // Motor de precios (tasación rápida, datos simulados)
   const [isMotorOpen, setIsMotorOpen] = useState(false);
@@ -1066,17 +1073,37 @@ function AppInner() {
   };
 
   const handleEliminarCliente = (client: Customer) => {
-    Alert.alert('Eliminar cliente', `¿Seguro que quieres eliminar a ${client.nombre}?`, [
+    const title = 'Eliminar cliente';
+    const message = `¿Seguro que quieres eliminar a ${client.nombre}?`;
+    const limpiarContacto = (contact: VehicleContact | null) => (contact?.clienteId === client.id ? null : contact);
+    const limpiarReferenciasCliente = (car: Car): Car => ({
+      ...car,
+      clienteAdquisicion: limpiarContacto(car.clienteAdquisicion),
+      comprador: limpiarContacto(car.comprador),
+      consignante: limpiarContacto(car.consignante),
+      visitas: (car.visitas || []).map((visita) =>
+        visita.clienteId === client.id ? { ...visita, clienteId: null, nombre: '' } : visita,
+      ),
+    });
+    const eliminarCliente = () => {
+      setCustomers((prev) => prev.filter((c) => c.id !== client.id));
+      setRelaciones((prev) => prev.filter((r) => r.clienteId !== client.id));
+      setStock((prev) => prev.map(limpiarReferenciasCliente));
+      setActiveCar((prev) => (prev ? limpiarReferenciasCliente(prev) : prev));
+      showNotification(`Cliente ${client.nombre} eliminado.`);
+    };
+
+    if (Platform.OS === 'web') {
+      const webConfirm = (globalThis as typeof globalThis & { confirm?: (message?: string) => boolean }).confirm;
+      if (webConfirm ? webConfirm(`${title}\n\n${message}`) : true) {
+        eliminarCliente();
+      }
+      return;
+    }
+
+    Alert.alert(title, message, [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: () => {
-          setCustomers((prev) => prev.filter((c) => c.id !== client.id));
-          setRelaciones((prev) => prev.filter((r) => r.clienteId !== client.id));
-          showNotification(`Cliente ${client.nombre} eliminado.`);
-        },
-      },
+      { text: 'Eliminar', style: 'destructive', onPress: eliminarCliente },
     ]);
   };
 
@@ -1149,6 +1176,28 @@ function AppInner() {
 
   /* ============================ RENDER ============================ */
   const adjudicadasCount = auctions.filter((a) => a.estado === 'Adjudicada').length;
+  const bottomNavOffset = bottomNavHeight || (64 + (insets.bottom || 8));
+  const stockFabBottom = bottomNavOffset + STOCK_FAB_GAP;
+  const hasOpenSurface =
+    !!activeCar ||
+    !!inspectingCar ||
+    isFilterSheetOpen ||
+    isPriceSheetOpen ||
+    isStatusSheetOpen ||
+    isAuctionBidSheetOpen ||
+    isAuctionPublishSheetOpen ||
+    isAuctionFeaturesSheetOpen ||
+    isNewClientSheetOpen ||
+    isEnvioInformeSheetOpen ||
+    isTransferSheetOpen ||
+    isCargarAutoOpen ||
+    isMotorOpen ||
+    isAutosaveReportOpen;
+  const showStockFab = activeTab === 'stock' && !hasOpenSurface;
+  const handleBottomNavLayout = (event: LayoutChangeEvent) => {
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+    setBottomNavHeight((prevHeight) => (prevHeight === nextHeight ? prevHeight : nextHeight));
+  };
 
   return (
     <View style={s.root}>
@@ -1190,7 +1239,11 @@ function AppInner() {
           style={s.main}
           contentContainerStyle={[
             s.mainContent,
-            { paddingLeft: 16 + insets.left, paddingRight: 16 + insets.right },
+            {
+              paddingLeft: 16 + insets.left,
+              paddingRight: 16 + insets.right,
+              paddingBottom: activeTab === 'stock' ? STOCK_SCROLL_BOTTOM_PADDING : 24,
+            },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -1268,6 +1321,7 @@ function AppInner() {
             s.nav,
             { paddingBottom: insets.bottom || 8, paddingLeft: 8 + insets.left, paddingRight: 8 + insets.right },
           ]}
+          onLayout={handleBottomNavLayout}
         >
           {/* El orden de David (punto 44): Stock, Clientes y al final los KPIs.
               Cuando Autored decida si la transferencia digital entra al alcance
@@ -1275,15 +1329,32 @@ function AppInner() {
           <NavButton icon="warehouse" label="Stock" active={activeTab === 'stock'} onPress={() => setActiveTab('stock')} />
           <NavButton icon="user-group" label="Clientes" active={activeTab === 'clientes'} onPress={() => setActiveTab('clientes')} />
 
-          {/* Botón + flotante */}
-          <View style={s.fabWrap}>
-            <TouchableOpacity activeOpacity={0.85} onPress={handleAbrirCargaManual} style={s.fab}>
-              <Icon name="plus" size={20} color={C.white} />
-            </TouchableOpacity>
-          </View>
-
           <NavButton icon="chart-simple" label="KPIs" active={activeTab === 'kpis'} onPress={() => setActiveTab('kpis')} />
         </View>
+
+        {showStockFab ? (
+          <View
+            pointerEvents="box-none"
+            style={[
+              s.stockFabWrap,
+              {
+                right: STOCK_FAB_SIDE_OFFSET + insets.right,
+                bottom: stockFabBottom,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleAbrirCargaManual}
+              style={s.fab}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Agregar vehículo"
+            >
+              <Icon name="plus" size={22} color={C.white} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* OVERLAYS Y SHEETS (dentro del frame, apilados como en el HTML base) */}
         <FichaAuto
