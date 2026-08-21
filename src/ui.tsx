@@ -212,7 +212,7 @@ export function PageOverlay({ children }: { children: React.ReactNode }) {
 
 const sheetStyles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
     zIndex: 40,
   },
