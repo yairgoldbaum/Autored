@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -265,18 +266,43 @@ export function NewClientSheet({
 }: NewClientSheetProps) {
   const insets = useSafeAreaInsets();
   const clienteFormListo = !!newClient.nombre.trim() && !!newClient.telefono.trim();
+  const cerrarSheet = () => {
+    Keyboard.dismiss();
+    setIsNewClientSheetOpen(false);
+  };
+  const guardarCliente = () => {
+    Keyboard.dismiss();
+    handleGuardarCliente();
+  };
+
   return (
-    <Sheet visible={isNewClientSheetOpen} onClose={() => setIsNewClientSheetOpen(false)} maxHeightPct={90}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={{ padding: 16, gap: 16, paddingBottom: (insets.bottom || 0) + 16 }}>
-          <View style={s.rowBetween}>
-            <Text style={s.sheetTitleSm}>{newClient.id ? 'Editar Cliente' : 'Registrar Nuevo Lead / Cliente'}</Text>
-            <TouchableOpacity onPress={() => setIsNewClientSheetOpen(false)}>
-              <Icon name="circle-xmark" size={18} color={C.slate400} />
-            </TouchableOpacity>
+    <Sheet visible={isNewClientSheetOpen} onClose={cerrarSheet} maxHeightPct={90}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={insets.top}
+        style={{ maxHeight: '100%', flexShrink: 1 }}
+      >
+        <View style={{ maxHeight: '100%', flexShrink: 1 }}>
+          <View style={[s.rowBetween, { gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.slate100 }]}>
+            <Text style={[s.sheetTitleSm, { flex: 1 }]}>{newClient.id ? 'Editar Cliente' : 'Registrar Nuevo Lead / Cliente'}</Text>
+            <View style={s.rowCenter}>
+              <TouchableOpacity activeOpacity={0.8} onPress={Keyboard.dismiss} style={s.dismissKeyboardBtn}>
+                <Icon name="check" size={10} color={C.chileanTeal} />
+                <Text style={s.dismissKeyboardText}>Listo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={cerrarSheet}>
+                <Icon name="circle-xmark" size={18} color={C.slate400} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={{ gap: 12 }}>
+          <ScrollView
+            style={{ flexShrink: 1 }}
+            contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 24 }}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <View>
               <Text style={s.sheetFieldLabel}>Nombre Completo</Text>
               <TextInput
@@ -284,6 +310,9 @@ export function NewClientSheet({
                 placeholderTextColor={C.slate400}
                 value={newClient.nombre}
                 onChangeText={(t) => setNewClient({ ...newClient, nombre: t })}
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+                blurOnSubmit
                 style={s.sheetInput}
               />
             </View>
@@ -295,6 +324,9 @@ export function NewClientSheet({
                 keyboardType="phone-pad"
                 value={newClient.telefono}
                 onChangeText={(t) => setNewClient({ ...newClient, telefono: t })}
+                returnKeyType="done"
+                onSubmitEditing={Keyboard.dismiss}
+                blurOnSubmit
                 style={s.sheetInput}
               />
             </View>
@@ -306,6 +338,8 @@ export function NewClientSheet({
                 value={newClient.notas}
                 onChangeText={(t) => setNewClient({ ...newClient, notas: t })}
                 multiline
+                numberOfLines={4}
+                textAlignVertical="top"
                 style={[s.sheetInput, s.sheetNotesInput]}
               />
             </View>
@@ -338,15 +372,17 @@ export function NewClientSheet({
                 />
               </>
             ) : null}
-          </View>
+          </ScrollView>
 
-          <TouchableOpacity
-            onPress={handleGuardarCliente}
-            disabled={!clienteFormListo}
-            style={[s.sheetPrimaryBtn, !clienteFormListo && { opacity: 0.45 }]}
-          >
-            <Text style={s.sheetPrimaryText}>{newClient.id ? 'Guardar Cambios' : 'Registrar Cliente'}</Text>
-          </TouchableOpacity>
+          <View style={[s.sheetFooter, { paddingBottom: (insets.bottom || 0) + 16 }]}>
+            <TouchableOpacity
+              onPress={guardarCliente}
+              disabled={!clienteFormListo}
+              style={[s.sheetPrimaryBtn, { flex: 1 }, !clienteFormListo && { opacity: 0.45 }]}
+            >
+              <Text style={s.sheetPrimaryText}>{newClient.id ? 'Guardar Cambios' : 'Registrar Cliente'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Sheet>
