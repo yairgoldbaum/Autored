@@ -150,15 +150,21 @@ export function FichaAuto({
     const alertaInforme = activeInforme ? alertaPrincipal(activeInforme) : null;
     return (
       <PageOverlay>
-            <View style={[s.overlayHeader, { paddingTop: insets.top + 16 }]}>
-              <TouchableOpacity onPress={() => setActiveCar(null)} style={s.rowCenter}>
+            <View style={[s.overlayHeader, s.fichaOverlayHeader, { paddingTop: insets.top + 16 }]}>
+              <TouchableOpacity onPress={() => setActiveCar(null)} style={[s.rowCenter, s.fichaHeaderBack]}>
                 <Icon name="chevron-left" size={14} color={C.slate400} />
                 <Text style={s.cancelText}> Volver</Text>
               </TouchableOpacity>
-              <Text style={s.overlayTitle}>Ficha del Auto</Text>
-              <View style={s.stepPill}>
-                <Text style={s.stepPillText}>{car.patente}</Text>
-              </View>
+              <Text style={s.overlayTitle}>Ficha de Auto</Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setModoCliente(!modoCliente)}
+                style={[s.fichaHeaderAction, modoCliente && s.fichaHeaderActionOn]}
+                accessibilityRole="button"
+                accessibilityLabel={modoCliente ? 'Volver a modo gestión' : 'Activar modo cliente'}
+              >
+                <Icon name={modoCliente ? 'eye-slash' : 'eye'} size={15} color={modoCliente ? C.white : C.slate300} />
+              </TouchableOpacity>
             </View>
 
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
@@ -186,26 +192,6 @@ export function FichaAuto({
                     )}
                   </View>
                 </View>
-
-                {/* Modo cliente (punto 24): el mayorista le muestra el auto al
-                    cliente desde su propio teléfono, y ahí no puede aparecer
-                    cuánto pagó ni cuánto gana. Pendiente con Autored qué más se
-                    oculta (¿los días en stock también?). */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setModoCliente(!modoCliente)}
-                  style={[s.modoClienteBar, modoCliente && s.modoClienteBarOn]}
-                >
-                  <Icon name={modoCliente ? 'eye-slash' : 'eye'} size={15} color={modoCliente ? C.white : C.slate500} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.modoClienteTitle, modoCliente && { color: C.white }]}>Modo cliente</Text>
-                    <Text style={[s.modoClienteSub, modoCliente && { color: C.teal200 }]}>
-                      {modoCliente
-                        ? 'Costos y margen ocultos. Toca para volver a gestión.'
-                        : 'Oculta el costo y el margen para mostrar el auto.'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
 
                 {/* Precios y margen: cerrada, el resumen igual deja lo esencial
                     a la vista sin ocupar la pantalla entera. En modo cliente la
