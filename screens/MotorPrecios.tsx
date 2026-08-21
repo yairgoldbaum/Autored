@@ -1,7 +1,5 @@
 import React from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -55,7 +53,11 @@ export function MotorPreciosOverlay({
 
     return (
       <PageOverlay>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        {/* Sin KeyboardAvoidingView a propósito: acá lo que hace falta es que el
+            campo enfocado suba sobre el teclado, y de eso se encarga
+            `automaticallyAdjustKeyboardInsets` en el ScrollView de abajo.
+            Envolver todo en un KAV solo achicaba la pantalla sin mover el campo. */}
+        <View style={{ flex: 1 }}>
           {/* Header */}
           <View style={[s.overlayHeader, { paddingTop: insets.top + 16 }]}>
             <TouchableOpacity onPress={() => setIsMotorOpen(false)} style={s.rowCenter}>
@@ -73,6 +75,7 @@ export function MotorPreciosOverlay({
             contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 32 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets
           >
             <View>
               <Text style={s.stepTitle}>Tasación express</Text>
@@ -154,7 +157,7 @@ export function MotorPreciosOverlay({
             {/* Resultado */}
             {tasacion && renderTasacion(tasacion)}
           </ScrollView>
-        </KeyboardAvoidingView>
+        </View>
       </PageOverlay>
     );
   }

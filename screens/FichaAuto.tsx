@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -23,7 +21,7 @@ import {
   progresoTransferencia,
   resumenVeredictos,
 } from '../src/autosave';
-import { emptyContact, hasContactData, requiresBuyer, totalAntecedentes, veredictoColor } from '../src/helpers';
+import { hasContactData, requiresBuyer, totalAntecedentes, veredictoColor } from '../src/helpers';
 import {
   Field,
   MotorPreciosPublicacion,
@@ -54,12 +52,7 @@ interface FichaAutoProps {
   handleWhatsapp: (telefono: string) => void;
   setAdjustedPrice: React.Dispatch<React.SetStateAction<number>>;
   setIsPriceSheetOpen: (open: boolean) => void;
-  setSelectedStatus: React.Dispatch<React.SetStateAction<string>>;
-  setStatusNote: React.Dispatch<React.SetStateAction<string>>;
-  setStatusBuyer: React.Dispatch<React.SetStateAction<VehicleContact>>;
-  setStatusFinanciado: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsStatusSheetOpen: (open: boolean) => void;
-  handleMarcarVisita: (car: Car) => void;
+  handleAbrirEstado: (car: Car) => void;
   handleEditarAuto: (car: Car) => void;
   handleEliminarAuto: (car: Car) => void;
 }
@@ -83,12 +76,7 @@ export function FichaAuto({
   handleWhatsapp,
   setAdjustedPrice,
   setIsPriceSheetOpen,
-  setSelectedStatus,
-  setStatusNote,
-  setStatusBuyer,
-  setStatusFinanciado,
-  setIsStatusSheetOpen,
-  handleMarcarVisita,
+  handleAbrirEstado,
   handleEditarAuto,
   handleEliminarAuto,
 }: FichaAutoProps) {
@@ -109,7 +97,7 @@ export function FichaAuto({
   return renderCarDetail();
 
   /* Una sección de la ficha. Sin `contenido`, la tarjeta es solo el encabezado
-     y el que llama pinta el cuerpo aparte (lo usa AutoSave, que conserva su
+     y el que llama pinta el cuerpo aparte (lo usa AutoSafe, que conserva su
      bloque propio con la barra de marca). */
   function renderSeccion(
     id: string,
@@ -117,10 +105,17 @@ export function FichaAuto({
     resumen: string,
     contenido?: () => React.ReactNode,
   ) {
-    const abierta = !!seccionesAbiertas[id];
+    // En modo cliente no hay nada que plegar: se le muestra el auto al cliente,
+    // no se navega. Las secciones que sobreviven van abiertas y sin chevron.
+    const abierta = modoCliente || !!seccionesAbiertas[id];
     return (
       <View style={s.detailTechCard}>
-        <TouchableOpacity activeOpacity={0.75} onPress={() => toggleSeccion(id)} style={s.seccionHead}>
+        <TouchableOpacity
+          activeOpacity={modoCliente ? 1 : 0.75}
+          disabled={modoCliente}
+          onPress={() => toggleSeccion(id)}
+          style={s.seccionHead}
+        >
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={s.seccionTitulo}>{titulo}</Text>
             {!abierta && resumen ? (
@@ -129,7 +124,9 @@ export function FichaAuto({
               </Text>
             ) : null}
           </View>
-          <Icon name={abierta ? 'chevron-up' : 'chevron-down'} size={12} color={C.slate400} />
+          {modoCliente ? null : (
+            <Icon name={abierta ? 'chevron-up' : 'chevron-down'} size={12} color={C.slate400} />
+          )}
         </TouchableOpacity>
         {abierta && contenido ? <View style={{ marginTop: 12 }}>{contenido()}</View> : null}
       </View>
@@ -156,8 +153,25 @@ export function FichaAuto({
                 <Text style={s.cancelText}> Volver</Text>
               </TouchableOpacity>
               <Text style={s.overlayTitle}>Ficha del Auto</Text>
-              <View style={s.stepPill}>
-                <Text style={s.stepPillText}>{car.patente}</Text>
+              <View style={s.rowCenter}>
+                {/* Modo cliente (punto 24): el mayorista le muestra el auto al
+                    cliente desde su propio teléfono. Es un interruptor de
+                    presentación, no una sección, así que vive en la cabecera
+                    como un ojo y no ocupa una tarjeta entera de la ficha. */}
+                <TouchableOpacity
+                  onPress={() => setModoCliente(!modoCliente)}
+                  hitSlop={10}
+                  style={[s.ojoModoCliente, modoCliente && s.ojoModoClienteOn]}
+                >
+                  <Icon
+                    name={modoCliente ? 'eye-slash' : 'eye'}
+                    size={14}
+                    color={modoCliente ? C.white : C.slate400}
+                  />
+                </TouchableOpacity>
+                <View style={[s.stepPill, { marginLeft: 8 }]}>
+                  <Text style={s.stepPillText}>{car.patente}</Text>
+                </View>
               </View>
             </View>
 
@@ -174,38 +188,20 @@ export function FichaAuto({
                       {car.version} • Año {car.anio}
                     </Text>
                   </View>
-                  <View style={s.detailHeaderBadges}>
-                    <View style={s.detailEstado}>
-                      <Text style={{ fontSize: 12, fontWeight: W.extrabold, color: C.teal700 }}>{car.estado}</Text>
-                    </View>
-                    {activeStockAuction && (
-                      <View style={s.detailAuctionBadge}>
-                        <Icon name="gavel" size={9} color={C.amber700} />
-                        <Text style={s.detailAuctionText}>En subasta</Text>
+                  {modoCliente ? null : (
+                    <View style={s.detailHeaderBadges}>
+                      <View style={s.detailEstado}>
+                        <Text style={{ fontSize: 12, fontWeight: W.extrabold, color: C.teal700 }}>{car.estado}</Text>
                       </View>
-                    )}
-                  </View>
+                      {activeStockAuction && (
+                        <View style={s.detailAuctionBadge}>
+                          <Icon name="gavel" size={9} color={C.amber700} />
+                          <Text style={s.detailAuctionText}>En subasta</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
-
-                {/* Modo cliente (punto 24): el mayorista le muestra el auto al
-                    cliente desde su propio teléfono, y ahí no puede aparecer
-                    cuánto pagó ni cuánto gana. Pendiente con Autored qué más se
-                    oculta (¿los días en stock también?). */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setModoCliente(!modoCliente)}
-                  style={[s.modoClienteBar, modoCliente && s.modoClienteBarOn]}
-                >
-                  <Icon name={modoCliente ? 'eye-slash' : 'eye'} size={15} color={modoCliente ? C.white : C.slate500} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[s.modoClienteTitle, modoCliente && { color: C.white }]}>Modo cliente</Text>
-                    <Text style={[s.modoClienteSub, modoCliente && { color: C.teal200 }]}>
-                      {modoCliente
-                        ? 'Costos y margen ocultos. Toca para volver a gestión.'
-                        : 'Oculta el costo y el margen para mostrar el auto.'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
 
                 {/* Precios y margen: cerrada, el resumen igual deja lo esencial
                     a la vista sin ocupar la pantalla entera. En modo cliente la
@@ -282,7 +278,8 @@ export function FichaAuto({
                     ),
                   )}
 
-                {renderSeccion(
+                {!modoCliente &&
+                  renderSeccion(
                   'clientes',
                   'Clientes del Vehículo',
                   clientesRegistrados > 0
@@ -324,8 +321,9 @@ export function FichaAuto({
                   ),
                 )}
 
-                {/* Inspección de recepción con IA */}
-                {car.inspeccion ? (
+                {/* Inspección de recepción con IA. Es una herramienta del mayorista
+                    para recibir el auto, no algo que se le muestre al cliente. */}
+                {modoCliente ? null : car.inspeccion ? (
                   <TouchableOpacity onPress={() => setInspectingCar(car)} style={s.inspDoneCard} activeOpacity={0.8}>
                     <View style={s.detailHeaderRow}>
                       <View style={[s.rowCenter, { flex: 1, minWidth: 0 }]}>
@@ -362,20 +360,21 @@ export function FichaAuto({
                   </TouchableOpacity>
                 )}
 
-                {/* AutoSave conserva su bloque propio con la barra de marca: la
+                {/* AutoSafe conserva su bloque propio con la barra de marca: la
                     sección solo aporta el encabezado colapsable. */}
-                {activeInforme ? (
+                {!modoCliente && activeInforme ? (
                   <>
                     {renderSeccion(
                       'autosave',
-                      'AutoSave · Historial y Transferencia',
+                      'AutoSafe · Historial y Transferencia',
                       alertaInforme ? alertaInforme.titulo : 'Sin hallazgos',
                     )}
                     {seccionesAbiertas['autosave'] ? renderAutosaveBlock(car) : null}
                   </>
                 ) : null}
 
-                {renderSeccion(
+                {!modoCliente &&
+                  renderSeccion(
                   'identificacion',
                   'Identificación',
                   `${car.sucursal || '—'} · ingreso ${car.fechaIngreso || '—'}`,
@@ -444,7 +443,8 @@ export function FichaAuto({
                   ),
                 )}
 
-                {renderSeccion(
+                {!modoCliente &&
+                  renderSeccion(
                   'documentos',
                   'Documentos',
                   car.documentos.length > 0
@@ -471,7 +471,8 @@ export function FichaAuto({
                     ),
                 )}
 
-                {renderSeccion(
+                {!modoCliente &&
+                  renderSeccion(
                   'notas',
                   'Notas de Stock',
                   car.comentario || 'Sin notas u observaciones especiales',
@@ -501,26 +502,13 @@ export function FichaAuto({
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => {
-                    setSelectedStatus(car.estado);
-                    setStatusNote('');
-                    setStatusBuyer(car.comprador || emptyContact());
-                    setStatusFinanciado(car.financiado ?? false);
-                    setIsStatusSheetOpen(true);
-                  }}
+                  onPress={() => handleAbrirEstado(car)}
                   style={[s.detailActionGray, s.detailFooterAction]}
                 >
                   <Icon name="rotate" size={12} color={C.slate700} />
                   <Text style={s.detailActionGrayText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
                     Cambiar Estado
                   </Text>
-                </TouchableOpacity>
-                {/* El otro dato que P2 necesita desde la ficha: las visitas.
-                    Alimentan el orden "Más visitas" de la bandeja. Sin pedir
-                    datos: el modelo acepta visitas anónimas. */}
-                <TouchableOpacity onPress={() => handleMarcarVisita(car)} style={[s.detailActionGray, s.detailFooterAction]}>
-                  <Icon name="person-walking" size={12} color={C.slate700} />
-                  <Text style={s.detailActionGrayText} numberOfLines={1}>Visita</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => handleEditarAuto(car)} style={s.detailEditBtn}>
@@ -538,7 +526,7 @@ export function FichaAuto({
   }
 
   /* ======================= AUTOSAVE: BLOQUE EN LA FICHA ======================= */
-  // Las dos tarjetas de AutoSave van juntas y comparten la barra cian de marca: es otra
+  // Las dos tarjetas de AutoSafe van juntas y comparten la barra cian de marca: es otra
   // empresa del grupo, y se distingue por jerarquía, no metiendo un segundo color.
   function renderAutosaveBlock(car: Car) {
     if (!activeInforme) return null;
@@ -563,7 +551,7 @@ export function FichaAuto({
     return (
       <View style={s.detailTechCard}>
         <View style={s.asCardHead}>
-          <Text style={s.asBrandLabel}>AutoSave · Informe</Text>
+          <Text style={s.asBrandLabel}>AutoSafe · Informe</Text>
           <Text style={s.asFolio}>{informe.folio}</Text>
         </View>
 
@@ -637,7 +625,7 @@ export function FichaAuto({
     return (
       <View style={s.detailTechCard}>
         <View style={s.asCardHead}>
-          <Text style={s.asBrandLabel}>AutoSave · Transferencia</Text>
+          <Text style={s.asBrandLabel}>AutoSafe · Transferencia</Text>
         </View>
 
         {!vendido ? (
@@ -696,7 +684,7 @@ export function FichaAuto({
     return (
       <View style={s.detailTechCard}>
         <View style={s.asCardHead}>
-          <Text style={s.asBrandLabel}>AutoSave · Transferencia</Text>
+          <Text style={s.asBrandLabel}>AutoSafe · Transferencia</Text>
           <Text style={s.asFolio}>{t.folio}</Text>
         </View>
 
@@ -857,6 +845,10 @@ interface StatusSheetProps {
   setStatusNote: React.Dispatch<React.SetStateAction<string>>;
   statusBuyer: VehicleContact;
   setStatusBuyer: React.Dispatch<React.SetStateAction<VehicleContact>>;
+  statusConsignante: VehicleContact;
+  setStatusConsignante: React.Dispatch<React.SetStateAction<VehicleContact>>;
+  statusPiso: string;
+  setStatusPiso: React.Dispatch<React.SetStateAction<string>>;
   statusFinanciado: boolean;
   setStatusFinanciado: React.Dispatch<React.SetStateAction<boolean>>;
   handleGuardarEstado: () => void;
@@ -873,6 +865,10 @@ export function StatusSheet({
   setStatusNote,
   statusBuyer,
   setStatusBuyer,
+  statusConsignante,
+  setStatusConsignante,
+  statusPiso,
+  setStatusPiso,
   statusFinanciado,
   setStatusFinanciado,
   handleGuardarEstado,
@@ -881,7 +877,7 @@ export function StatusSheet({
   if (!activeCar) return null;
   return (
     <Sheet visible={isStatusSheetOpen && !!activeCar} onClose={() => setIsStatusSheetOpen(false)}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ padding: 16, gap: 16, paddingBottom: (insets.bottom || 0) + 16 }}>
           <View style={s.rowBetween}>
             <View>
@@ -946,6 +942,47 @@ export function StatusSheet({
               </View>
             ) : null}
 
+            {/* Consignación: el auto no es tuyo, así que hace falta el dueño y el
+                precio piso que se pactó con él. Ese piso reemplaza al costo de
+                adquisición para calcular el margen (costoBase), y por eso el
+                auto queda marcado como consignado aunque después pase a En venta
+                o Vendido. */}
+            {selectedStatus === 'Consignado' ? (
+              <View style={s.inlinePanel}>
+                <Text style={s.inlinePanelTitle}>Dueño del auto</Text>
+                <Text style={s.inlinePanelHint}>
+                  El auto queda en consignación: no se compró, se vende por cuenta del dueño.
+                </Text>
+                <View style={{ gap: 10, marginTop: 12 }}>
+                  <Field
+                    label="Nombre"
+                    placeholder="Ej: Juan Pérez"
+                    value={statusConsignante.nombre}
+                    onChange={(nombre) => setStatusConsignante({ ...statusConsignante, nombre })}
+                  />
+                  <Field
+                    label="Teléfono"
+                    placeholder="Ej: +56 9 1234 5678"
+                    keyboardType="phone-pad"
+                    value={statusConsignante.telefono}
+                    onChange={(telefono) => setStatusConsignante({ ...statusConsignante, telefono })}
+                  />
+                  <View>
+                    <Text style={s.sheetFieldLabel}>Precio piso pactado (CLP)</Text>
+                    <TextInput
+                      keyboardType="number-pad"
+                      placeholder="Ej: 5900000"
+                      placeholderTextColor={C.slate400}
+                      value={statusPiso}
+                      onChangeText={(v) => setStatusPiso(v.replace(/\D/g, ''))}
+                      style={s.moneyInput}
+                    />
+                    <Text style={s.inlinePanelHint}>Lo que se le entrega al dueño. El margen se mide contra esto.</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
             {/* Solo al vender: sin esto la penetración de financiamiento de
                 los KPIs del mes no tiene de dónde salir. */}
             {selectedStatus === 'Vendido' ? (
@@ -976,7 +1013,7 @@ export function StatusSheet({
             <Text style={s.sheetPrimaryText}>Cambiar Estado</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </Sheet>
   );
 }

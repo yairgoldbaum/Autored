@@ -54,7 +54,7 @@ export function InformeAutosaveOverlay({
           <Icon name="chevron-left" size={14} color={C.slate400} />
           <Text style={s.cancelText}> Volver</Text>
         </TouchableOpacity>
-        <Text style={s.overlayTitle}>Informe AutoSave</Text>
+        <Text style={s.overlayTitle}>Informe AutoSafe</Text>
         <View style={s.stepPill}>
           <Text style={s.stepPillText}>{informe.folio}</Text>
         </View>
@@ -522,7 +522,7 @@ export function TransferSheet({
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
         {bloqueado ? (
           <View style={[s.asAlertStrip, { backgroundColor: C.red50, borderLeftColor: C.red600 }]}>
-            <Text style={[s.asAlertTitle, { color: C.red700 }]}>El informe AutoSave bloquea la inscripción</Text>
+            <Text style={[s.asAlertTitle, { color: C.red700 }]}>El informe AutoSafe bloquea la inscripción</Text>
             {activeBloqueos.map((b) => (
               <Text key={b} style={s.asAlertText}>
                 · {b}
@@ -643,7 +643,7 @@ export function TransferSheet({
           {transferProcesando ? (
             <View style={s.rowCenter}>
               <Spinner size={11} color={C.white} />
-              <Text style={[s.sheetBtnTealText, { marginLeft: 6 }]}>Enviando a AutoSave…</Text>
+              <Text style={[s.sheetBtnTealText, { marginLeft: 6 }]}>Enviando a AutoSafe…</Text>
             </View>
           ) : (
             <Text style={[s.sheetBtnTealText, bloqueado && { color: C.slate400 }]}>Generar transferencia</Text>

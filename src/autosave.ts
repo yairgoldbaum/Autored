@@ -1,4 +1,4 @@
-// AutoSave — informe de historial del vehículo y transferencia notarial.
+// AutoSafe — informe de historial del vehículo y transferencia notarial.
 // Prueba de concepto SIN backend: igual que el Motor de Precios, todo se calcula
 // localmente y de forma determinista a partir de la patente, así una misma patente
 // devuelve siempre el mismo informe.
@@ -54,14 +54,14 @@ export const PITCH_TRANSFERENCIA = [
   'Pago del impuesto de transferencia (1,5%)',
   'Inscripción en el Registro de Vehículos Motorizados',
   'Nuevo padrón a nombre del comprador',
-  'Copia certificada del informe AutoSave, incluida',
+  'Copia certificada del informe AutoSafe, incluida',
   'Seguimiento en línea con folio',
 ];
 
 /* ============================ CATÁLOGOS ============================ */
 
 export const NOTARIAS = [
-  'AutoSave Digital (firma electrónica avanzada)',
+  'AutoSafe Digital (firma electrónica avanzada)',
   '1ª Notaría de Providencia',
   '18ª Notaría de Santiago',
   '10ª Notaría de Santiago',
@@ -604,7 +604,7 @@ export function alertaPrincipal(
 const fmtCLPLocal = (n: number) => `$${new Intl.NumberFormat('es-CL').format(Math.round(n))}`;
 
 /** Impedimentos legales para inscribir en el Registro Civil. Vacío = se puede transferir.
- *  Esto es lo que conecta los dos productos de AutoSave: sin informe limpio, no hay transferencia. */
+ *  Esto es lo que conecta los dos productos de AutoSafe: sin informe limpio, no hay transferencia. */
 export function bloqueosTransferencia(informe: InformeAutosave | null | undefined): string[] {
   if (!informe) return [];
   const bloqueos: string[] = [];
@@ -668,18 +668,18 @@ export function cotizarTransferencia(params: {
       nota: '',
     },
     { concepto: 'Inscripción en Registro Civil', monto: ARANCEL_INSCRIPCION_RC, nota: '' },
-    { concepto: 'Gestión AutoSave', monto: GESTION_AUTOSAVE, nota: '' },
+    { concepto: 'Gestión AutoSafe', monto: GESTION_AUTOSAVE, nota: '' },
   ];
 
   if (copiaInformeYaPagada) {
     costos.push({
-      concepto: 'Copia certificada del informe AutoSave',
+      concepto: 'Copia certificada del informe AutoSafe',
       monto: -PRECIO_COPIA_INFORME,
       nota: 'Ya pagada por el cliente: se abona a la transferencia.',
     });
   } else {
     costos.push({
-      concepto: 'Copia certificada del informe AutoSave',
+      concepto: 'Copia certificada del informe AutoSafe',
       monto: 0,
       nota: 'Incluida en la transferencia.',
     });
@@ -704,7 +704,7 @@ const SECUENCIA_HITOS: TransferenciaNotarial['estado'][] = [
 ];
 
 const DETALLE_HITOS: Record<TransferenciaNotarial['estado'], string> = {
-  Solicitada: 'AutoSave recibió la solicitud y asignó folio.',
+  Solicitada: 'AutoSafe recibió la solicitud y asignó folio.',
   'Documentos en revisión': 'Se validan padrón, permiso de circulación y multas.',
   'Firma de las partes': 'Comprador y vendedor firman la escritura de compraventa.',
   'Inscripción en Registro Civil': 'Ingreso al Registro de Vehículos Motorizados.',
@@ -757,7 +757,7 @@ export function crearTransferencia(params: {
   };
 }
 
-/** Simula el avance del trámite en AutoSave (no hay backend). Idempotente en 'Inscrita'. */
+/** Simula el avance del trámite en AutoSafe (no hay backend). Idempotente en 'Inscrita'. */
 export function avanzarTransferencia(t: TransferenciaNotarial): TransferenciaNotarial {
   const idx = SECUENCIA_HITOS.indexOf(t.estado);
   if (idx < 0 || idx >= SECUENCIA_HITOS.length - 1) return t;
@@ -786,7 +786,7 @@ export function textoWhatsappInforme(car: Car, informe: InformeAutosave): string
         : 'Con hallazgos importantes';
 
   return [
-    `Informe AutoSave · ${car.marca} ${car.modelo} ${car.anio}`,
+    `Informe AutoSafe · ${car.marca} ${car.modelo} ${car.anio}`,
     `Patente ${car.patente} · Folio ${informe.folio}`,
     '',
     `Resultado: ${veredicto}.`,
@@ -804,7 +804,7 @@ export function textoWhatsappInforme(car: Car, informe: InformeAutosave): string
 export function textoWhatsappTransferencia(car: Car, t: TransferenciaNotarial): string {
   const { paso, total } = progresoTransferencia(t);
   return [
-    `Transferencia notarial AutoSave · ${car.marca} ${car.modelo}`,
+    `Transferencia notarial AutoSafe · ${car.marca} ${car.modelo}`,
     `Patente ${car.patente} · Folio ${t.folio}`,
     '',
     `Estado: ${t.estado} (paso ${paso} de ${total})`,

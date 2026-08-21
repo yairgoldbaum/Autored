@@ -1,6 +1,7 @@
 /* Helpers, tipos y constantes que antes vivían dentro de App.tsx y comparten
    varias pantallas. Lógica pura: acá no hay componentes ni estado. */
 import { C } from './theme';
+import { FichaPatente } from './pricing';
 import {
   Auction,
   BusquedaCliente,
@@ -31,19 +32,28 @@ export type TabKey = 'stock' | 'clientes' | 'subastas' | 'kpis';
    las barras del gráfico de KPIs (cruce 1 con P2): tocar una barra deja la
    bandeja mostrando ese tramo. */
 export type FiltroDias = null | '0-30' | '31-60' | '+60';
-/* Etiqueta de pantalla, ya no un campo del cliente: se deduce de sus relaciones
-   con autos. Vive acá y no en el modelo porque el modelo ya no lo guarda. */
-export type ClienteRol = 'Adquisición' | 'Venta';
+/* Estado del trato: describe la relación comercial y nada más. Eran siete y cuatro
+   de ellos (Interesado, Adquisición, Reserva, Comprador) repetían lo que ahora dicen
+   las relaciones con autos. "Adquisición" además aparecía a la vez acá y como rol
+   comercial, así que se elegía lo mismo dos veces. */
+export const ESTADO_CLIENTE_OPTIONS = [
+  { label: 'Nuevo', value: 'Nuevo' },
+  { label: 'Contactado', value: 'Contactado' },
+  { label: 'Interesado', value: 'Interesado' },
+  { label: 'Negociando', value: 'Negociando' },
+  { label: 'Cliente', value: 'Cliente' },
+  { label: 'Perdido', value: 'Perdido' },
+];
 
-/* Filtros de la lista de clientes, en reemplazo de los de rol comercial.
-   "Todos" ya cubre a todos los clientes visibles, e "Intereses" concentra a quienes
-   mostraron intención de compra aunque hayan entrado por distintos canales.
-   Archivados es el único que se comporta distinto. */
-export type ClienteFiltro = 'Todos' | 'Intereses' | 'Oportunidades' | 'Archivados';
+export const ESTADOS_CLIENTE = ESTADO_CLIENTE_OPTIONS.map((o) => o.value);
+
+/* Los filtros de la lista son los estados del cliente, no categorías aparte.
+   Antes eran "Intereses" y "Oportunidades", que describían la relación con un
+   auto y no en qué va el trato: había que aprenderse dos vocabularios. */
+export type ClienteFiltro = string;
 export const CLIENTE_FILTROS: ClienteFiltro[] = [
   'Todos',
-  'Intereses',
-  'Oportunidades',
+  ...ESTADO_CLIENTE_OPTIONS.map((o) => o.value),
   'Archivados',
 ];
 export type SubastaTabKey = 'disponibles' | 'ofertas' | 'mis_subastas' | 'finalizadas';
@@ -55,6 +65,31 @@ export interface WizardData extends Omit<Car, 'id'> {
   desdeSubastaId: number | null;
 }
 
+/* Consulta de patente del paso 1 del alta. 'sin_registro' no es un error: es el
+   caso real de una patente que la base no tiene, y de ahí se sigue a mano. */
+export interface BusquedaPatente {
+  estado: 'idle' | 'buscando' | 'ok' | 'sin_registro';
+  patente: string;
+  ficha: FichaPatente | null;
+}
+
+export function makeBusquedaPatente(): BusquedaPatente {
+  return { estado: 'idle', patente: '', ficha: null };
+}
+
+/* Lectura de la patente desde una foto. Vive aparte de la búsqueda porque son
+   dos cosas distintas: una saca la patente de la imagen, la otra la va a
+   consultar al registro. La foto se guarda para mostrar cuál se leyó. */
+export interface LecturaPatente {
+  estado: 'idle' | 'leyendo' | 'propuesta' | 'sin_lectura';
+  patente: string;
+  foto: string;
+}
+
+export function makeLecturaPatente(): LecturaPatente {
+  return { estado: 'idle', patente: '', foto: '' };
+}
+
 export interface NewClientData {
   id: number | null;
   nombre: string;
@@ -64,6 +99,7 @@ export interface NewClientData {
   notas: string;
   buscaModelo: string;
   buscaComentario: string;
+  buscaVehiculoId: number | null;
 }
 
 export const TIPO_VEHICULO_OPTIONS = ['Vehículo liviano', 'Vehículo pesado', 'Moto'];
@@ -150,34 +186,30 @@ export function emptyStockFilters(): StockFilters {
 
 /* Cómo se ordena la bandeja (punto 22). Antes el orden era fijo (los autos según
    se cargaban); ahora el usuario lo elige desde el panel de filtros. */
-export type OrdenStock = 'ingreso' | 'dias' | 'visitas' | 'leads' | 'precio-asc' | 'precio-desc';
+export type OrdenStock = 'ingreso' | 'dias' | 'leads' | 'precio-asc' | 'precio-desc';
 
 export const ORDEN_STOCK_OPTIONS: { label: string; value: OrdenStock }[] = [
   { label: 'Ingreso reciente', value: 'ingreso' },
   { label: 'Más días en stock', value: 'dias' },
-  { label: 'Más visitas', value: 'visitas' },
   { label: 'Más leads', value: 'leads' },
   { label: 'Precio menor', value: 'precio-asc' },
   { label: 'Precio mayor', value: 'precio-desc' },
 ];
 
-/* Estado del trato: describe la relación comercial y nada más. Eran siete y cuatro
-   de ellos (Interesado, Adquisición, Reserva, Comprador) repetían lo que ahora dicen
-   las relaciones con autos. "Adquisición" además aparecía a la vez acá y como rol
-   comercial, así que se elegía lo mismo dos veces. */
-export const ESTADO_CLIENTE_OPTIONS = [
-  { label: 'Nuevo', value: 'Nuevo' },
-  { label: 'Caliente', value: 'Caliente' },
-  { label: 'Frecuente', value: 'Frecuente' },
-];
 
 // Color del badge según el estado del trato
 export function badgeForEstadoCliente(estado: string) {
   switch (estado) {
-    case 'Caliente':
+    case 'Contactado':
+      return { bg: C.slate100, color: C.slate600 };
+    case 'Interesado':
+      return { bg: C.amber50, color: C.amber700 };
+    case 'Negociando':
       return { bg: C.red50, color: C.red700 };
-    case 'Frecuente':
+    case 'Cliente':
       return { bg: C.emerald50, color: C.emerald700 };
+    case 'Perdido':
+      return { bg: C.slate100, color: C.slate400 };
     case 'Nuevo':
     default:
       return { bg: C.blue50, color: C.blue700 };
@@ -188,11 +220,6 @@ export const TIPO_CLIENTE_OPTIONS = [
   { label: 'Particular', value: 'Particular' },
   { label: 'Empresa', value: 'Empresa' },
 ];
-
-export function badgeForClienteRol(role: ClienteRol) {
-  if (role === 'Adquisición') return { bg: C.teal50, color: C.teal700 };
-  return { bg: C.slate100, color: C.slate600 };
-}
 
 export function emptyContact(): VehicleContact {
   return { clienteId: null, nombre: '', telefono: '', notas: '' };
@@ -227,6 +254,7 @@ export function emptyNewClient(): NewClientData {
     notas: '',
     buscaModelo: '',
     buscaComentario: '',
+    buscaVehiculoId: null,
   };
 }
 
@@ -241,7 +269,9 @@ export function textoBusqueda(busca: BusquedaCliente | null): string {
 export function busquedaFromForm(form: NewClientData): BusquedaCliente | null {
   const modelo = form.buscaModelo.trim();
   const comentario = form.buscaComentario.trim();
-  return modelo || comentario ? { modelo, comentario } : null;
+  return modelo || comentario || form.buscaVehiculoId
+    ? { modelo, comentario, vehiculoId: form.buscaVehiculoId }
+    : null;
 }
 
 /* El rol comercial ya no se elige ni se guarda: sale de las relaciones del cliente.
@@ -255,14 +285,12 @@ export function cumpleFiltroCliente(
   filtro: ClienteFiltro,
 ): boolean {
   switch (filtro) {
-    case 'Intereses':
-      return !!cliente.busca;
-    case 'Oportunidades':
-      return rels.some((r) => r.tipo === 'oportunidad');
+    case 'Todos':
+      return true;
     case 'Archivados':
       return cliente.archivado;
     default:
-      return true;
+      return cliente.estado === filtro;
   }
 }
 
@@ -305,12 +333,6 @@ export function etiquetaPeriodo(periodo: string): string {
   return `${NOMBRE_MES[Number(mes) - 1]} ${anio}`;
 }
 
-export function rolesDeCliente(rels: RelacionClienteVehiculo[]): ClienteRol[] {
-  const roles: ClienteRol[] = [];
-  if (esClienteDeAdquisicion(rels)) roles.push('Adquisición');
-  if (esClienteDeVenta(rels)) roles.push('Venta');
-  return roles;
-}
 
 export function normalizePhone(telefono: string) {
   return (telefono || '').replace(/\D/g, '');
@@ -562,7 +584,6 @@ export function makeEmptyWizard(): WizardData {
     precioPisoConsignacion: 0,
     fechaVenta: null,
     financiado: null,
-    visitas: [],
   };
 }
 
@@ -587,6 +608,8 @@ export function badgeForEstado(estado: EstadoAuto) {
       return { bg: C.amber50, color: C.amber700, border: C.amber200 };
     case 'Reservado':
       return { bg: C.blue50, color: C.blue700, border: C.blue100 };
+    case 'Consignado':
+      return { bg: C.purple50, color: C.purple700, border: C.purple100 };
     case 'Vendido':
       return { bg: C.slate100, color: C.slate500, border: C.slate200 };
     default:
@@ -703,7 +726,7 @@ export function getAuctionStatusCopy(auction: Auction, active: boolean) {
   }
 }
 
-/* ---------------------- AutoSave ---------------------- */
+/* ---------------------- AutoSafe ---------------------- */
 // El color solo comunica semántica (veredictos y bloqueos), nunca decora.
 export function veredictoColor(v: VeredictoAutosave) {
   switch (v) {

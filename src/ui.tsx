@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Keyboard,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -148,6 +150,19 @@ export function Sheet({
 }) {
   const [mounted, setMounted] = useState(visible);
   const anim = useRef(new Animated.Value(0)).current;
+  /* Los sheets viven pegados al borde inferior, justo donde aparece el teclado:
+     sin esto el campo que estás escribiendo queda debajo y no se ve. */
+  const [alturaTeclado, setAlturaTeclado] = useState(0);
+  useEffect(() => {
+    // En iOS conviene el evento "Will": se mueve junto con el teclado y no después.
+    const mostrar = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const ocultar = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const subs = [
+      Keyboard.addListener(mostrar, (e) => setAlturaTeclado(e.endCoordinates.height)),
+      Keyboard.addListener(ocultar, () => setAlturaTeclado(0)),
+    ];
+    return () => subs.forEach((s) => s.remove());
+  }, []);
 
   useEffect(() => {
     if (visible) {
@@ -173,7 +188,16 @@ export function Sheet({
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [640, 0] });
 
   return (
-    <View style={sheetStyles.container} pointerEvents="box-none">
+    /* El alto del teclado se le saca al contenedor, no al panel: el contenedor
+       conserva una altura definida y por eso el `maxHeight` en porcentaje del
+       panel sigue resolviendo. Con un KeyboardAvoidingView envolviendo el panel
+       ese porcentaje se queda sin contra qué medir y el sheet crece a pantalla
+       completa. En Android no se toca: la ventana ya se achica sola
+       (adjustResize) y descontarlo otra vez lo subiría el doble. */
+    <View
+      style={[sheetStyles.container, Platform.OS === 'ios' ? { paddingBottom: alturaTeclado } : null]}
+      pointerEvents="box-none"
+    >
       <Animated.View style={[StyleSheet.absoluteFillObject, sheetStyles.backdrop, { opacity: anim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>

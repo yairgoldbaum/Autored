@@ -1,7 +1,5 @@
 import React from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -17,13 +15,11 @@ import { Car, Customer, RelacionClienteVehiculo } from '../src/data';
 import {
   CLIENTE_FILTROS,
   ClienteFiltro,
+  ESTADO_CLIENTE_OPTIONS,
   NewClientData,
   TIPO_CLIENTE_OPTIONS,
-  badgeForClienteRol,
-  badgeForEstadoCliente,
   cumpleFiltroCliente,
   lineaCliente,
-  rolesDeCliente,
 } from '../src/helpers';
 import { ModeloBuscadoField } from '../components/shared';
 
@@ -38,6 +34,7 @@ interface ClientesScreenProps {
   stockById: Map<number, Car>;
   setActiveCar: (car: Car | null) => void;
   handleAbrirNuevoCliente: () => void;
+  handleCambiarEstadoCliente: (cliente: Customer, estado: string) => void;
   handleEditarCliente: (client: Customer) => void;
   handleToggleArchivadoCliente: (client: Customer) => void;
   handleEliminarCliente: (client: Customer) => void;
@@ -58,6 +55,7 @@ export function ClientesScreen({
   stockById,
   setActiveCar,
   handleAbrirNuevoCliente,
+  handleCambiarEstadoCliente,
   handleEditarCliente,
   handleToggleArchivadoCliente,
   handleEliminarCliente,
@@ -136,9 +134,7 @@ export function ClientesScreen({
           </View>
         ) : (
           filteredCustomers.map((cli) => {
-            const eb = badgeForEstadoCliente(cli.estado);
             const rels = relacionesPorCliente.get(cli.id) || [];
-            const roles = rolesDeCliente(rels);
             const linea = lineaCliente(cli, rels, stockById);
             return (
               <View key={cli.id} style={s.cliCard}>
@@ -146,19 +142,6 @@ export function ClientesScreen({
                 <View style={s.cliCardHead}>
                   <View style={s.cliTitleBlock}>
                     <Text style={s.cliNombre}>{cli.nombre}</Text>
-                    <View style={s.cliBadgeRow}>
-                      <View style={[s.cliEstadoBadge, { backgroundColor: eb.bg }]}>
-                        <Text style={[s.cliEstadoText, { color: eb.color }]}>{cli.estado}</Text>
-                      </View>
-                      {roles.map((role) => {
-                        const rb = badgeForClienteRol(role);
-                        return (
-                          <View key={role} style={[s.cliEstadoBadge, { backgroundColor: rb.bg }]}>
-                            <Text style={[s.cliEstadoText, { color: rb.color }]}>{role}</Text>
-                          </View>
-                        );
-                      })}
-                    </View>
                   </View>
                   <View style={s.rowCenter}>
                     <TouchableOpacity onPress={() => handleEditarCliente(cli)} style={s.cliIconBtn}>
@@ -183,6 +166,19 @@ export function ClientesScreen({
                       <Icon name="trash-can" size={12} color={C.red600} />
                     </TouchableOpacity>
                   </View>
+                </View>
+
+                {/* En qué va el trato. Es un desplegable y no un badge: el estado
+                    cambia todo el tiempo y antes había que entrar a editar el
+                    cliente para moverlo. Los roles con el auto (adquisición,
+                    venta) salieron de acá: se leen en la línea de abajo. */}
+                <View style={s.cliEstadoField}>
+                  <Text style={s.cliGridLabel}>Estado</Text>
+                  <Dropdown
+                    value={cli.estado}
+                    onChange={(v) => handleCambiarEstadoCliente(cli, v)}
+                    options={ESTADO_CLIENTE_OPTIONS}
+                  />
                 </View>
 
                 {/* Grid simétrico: Teléfono | lo que es este cliente */}
@@ -244,6 +240,7 @@ export function ClientesScreen({
 }
 
 interface NewClientSheetProps {
+  stock: Car[];
   isNewClientSheetOpen: boolean;
   setIsNewClientSheetOpen: (open: boolean) => void;
   newClient: NewClientData;
@@ -255,6 +252,7 @@ interface NewClientSheetProps {
 
 /* ======================= SHEET: NUEVO/EDITAR CLIENTE ======================= */
 export function NewClientSheet({
+  stock,
   isNewClientSheetOpen,
   setIsNewClientSheetOpen,
   newClient,
@@ -267,7 +265,7 @@ export function NewClientSheet({
   const clienteFormListo = !!newClient.nombre.trim() && !!newClient.telefono.trim();
   return (
     <Sheet visible={isNewClientSheetOpen} onClose={() => setIsNewClientSheetOpen(false)} maxHeightPct={90}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ padding: 16, gap: 16, paddingBottom: (insets.bottom || 0) + 16 }}>
           <View style={s.rowBetween}>
             <Text style={s.sheetTitleSm}>{newClient.id ? 'Editar Cliente' : 'Registrar Nuevo Lead / Cliente'}</Text>
@@ -296,6 +294,14 @@ export function NewClientSheet({
                 value={newClient.telefono}
                 onChangeText={(t) => setNewClient({ ...newClient, telefono: t })}
                 style={s.sheetInput}
+              />
+            </View>
+            <View>
+              <Text style={s.sheetFieldLabel}>Estado</Text>
+              <Dropdown
+                value={newClient.estado}
+                onChange={(v) => setNewClient({ ...newClient, estado: v })}
+                options={ESTADO_CLIENTE_OPTIONS}
               />
             </View>
             <View>
@@ -333,8 +339,19 @@ export function NewClientSheet({
                 <ModeloBuscadoField
                   modelo={newClient.buscaModelo}
                   comentario={newClient.buscaComentario}
+                  stock={stock}
+                  vehiculoId={newClient.buscaVehiculoId}
                   onChangeModelo={(v) => setNewClient({ ...newClient, buscaModelo: v })}
                   onChangeComentario={(v) => setNewClient({ ...newClient, buscaComentario: v })}
+                  onPickVehiculo={(car) =>
+                    setNewClient({
+                      ...newClient,
+                      buscaVehiculoId: car ? car.id : null,
+                      // Elegir del stock también deja escrito qué es, para que la
+                      // ficha del cliente se lea sola sin ir a buscar el auto.
+                      buscaModelo: car ? `${car.marca} ${car.modelo} ${car.anio}` : newClient.buscaModelo,
+                    })
+                  }
                 />
               </>
             ) : null}
@@ -348,7 +365,7 @@ export function NewClientSheet({
             <Text style={s.sheetPrimaryText}>{newClient.id ? 'Guardar Cambios' : 'Registrar Cliente'}</Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </Sheet>
   );
 }

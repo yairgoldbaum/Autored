@@ -30,6 +30,7 @@ interface StockScreenProps {
   setActiveCar: (car: Car | null) => void;
   setIsFilterSheetOpen: (open: boolean) => void;
   handleEliminarAuto: (car: Car) => void;
+  handleAgregarAStock: (car: Car) => void;
 }
 
 /* ======================= PANTALLA STOCK ======================= */
@@ -47,8 +48,28 @@ export function StockScreen({
   setActiveCar,
   setIsFilterSheetOpen,
   handleEliminarAuto,
+  handleAgregarAStock,
 }: StockScreenProps) {
-  const chips = ['Todos', 'Pre-stock', 'En preparación', 'En venta', 'Reservado', 'Vendido'];
+  /* Pre-stock es la bandeja de entrada, no un estado más para filtrar: son
+     autos comprados que todavía no entran al stock. El chip aparece solo
+     mientras haya alguno esperando y se pinta en ámbar para que se lea como
+     aviso. Cuando la bandeja queda vacía, el chip desaparece solo. */
+  const enPreStock = stock.filter((c) => c.estado === 'Pre-stock').length;
+  const chips = [
+    'Todos',
+    ...(enPreStock > 0 ? ['Pre-stock'] : []),
+    'En preparación',
+    'Consignado',
+    'En venta',
+    'Reservado',
+    'Vendido',
+  ];
+
+  /* Al despachar el último auto de la bandeja el chip desaparece, y si el filtro
+     se quedaba en Pre-stock la lista quedaba vacía sin chip al cual volver. */
+  React.useEffect(() => {
+    if (enPreStock === 0 && filterState === 'Pre-stock') setFilterState('Todos');
+  }, [enPreStock, filterState, setFilterState]);
   return (
     <View style={{ gap: 16 }}>
       <View style={s.screenHead}>
@@ -83,16 +104,50 @@ export function StockScreen({
         {chips.map((est) => {
           const cant = est === 'Todos' ? stock.length : stock.filter((c) => c.estado === est).length;
           const isSelected = filterState === est;
+          const esPreStock = est === 'Pre-stock';
           return (
             <TouchableOpacity
               key={est}
               activeOpacity={0.8}
               onPress={() => setFilterState(est)}
-              style={[s.chip, isSelected ? s.chipActive : s.chipInactive]}
+              style={[
+                s.chip,
+                isSelected ? s.chipActive : s.chipInactive,
+                esPreStock && (isSelected ? s.chipPreStockActive : s.chipPreStock),
+              ]}
             >
-              <Text style={[s.chipText, { color: isSelected ? C.white : C.slate600 }]}>{est}</Text>
-              <View style={[s.chipCount, { backgroundColor: isSelected ? C.chileanTeal : C.slate100 }]}>
-                <Text style={{ fontSize: 10, color: isSelected ? C.white : C.slate500, fontWeight: W.bold }}>{cant}</Text>
+              {esPreStock ? <View style={[s.chipPreStockDot, isSelected && s.chipPreStockDotOn]} /> : null}
+              <Text
+                style={[
+                  s.chipText,
+                  { color: isSelected ? C.white : esPreStock ? C.amber700 : C.slate600 },
+                ]}
+              >
+                {est}
+              </Text>
+              <View
+                style={[
+                  s.chipCount,
+                  {
+                    backgroundColor: isSelected
+                      ? esPreStock
+                        ? C.amber700
+                        : C.chileanTeal
+                      : esPreStock
+                        ? C.amber100
+                        : C.slate100,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    color: isSelected ? C.white : esPreStock ? C.amber700 : C.slate500,
+                    fontWeight: W.bold,
+                  }}
+                >
+                  {cant}
+                </Text>
               </View>
             </TouchableOpacity>
           );
@@ -139,7 +194,6 @@ export function StockScreen({
             // restando costoAdquisicion a mano (en consignación es 0).
             const margen = car.precioVenta - costoBase(car);
             const leads = leadsDeVehiculo(relaciones, car.id);
-            const visitas = car.visitas?.length || 0;
             return (
               <TouchableOpacity key={car.id} activeOpacity={0.9} onPress={() => setActiveCar(car)} style={s.carCard}>
                 <View style={s.carThumb}>
@@ -239,9 +293,23 @@ export function StockScreen({
                       )}
                     </View>
                     <Text style={s.diasStock}>
-                      {visitas} {visitas === 1 ? 'visita' : 'visitas'} · {leads} {leads === 1 ? 'lead' : 'leads'} · {dias}{' '}
-                      {dias === 1 ? 'día' : 'días'} en stock
+                      {leads} {leads === 1 ? 'lead' : 'leads'} · {dias} {dias === 1 ? 'día' : 'días'} en stock
                     </Text>
+                    {/* El auto está esperando: acá se despacha a stock. Abre el
+                        selector de estado para que el vendedor elija a cuál. */}
+                    {car.estado === 'Pre-stock' ? (
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          handleAgregarAStock(car);
+                        }}
+                        activeOpacity={0.85}
+                        style={s.preStockBtn}
+                      >
+                        <Icon name="plus" size={11} color={C.white} />
+                        <Text style={s.preStockBtnText}>Agregar al Stock</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 </View>
               </TouchableOpacity>

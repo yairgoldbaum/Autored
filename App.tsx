@@ -35,12 +35,20 @@ import {
   INITIAL_RELACIONES,
   ESTADOS,
   costoBase,
+  tenenciaSegunEstado,
   diasEnStock,
 } from './src/data';
 import { Icon } from './src/ui';
 import { s } from './src/styles';
 import { loadState, saveState } from './src/storage';
-import { Tasacion, buscarPatente, normalizarPatente, tasar } from './src/pricing';
+import {
+  Tasacion,
+  buscarFichaPatente,
+  buscarPatente,
+  leerPatenteEnFoto,
+  normalizarPatente,
+  tasar,
+} from './src/pricing';
 import {
   AUTOMOTORA,
   NOTARIAS,
@@ -76,17 +84,18 @@ import {
   hasContactData,
   isAuctionFinal,
   leadsDeVehiculo,
+  makeBusquedaPatente,
   makeEmptyWizard,
+  makeLecturaPatente,
   mergeAuctionsWithInitial,
   OrdenStock,
   periodosConVentas,
   requiresBuyer,
-  rolesDeCliente,
   syncStockAndCustomers,
   todayIsoDate,
   updateCarContactForCustomer,
 } from './src/helpers';
-import { NavButton, NotificationBanner } from './components/shared';
+import { NOTIF_MS, NavButton, NotificationBanner } from './components/shared';
 import { KpisScreen } from './screens/Kpis';
 import { FilterSheet, StockScreen } from './screens/Stock';
 import {
@@ -150,6 +159,12 @@ function AppInner() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isPriceSheetOpen, setIsPriceSheetOpen] = useState(false);
   const [isStatusSheetOpen, setIsStatusSheetOpen] = useState(false);
+  /* El sheet de estado se abre desde dos lados: la ficha del auto y el botón
+     "Agregar al Stock" de la bandeja de pre-stock. Por eso trabaja sobre su
+     propio auto y no sobre activeCar, que en la bandeja no existe. */
+  const [statusCar, setStatusCar] = useState<Car | null>(null);
+  const [statusConsignante, setStatusConsignante] = useState<VehicleContact>(emptyContact());
+  const [statusPiso, setStatusPiso] = useState('');
   const [isAuctionBidSheetOpen, setIsAuctionBidSheetOpen] = useState(false);
   const [isAuctionPublishSheetOpen, setIsAuctionPublishSheetOpen] = useState(false);
   const [isAuctionFeaturesSheetOpen, setIsAuctionFeaturesSheetOpen] = useState(false);
@@ -191,7 +206,7 @@ function AppInner() {
   const [newClientExtrasOpen, setNewClientExtrasOpen] = useState(false);
   const [newClient, setNewClient] = useState<NewClientData>(emptyNewClient());
 
-  // AutoSave: informe (derivado, no se persiste) y transferencia notarial
+  // AutoSafe: informe (derivado, no se persiste) y transferencia notarial
   const [isAutosaveReportOpen, setIsAutosaveReportOpen] = useState(false);
   const [isEnvioInformeSheetOpen, setIsEnvioInformeSheetOpen] = useState(false);
   const [envioDestinatario, setEnvioDestinatario] = useState<EnvioInforme['destinatario']>('Comprador');
@@ -215,6 +230,8 @@ function AppInner() {
   const [isCargarAutoOpen, setIsCargarAutoOpen] = useState(false);
   const [cargarStep, setCargarStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardData>(makeEmptyWizard());
+  const [busquedaPatente, setBusquedaPatente] = useState(makeBusquedaPatente());
+  const [lecturaPatente, setLecturaPatente] = useState(makeLecturaPatente());
   const [documentDraft, setDocumentDraft] = useState<Omit<VehicleDocument, 'id'>>({
     tipo: '',
     nombre: '',
@@ -223,7 +240,7 @@ function AppInner() {
   });
 
   // Notificación
-  const [notification, setNotification] = useState<{ message: string; type: string } | null>(null);
+  const [notification, setNotification] = useState<{ id: number; message: string; type: string } | null>(null);
   const notifTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Persistencia local (BDD emulada con AsyncStorage)
@@ -304,9 +321,9 @@ function AppInner() {
   ]);
 
   const showNotification = (message: string, type = 'success') => {
-    setNotification({ message, type });
+    setNotification({ id: Date.now(), message, type });
     if (notifTimeout.current) clearTimeout(notifTimeout.current);
-    notifTimeout.current = setTimeout(() => setNotification(null), 3500);
+    notifTimeout.current = setTimeout(() => setNotification(null), NOTIF_MS);
   };
 
   /* ------------------- KPIs ------------------- */
@@ -422,8 +439,6 @@ function AppInner() {
     switch (ordenStock) {
       case 'dias':
         return [...filtrados].sort((a, b) => diasEnStock(b) - diasEnStock(a));
-      case 'visitas':
-        return [...filtrados].sort((a, b) => (b.visitas?.length || 0) - (a.visitas?.length || 0));
       case 'leads':
         return [...filtrados].sort(
           (a, b) => leadsDeVehiculo(relaciones, b.id) - leadsDeVehiculo(relaciones, a.id),
@@ -457,7 +472,7 @@ function AppInner() {
       }));
   }, [activeStockAuctionMap, stock]);
 
-  // El informe AutoSave no es estado: se deriva del auto y siempre da lo mismo para la
+  // El informe AutoSafe no es estado: se deriva del auto y siempre da lo mismo para la
   // misma patente. La automotora tiene acceso libre; lo que se cobra es la copia al cliente.
   const activeInforme = useMemo(() => (activeCar ? generarInformeAutosave(activeCar) : null), [activeCar]);
   const activeBloqueos = useMemo(() => bloqueosTransferencia(activeInforme), [activeInforme]);
@@ -491,7 +506,6 @@ function AppInner() {
         c.telefono.toLowerCase().includes(q) ||
         notas.includes(q) ||
         busca.includes(q) ||
-        rolesDeCliente(rels).join(' ').toLowerCase().includes(q) ||
         vehicleLabels.includes(q)
       );
     });
@@ -544,6 +558,8 @@ function AppInner() {
       costoAdquisicion: tasacion.ofertaMin,
       comentario: `Tasado con Motor de Precios. Rango de compra ${fmtCLP(tasacion.ofertaMin)} – ${fmtCLP(tasacion.ofertaMax)}.`,
     });
+    setBusquedaPatente(makeBusquedaPatente());
+    setLecturaPatente(makeLecturaPatente());
     setCargarStep(1);
     setIsMotorOpen(false);
     setIsCargarAutoOpen(true);
@@ -552,10 +568,82 @@ function AppInner() {
   /* ------------------- Handlers wizard ------------------- */
   const handleAbrirCargaManual = () => {
     setWizardData(makeEmptyWizard());
+    setBusquedaPatente(makeBusquedaPatente());
+    setLecturaPatente(makeLecturaPatente());
     setDocumentDraft({ tipo: '', nombre: '', fechaVencimiento: '', archivoNombre: '' });
     setCargarStep(1);
     setIsCargarAutoOpen(true);
   };
+
+  /* Consulta de patente del paso 1. Sin backend: la ficha sale del registro
+     ficticio de pricing.ts y la espera es para que se vea que fue a buscarla. */
+  const handleBuscarPatente = () => {
+    const patente = normalizarPatente(wizardData.patente);
+    if (patente.length < 5) {
+      showNotification('Escribe la patente completa (ej: KDPT45).', 'warning');
+      return;
+    }
+    setBusquedaPatente({ estado: 'buscando', patente, ficha: null });
+    setTimeout(() => {
+      const ficha = buscarFichaPatente(patente);
+      setBusquedaPatente({ estado: ficha ? 'ok' : 'sin_registro', patente, ficha });
+    }, 900);
+  };
+
+  /* Pasa la ficha encontrada al formulario y deja al vendedor en el paso 2 para
+     que la revise. Se respeta lo que ya haya cargado (las fotos, sobre todo). */
+  const handleTomarFichaPatente = () => {
+    const ficha = busquedaPatente.ficha;
+    if (busquedaPatente.estado !== 'ok' || !ficha) return;
+    setWizardData((prev) => ({
+      ...prev,
+      patente: busquedaPatente.patente,
+      vin: ficha.vin,
+      tipoVehiculo: ficha.tipoVehiculo,
+      marca: ficha.marca,
+      modelo: ficha.modelo,
+      version: ficha.version,
+      anio: ficha.anio,
+      anioFabricacion: ficha.anioFabricacion,
+      color: ficha.color,
+      transmision: ficha.transmision,
+      combustible: ficha.combustible,
+      traccion: ficha.traccion,
+      puertas: ficha.puertas,
+      cilindrada: ficha.cilindrada,
+      // El km del permiso es de la última renovación: sirve de punto de partida,
+      // pero no pisa el que el vendedor haya escrito mirando el tablero.
+      km: prev.km || ficha.kmPermiso,
+    }));
+    setCargarStep(2);
+    showNotification(`Datos de ${ficha.marca} ${ficha.modelo} cargados. Revísalos antes de seguir.`);
+  };
+
+  /* Lector de patente de la foto. Corre solo mientras el auto no tenga patente:
+     una vez que está, no hay nada que leer y releer sería pisarla. */
+  const leerPatenteDeFoto = (foto: string) => {
+    if (wizardData.id !== null) return;
+    if (normalizarPatente(wizardData.patente).length >= 5) return;
+    setLecturaPatente({ estado: 'leyendo', patente: '', foto });
+    setTimeout(() => {
+      const patente = leerPatenteEnFoto(foto);
+      setLecturaPatente({
+        estado: patente ? 'propuesta' : 'sin_lectura',
+        patente: patente || '',
+        foto,
+      });
+    }, 1200);
+  };
+
+  // La patente leída entra al formulario solo cuando el vendedor dice que sí
+  const handleConfirmarLectura = () => {
+    if (lecturaPatente.estado !== 'propuesta') return;
+    setWizardData((prev) => ({ ...prev, patente: lecturaPatente.patente }));
+    setBusquedaPatente(makeBusquedaPatente());
+    setLecturaPatente(makeLecturaPatente());
+  };
+
+  const handleDescartarLectura = () => setLecturaPatente(makeLecturaPatente());
 
   const handleAgregarDesdeSubasta = (auction: Auction) => {
     setWizardData({
@@ -597,9 +685,10 @@ function AppInner() {
       precioPisoConsignacion: 0,
       fechaVenta: null,
       financiado: null,
-      visitas: [],
     });
     setDocumentDraft({ tipo: '', nombre: '', fechaVencimiento: '', archivoNombre: '' });
+    setBusquedaPatente(makeBusquedaPatente());
+    setLecturaPatente(makeLecturaPatente());
     setCargarStep(1);
     setIsCargarAutoOpen(true);
   };
@@ -610,10 +699,15 @@ function AppInner() {
       showNotification('Registra el comprador antes de dejar el auto reservado o vendido.', 'warning');
       return;
     }
+    if (wizardData.estado === 'Consignado' && !hasContactData(wizardData.consignante)) {
+      showNotification('Registra al dueño del auto para dejarlo en consignación.', 'warning');
+      return;
+    }
     const nuevoAuto: Car = {
       ...wizardData,
       id: wizardData.id || Math.max(0, ...stock.map((c) => c.id)) + 1,
       patente: wizardData.patente.toUpperCase(),
+      tenencia: tenenciaSegunEstado(wizardData.estado, wizardData.tenencia),
       precioVenta: Number(wizardData.precioPublicacionContado || wizardData.precioVenta),
       precioPublicacionContado: Number(wizardData.precioPublicacionContado || wizardData.precioVenta),
       precioPublicacionFinanciado: Number(wizardData.precioPublicacionFinanciado),
@@ -651,6 +745,8 @@ function AppInner() {
 
   const handleEditarAuto = (car: Car) => {
     setWizardData({ ...car, desdeSubastaId: car.desdeSubastaId || null });
+    setBusquedaPatente(makeBusquedaPatente());
+    setLecturaPatente(makeLecturaPatente());
     setDocumentDraft({ tipo: '', nombre: '', fechaVencimiento: '', archivoNombre: '' });
     setCargarStep(1);
     setIsCargarAutoOpen(true);
@@ -729,18 +825,44 @@ function AppInner() {
     showNotification('Precio del auto actualizado correctamente.');
   };
 
+  /* Abre el selector de estado para un auto. `estadoInicial` lo usa la bandeja
+     de pre-stock: llega con "En preparación" propuesto, que es donde cae un auto
+     que recién entra, pero el vendedor puede elegir otro. */
+  const handleAbrirEstado = (car: Car, estadoInicial?: EstadoAuto) => {
+    setStatusCar(car);
+    setSelectedStatus(estadoInicial || car.estado);
+    setStatusNote('');
+    setStatusBuyer(car.comprador || emptyContact());
+    setStatusConsignante(car.consignante || emptyContact());
+    setStatusPiso(car.precioPisoConsignacion ? String(car.precioPisoConsignacion) : '');
+    setStatusFinanciado(car.financiado ?? false);
+    setIsStatusSheetOpen(true);
+  };
+
+  const handleAgregarAStock = (car: Car) => handleAbrirEstado(car, 'En preparación');
+
   const handleGuardarEstado = () => {
-    if (!activeCar) return;
+    const car = statusCar || activeCar;
+    if (!car) return;
     const nextStatus = selectedStatus as EstadoAuto;
     if (requiresBuyer(nextStatus) && !hasContactData(statusBuyer)) {
       showNotification('Registra el comprador para reservar o vender este auto.', 'warning');
       return;
     }
+    if (nextStatus === 'Consignado' && !hasContactData(statusConsignante)) {
+      showNotification('Registra al dueño del auto para dejarlo en consignación.', 'warning');
+      return;
+    }
     const nextStock = stock.map((c) => {
-      if (c.id !== activeCar.id) return c;
+      if (c.id !== car.id) return c;
       return {
         ...c,
         estado: nextStatus,
+        // Marcar Consignado enciende la tenencia; pasar a En venta no la apaga
+        tenencia: tenenciaSegunEstado(nextStatus, c.tenencia),
+        consignante: nextStatus === 'Consignado' ? cleanVehicleContact(statusConsignante) : c.consignante,
+        precioPisoConsignacion:
+          nextStatus === 'Consignado' ? Number(statusPiso) || 0 : c.precioPisoConsignacion,
         comprador: requiresBuyer(nextStatus) ? cleanVehicleContact(statusBuyer) : c.comprador,
         comentario: statusNote || c.comentario,
         // Sin fechaVenta la venta no existe para los KPIs del mes (nota de
@@ -751,22 +873,24 @@ function AppInner() {
       };
     });
     const synced = syncStockAndCustomers(nextStock, customers, relaciones);
-    const updatedCar = synced.stock.find((c) => c.id === activeCar.id) || activeCar;
+    const updatedCar = synced.stock.find((c) => c.id === car.id) || car;
     setStock(synced.stock);
     setCustomers(synced.customers);
     setRelaciones(synced.relaciones);
-    setActiveCar(updatedCar);
+    // La ficha solo se refresca si es este mismo auto el que está abierto
+    setActiveCar((prev) => (prev && prev.id === car.id ? updatedCar : prev));
+    setStatusCar(null);
     setIsStatusSheetOpen(false);
     showNotification(`Estado cambiado a "${selectedStatus}"`);
 
-    // Recién vendido: se ofrece cerrar la transferencia notarial con AutoSave. El sheet ES
+    // Recién vendido: se ofrece cerrar la transferencia notarial con AutoSafe. El sheet ES
     // el pitch (llega prellenado y con costos); la notificación no es pulsable y no serviría.
     if (nextStatus === 'Vendido' && !updatedCar.transferencia) {
       setTimeout(() => handleAbrirTransferencia(updatedCar), 320); // el sheet anterior tarda 180ms en cerrarse
     }
   };
 
-  /* ------------------- AutoSave ------------------- */
+  /* ------------------- AutoSafe ------------------- */
   // activeCar es una COPIA del auto, no un derivado de `stock`: hay que actualizar ambos
   // o la ficha abierta se queda mostrando datos viejos.
   const patchCar = (id: number, patch: Partial<Car>) => {
@@ -774,14 +898,6 @@ function AppInner() {
     setActiveCar((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
   };
 
-  /* La visita del día, sin pedir datos: el modelo acepta visitas anónimas y la
-     mayoría no deja nombre. Es el segundo dato que P2 necesita desde la ficha
-     (nota de CONTEXTO-P1) y alimenta el orden "Más visitas" de la bandeja. */
-  const handleMarcarVisita = (car: Car) => {
-    const visita = { id: Date.now(), fecha: todayIsoDate(), clienteId: null, nombre: '' };
-    patchCar(car.id, { visitas: [...(car.visitas || []), visita] });
-    showNotification(`Visita registrada al ${car.marca} ${car.modelo}.`);
-  };
 
   const handleAbrirEnvioInforme = (car: Car) => {
     const destino: EnvioInforme['destinatario'] = hasContactData(car.comprador)
@@ -845,7 +961,7 @@ function AppInner() {
       return;
     }
     if (activeBloqueos.length) {
-      showNotification('El informe AutoSave detecta impedimentos para inscribir la transferencia.', 'warning');
+      showNotification('El informe AutoSafe detecta impedimentos para inscribir la transferencia.', 'warning');
       return;
     }
     const vendedor =
@@ -869,7 +985,7 @@ function AppInner() {
       patchCar(activeCar.id, { transferencia });
       setTransferProcesando(false);
       setIsTransferSheetOpen(false);
-      showNotification(`Transferencia ${transferencia.folio} solicitada a AutoSave.`);
+      showNotification(`Transferencia ${transferencia.folio} solicitada a AutoSafe.`);
     }, 900);
   };
 
@@ -1011,10 +1127,42 @@ function AppInner() {
       notas: client.notas,
       buscaModelo: client.busca?.modelo || '',
       buscaComentario: client.busca?.comentario || '',
+      buscaVehiculoId: client.busca?.vehiculoId ?? null,
     });
     // Al editar se abre desplegado, si no lo cargado queda escondido detrás del toggle.
     setNewClientExtrasOpen(!!client.busca || client.tipo === 'Empresa');
     setIsNewClientSheetOpen(true);
+  };
+
+  /* El auto que el cliente eligió del stock queda como una relación de
+     oportunidad, que es lo que hace que ese auto cuente un lead en la bandeja.
+     Solo se toca la del auto anterior de este mismo cliente: las oportunidades
+     que vengan de otro lado no se pisan. */
+  const sincronizarOportunidad = (
+    rels: RelacionClienteVehiculo[],
+    clienteId: number,
+    anterior: number | null,
+    nuevo: number | null,
+  ): RelacionClienteVehiculo[] => {
+    let out = rels;
+    if (anterior && anterior !== nuevo) {
+      out = out.filter(
+        (r) => !(r.tipo === 'oportunidad' && r.clienteId === clienteId && r.vehiculoId === anterior),
+      );
+    }
+    if (nuevo && !out.some((r) => r.tipo === 'oportunidad' && r.clienteId === clienteId && r.vehiculoId === nuevo)) {
+      out = [
+        ...out,
+        {
+          id: Math.max(0, ...out.map((r) => r.id)) + 1,
+          clienteId,
+          vehiculoId: nuevo,
+          tipo: 'oportunidad',
+          fecha: todayIsoDate(),
+        },
+      ];
+    }
+    return out;
   };
 
   const handleGuardarCliente = () => {
@@ -1035,7 +1183,13 @@ function AppInner() {
       };
       const nextCustomers = customers.map((c) => (c.id === updated.id ? updated : c));
       const nextStock = stock.map((car) => updateCarContactForCustomer(car, updated));
-      const synced = syncStockAndCustomers(nextStock, nextCustomers, relaciones);
+      const nextRels = sincronizarOportunidad(
+        relaciones,
+        updated.id,
+        existing?.busca?.vehiculoId ?? null,
+        updated.busca?.vehiculoId ?? null,
+      );
+      const synced = syncStockAndCustomers(nextStock, nextCustomers, nextRels);
       setStock(synced.stock);
       setCustomers(synced.customers);
       setRelaciones(synced.relaciones);
@@ -1057,6 +1211,7 @@ function AppInner() {
       archivado: false,
     };
     setCustomers([...customers, client]);
+    setRelaciones((prev) => sincronizarOportunidad(prev, client.id, null, client.busca?.vehiculoId ?? null));
     setIsNewClientSheetOpen(false);
     setNewClient(emptyNewClient());
     showNotification('Cliente registrado con éxito.');
@@ -1081,9 +1236,6 @@ function AppInner() {
       clienteAdquisicion: limpiarContacto(car.clienteAdquisicion),
       comprador: limpiarContacto(car.comprador),
       consignante: limpiarContacto(car.consignante),
-      visitas: (car.visitas || []).map((visita) =>
-        visita.clienteId === client.id ? { ...visita, clienteId: null, nombre: '' } : visita,
-      ),
     });
     const eliminarCliente = () => {
       setCustomers((prev) => prev.filter((c) => c.id !== client.id));
@@ -1133,6 +1285,14 @@ function AppInner() {
     setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, notas } : c)));
   };
 
+  /* El estado del cliente se mueve desde su tarjeta, sin abrir el editor: es lo
+     que más cambia y antes había que entrar a Editar para tocarlo. */
+  const handleCambiarEstadoCliente = (cliente: Customer, estado: string) => {
+    if (estado === cliente.estado) return;
+    setCustomers((prev) => prev.map((c) => (c.id === cliente.id ? { ...c, estado } : c)));
+    showNotification(`${cliente.nombre} pasó a "${estado}".`);
+  };
+
   /* ------------------- Cámara / Galería reales ------------------- */
   const handleCapturarFoto = async () => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
@@ -1146,8 +1306,10 @@ function AppInner() {
       allowsEditing: false,
     });
     if (!result.canceled && result.assets?.length) {
-      setWizardData((prev) => ({ ...prev, fotos: [result.assets[0].uri, ...prev.fotos] }));
+      const uri = result.assets[0].uri;
+      setWizardData((prev) => ({ ...prev, fotos: [uri, ...prev.fotos] }));
       showNotification('Foto capturada con éxito.');
+      leerPatenteDeFoto(uri);
     }
   };
 
@@ -1167,6 +1329,7 @@ function AppInner() {
       const uris = result.assets.map((a) => a.uri);
       setWizardData((prev) => ({ ...prev, fotos: [...uris, ...prev.fotos] }));
       showNotification(`${uris.length} foto(s) agregada(s) desde galería.`);
+      leerPatenteDeFoto(uris[0]);
     }
   };
 
@@ -1262,6 +1425,7 @@ function AppInner() {
               setActiveCar={setActiveCar}
               setIsFilterSheetOpen={setIsFilterSheetOpen}
               handleEliminarAuto={handleEliminarAuto}
+              handleAgregarAStock={handleAgregarAStock}
             />
           )}
           {activeTab === 'subastas' && (
@@ -1299,6 +1463,7 @@ function AppInner() {
               handleLlamar={handleLlamar}
               handleWhatsapp={handleWhatsapp}
               handleUpdateClienteNotas={handleUpdateClienteNotas}
+              handleCambiarEstadoCliente={handleCambiarEstadoCliente}
             />
           )}
           {activeTab === 'kpis' && (
@@ -1375,12 +1540,7 @@ function AppInner() {
           handleWhatsapp={handleWhatsapp}
           setAdjustedPrice={setAdjustedPrice}
           setIsPriceSheetOpen={setIsPriceSheetOpen}
-          setSelectedStatus={setSelectedStatus}
-          setStatusNote={setStatusNote}
-          setStatusBuyer={setStatusBuyer}
-          setStatusFinanciado={setStatusFinanciado}
-          setIsStatusSheetOpen={setIsStatusSheetOpen}
-          handleMarcarVisita={handleMarcarVisita}
+          handleAbrirEstado={handleAbrirEstado}
           handleEditarAuto={handleEditarAuto}
           handleEliminarAuto={handleEliminarAuto}
         />
@@ -1423,6 +1583,13 @@ function AppInner() {
           setCargarStep={setCargarStep}
           wizardData={wizardData}
           setWizardData={setWizardData}
+          busquedaPatente={busquedaPatente}
+          setBusquedaPatente={setBusquedaPatente}
+          handleBuscarPatente={handleBuscarPatente}
+          handleTomarFichaPatente={handleTomarFichaPatente}
+          lecturaPatente={lecturaPatente}
+          handleConfirmarLectura={handleConfirmarLectura}
+          handleDescartarLectura={handleDescartarLectura}
           showNotification={showNotification}
           handleGuardarAutoWizard={handleGuardarAutoWizard}
           handleCapturarFoto={handleCapturarFoto}
@@ -1449,7 +1616,7 @@ function AppInner() {
           handleGuardarPrecio={handleGuardarPrecio}
         />
         <StatusSheet
-          activeCar={activeCar}
+          activeCar={statusCar || activeCar}
           isStatusSheetOpen={isStatusSheetOpen}
           setIsStatusSheetOpen={setIsStatusSheetOpen}
           selectedStatus={selectedStatus}
@@ -1458,6 +1625,10 @@ function AppInner() {
           setStatusNote={setStatusNote}
           statusBuyer={statusBuyer}
           setStatusBuyer={setStatusBuyer}
+          statusConsignante={statusConsignante}
+          setStatusConsignante={setStatusConsignante}
+          statusPiso={statusPiso}
+          setStatusPiso={setStatusPiso}
           statusFinanciado={statusFinanciado}
           setStatusFinanciado={setStatusFinanciado}
           handleGuardarEstado={handleGuardarEstado}
@@ -1491,6 +1662,7 @@ function AppInner() {
           setIsAuctionBidSheetOpen={setIsAuctionBidSheetOpen}
         />
         <NewClientSheet
+          stock={stock}
           isNewClientSheetOpen={isNewClientSheetOpen}
           setIsNewClientSheetOpen={setIsNewClientSheetOpen}
           newClient={newClient}
@@ -1531,7 +1703,12 @@ function AppInner() {
 
         {/* NOTIFICACIÓN (siempre encima de todo) */}
         {notification && (
-          <NotificationBanner message={notification.message} type={notification.type} top={insets.top + 8} />
+          <NotificationBanner
+            key={notification.id}
+            message={notification.message}
+            type={notification.type}
+            top={insets.top + 76}
+          />
         )}
       </View>
     </View>

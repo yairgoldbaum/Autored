@@ -11,8 +11,13 @@ import {
   RelacionClienteVehiculo,
   TipoRelacion,
 } from './data';
+import { ESTADOS_CLIENTE } from './helpers';
 
-const STORAGE_KEY = 'suramotor:state:v1';
+// La versión se sube cada vez que cambian los datos de fábrica: el estado guardado
+// pisa a data.ts, así que sin subirla las semillas nuevas no aparecen nunca.
+//   v2 (21-08-2026): se sacaron las visitas y entró la bandeja de pre-stock.
+//   v3 (21-08-2026): estado Consignado, embudo de clientes y más casos de muestra.
+const STORAGE_KEY = 'suramotor:state:v3';
 
 export interface PersistedState {
   stock: Car[];
@@ -179,13 +184,12 @@ function normalizeCar(car: Partial<Car> & { id: number }): Car {
     precioPisoConsignacion: Number(car.precioPisoConsignacion || 0),
     fechaVenta: car.fechaVenta || null,
     financiado: typeof car.financiado === 'boolean' ? car.financiado : null,
-    visitas: Array.isArray(car.visitas) ? car.visitas : [],
     transferencia: normalizeTransferencia(car.transferencia),
     informesEnviados: Array.isArray(car.informesEnviados) ? car.informesEnviados : [],
   };
 }
 
-// El informe AutoSave no se persiste: se recalcula desde la patente (src/autosave.ts).
+// El informe AutoSafe no se persiste: se recalcula desde la patente (src/autosave.ts).
 // La transferencia sí, porque tiene estado propio que avanza en el tiempo.
 function normalizeTransferencia(t: unknown): TransferenciaNotarial | null {
   if (!t || typeof t !== 'object') return null;
@@ -234,17 +238,20 @@ function normalizeCustomer(customer: Partial<Customer> & { id: number }): Custom
   };
 }
 
-/* El estado del trato bajó de siete a tres. Los cuatro que salieron repetían lo que
-   ahora dicen las relaciones con autos, así que un cliente guardado con uno de esos
-   cae al estado del trato que más se le parece. */
+/* Los estados del trato cambiaron al embudo de venta (Nuevo, Contactado,
+   Interesado, Negociando, Cliente, Perdido). Un cliente guardado con uno de los
+   antiguos cae al que más se le parece en el embudo nuevo. */
 function normalizeEstadoCliente(estado: string | undefined): string {
+  if (estado && ESTADOS_CLIENTE.includes(estado)) return estado;
   switch (estado) {
     case 'Caliente':
+      return 'Negociando';
     case 'Frecuente':
-      return estado;
-    case 'Interesado':
+    case 'Comprador':
+      return 'Cliente';
     case 'Reserva':
-      return 'Caliente';
+    case 'Adquisición':
+      return 'Interesado';
     default:
       return 'Nuevo';
   }
@@ -255,10 +262,11 @@ function normalizeBusqueda(customer: Partial<Customer> & { interes?: unknown }):
   if (busca && typeof busca === 'object') {
     const modelo = typeof busca.modelo === 'string' ? busca.modelo : '';
     const comentario = typeof busca.comentario === 'string' ? busca.comentario : '';
-    return modelo || comentario ? { modelo, comentario } : null;
+    const vehiculoId = typeof busca.vehiculoId === 'number' ? busca.vehiculoId : null;
+    return modelo || comentario || vehiculoId ? { modelo, comentario, vehiculoId } : null;
   }
   const legacy = typeof customer.interes === 'string' ? customer.interes.trim() : '';
-  return legacy ? { modelo: legacy, comentario: '' } : null;
+  return legacy ? { modelo: legacy, comentario: '', vehiculoId: null } : null;
 }
 
 function normalizeContact(contact: unknown): VehicleContact | null {

@@ -2,8 +2,6 @@ import React from 'react';
 import {
   Image,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -411,7 +409,7 @@ export function AuctionPublishSheet({
   const insets = useSafeAreaInsets();
   return (
     <Sheet visible={isAuctionPublishSheetOpen} onClose={() => setIsAuctionPublishSheetOpen(false)} maxHeightPct={86}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ padding: 16, gap: 16, paddingBottom: (insets.bottom || 0) + 16 }}>
           <View style={s.rowBetween}>
             <View style={{ flex: 1 }}>
@@ -467,7 +465,7 @@ export function AuctionPublishSheet({
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </Sheet>
   );
 }

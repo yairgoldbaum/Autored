@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Image,
   Modal,
   NativeScrollEvent,
@@ -18,7 +19,7 @@ import {
 import { C, W, fmtCLP, fmtMiles } from '../src/theme';
 import { Icon } from '../src/ui';
 import { s } from '../src/styles';
-import { Car, MODELOS_BUSCADOS, VehicleContact, VeredictoAutosave } from '../src/data';
+import { Car, VehicleContact, VeredictoAutosave } from '../src/data';
 import { buscarPatente, tasar } from '../src/pricing';
 import { FiltroDias, hasContactData, veredictoColor } from '../src/helpers';
 
@@ -242,25 +243,39 @@ export function MotorPreciosPublicacion({
   );
 }
 
-/* Qué busca el cliente. Es texto libre con sugerencias y NO un selector del stock
-   propio: registrar interés en un auto que todavía no tienes es justo el caso que
-   la app no sabía representar. Las sugerencias son ayuda de tipeo, no una lista
-   cerrada. */
+/* Qué busca el cliente. Sigue siendo texto libre —registrar interés en un auto
+   que todavía no tienes es justo el caso que la app no sabía representar— pero
+   ahora ofrece el stock real debajo: si lo que busca ES uno de tus autos, se
+   elige y el cliente queda enganchado a esa unidad, que pasa a contarle un lead.
+   Elegir es opcional; escribir algo que no tienes sigue valiendo igual. */
 export function ModeloBuscadoField({
   modelo,
   comentario,
+  stock,
+  vehiculoId,
   onChangeModelo,
   onChangeComentario,
+  onPickVehiculo,
 }: {
   modelo: string;
   comentario: string;
+  stock: Car[];
+  vehiculoId: number | null;
   onChangeModelo: (v: string) => void;
   onChangeComentario: (v: string) => void;
+  onPickVehiculo: (car: Car | null) => void;
 }) {
   const q = modelo.trim().toLowerCase();
-  const sugerencias = !q
-    ? []
-    : MODELOS_BUSCADOS.filter((m) => m.toLowerCase().includes(q) && m.toLowerCase() !== q).slice(0, 6);
+  // Los vendidos no se ofrecen: no hay nada que mostrarle al cliente.
+  const disponibles = stock.filter((c) => c.estado !== 'Vendido');
+  const coincide = (c: Car) =>
+    !q || `${c.marca} ${c.modelo} ${c.version} ${c.anio} ${c.patente}`.toLowerCase().includes(q);
+  // El elegido va siempre primero aunque el texto deje de calzar con él
+  const elegido = disponibles.find((c) => c.id === vehiculoId) || null;
+  const sugerencias = [
+    ...(elegido ? [elegido] : []),
+    ...disponibles.filter((c) => c.id !== vehiculoId && coincide(c)).slice(0, 8),
+  ];
 
   return (
     <>
@@ -270,22 +285,47 @@ export function ModeloBuscadoField({
           placeholder="Ej: Kia Morning (o lo que sea, aunque no lo tengas)"
           placeholderTextColor={C.slate400}
           value={modelo}
-          onChangeText={onChangeModelo}
+          onChangeText={(v) => {
+            onChangeModelo(v);
+            // Si reescriben a mano, el auto elegido deja de corresponder
+            if (vehiculoId) onPickVehiculo(null);
+          }}
           style={s.sheetInput}
         />
         {sugerencias.length > 0 ? (
-          <ScrollView
-            horizontal
-            keyboardShouldPersistTaps="handled"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 6, paddingTop: 8 }}
-          >
-            {sugerencias.map((m) => (
-              <TouchableOpacity key={m} activeOpacity={0.8} onPress={() => onChangeModelo(m)} style={s.sugerenciaChip}>
-                <Text style={s.sugerenciaText}>{m}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <>
+            <Text style={s.buscaStockLabel}>
+              {elegido ? 'Enganchado a este auto de tu stock' : 'O elige uno de tu stock'}
+            </Text>
+            <ScrollView
+              horizontal
+              keyboardShouldPersistTaps="handled"
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 6, paddingTop: 6, paddingBottom: 2 }}
+            >
+              {sugerencias.map((car) => {
+                const activo = car.id === vehiculoId;
+                return (
+                  <TouchableOpacity
+                    key={car.id}
+                    activeOpacity={0.8}
+                    onPress={() => onPickVehiculo(activo ? null : car)}
+                    style={[s.buscaStockChip, activo && s.buscaStockChipOn]}
+                  >
+                    {activo ? <Icon name="check" size={9} color={C.white} /> : null}
+                    <View>
+                      <Text style={[s.buscaStockChipText, activo && { color: C.white }]} numberOfLines={1}>
+                        {car.marca} {car.modelo} {car.anio}
+                      </Text>
+                      <Text style={[s.buscaStockChipSub, activo && { color: C.teal100 }]} numberOfLines={1}>
+                        {car.patente} · {car.estado}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </>
         ) : null}
       </View>
       <View>
@@ -598,25 +638,45 @@ export function VehicleContactCard({
   );
 }
 
+/* Cuánto dura una notificación en pantalla. Lo usan el banner (para irse
+   desvaneciéndose antes) y App (para desmontarlo). Un solo número. */
+export const NOTIF_MS = 3500;
+
+/* La notificación entra bajando, se queda quieta y se va. Antes rebotaba en un
+   loop infinito, que en pantalla se leía como un error, y aparecía pegada al
+   notch tapando la cabecera de la pantalla que estabas mirando: el botón Volver
+   de la ficha desaparecía debajo del aviso. Ahora se monta bajo la cabecera. */
 export function NotificationBanner({ message, type, top }: { message: string; type?: string; top: number }) {
-  const bounce = useRef(new Animated.Value(0)).current;
+  const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounce, { toValue: -6, duration: 400, useNativeDriver: true }),
-        Animated.timing(bounce, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [bounce]);
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+    // Se va sola un poco antes de que el padre la desmonte, para que no
+    // desaparezca de golpe a mitad de pantalla.
+    const salida = setTimeout(() => {
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: 240,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }, NOTIF_MS - 280);
+    return () => clearTimeout(salida);
+  }, [anim]);
+
   const isWarning = type === 'warning';
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] });
   return (
     <Animated.View
+      pointerEvents="none"
       style={[
         s.notif,
         isWarning && { backgroundColor: C.amber700, borderColor: C.amber500 },
-        { top, transform: [{ translateY: bounce }] },
+        { top, opacity: anim, transform: [{ translateY }] },
       ]}
     >
       <Icon name={isWarning ? 'triangle-exclamation' : 'circle-check'} size={18} color={isWarning ? C.amber200 : C.teal300} />

@@ -64,6 +64,7 @@ export const C = {
   blue100: '#DBEAFE',
   blue700: '#1D4ED8',
 
+  purple50: '#FAF5FF',
   purple100: '#F3E8FF',
   purple700: '#7E22CE',
 

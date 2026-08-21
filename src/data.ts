@@ -4,6 +4,7 @@ import type { InspectionReport } from './inspection/types';
 export type EstadoAuto =
   | 'Pre-stock'
   | 'En preparación'
+  | 'Consignado'
   | 'En venta'
   | 'Reservado'
   | 'Vendido';
@@ -12,16 +13,6 @@ export type EstadoAuto =
    sigue siendo del cliente que lo dejó, y por eso ni el capital ni el margen se
    calculan igual que en uno propio. */
 export type TenenciaVehiculo = 'Propio' | 'Consignado';
-
-/* Una visita al auto. Sin vendedor asociado: ese concepto todavía no existe en la
-   app y cuando existan roles se le cuelga sin tocar lo ya cargado. El cliente es
-   opcional porque muchas visitas no dejan datos. */
-export interface VisitaVehiculo {
-  id: number;
-  fecha: string; // YYYY-MM-DD
-  clienteId: number | null;
-  nombre: string; // '' cuando la visita no se identificó
-}
 
 export interface Car {
   id: number;
@@ -64,9 +55,7 @@ export interface Car {
   // Venta (paso 2) — sin fechaVenta no existe ningún KPI del mes
   fechaVenta: string | null; // YYYY-MM-DD
   financiado: boolean | null; // null mientras el auto no se haya vendido
-  // Visitas (paso 3)
-  visitas: VisitaVehiculo[];
-  // AutoSave (opcionales: el wizard construye autos sin ellos)
+  // AutoSafe (opcionales: el wizard construye autos sin ellos)
   transferencia?: TransferenciaNotarial | null;
   informesEnviados?: EnvioInforme[];
   // Informe de inspección de recepción generado con IA (módulo inspection)
@@ -98,6 +87,15 @@ export interface VehicleDocument {
    consignación. Acá se asume precio piso pactado (la compraventa se queda con lo que
    pase de ese monto). Si resulta ser un porcentaje o un monto fijo por auto, se
    cambia esta función y no las pantallas. */
+/* El estado 'Consignado' y el campo `tenencia` no son lo mismo y por eso conviven:
+   el estado dice dónde está el auto hoy, la tenencia dice de quién es. Marcar
+   Consignado enciende la tenencia, y esa tenencia NO se apaga al pasar el auto a
+   En venta o Vendido — si se apagara, el margen de un consignado se calcularía
+   contra un costo de adquisición que nunca existió. */
+export function tenenciaSegunEstado(estado: EstadoAuto, actual: TenenciaVehiculo): TenenciaVehiculo {
+  return estado === 'Consignado' ? 'Consignado' : actual;
+}
+
 export function costoBase(car: Car): number {
   return car.tenencia === 'Consignado' ? car.precioPisoConsignacion : car.costoAdquisicion;
 }
@@ -304,6 +302,10 @@ export type CanalCliente = 'Carga manual' | 'Tasador web';
 export interface BusquedaCliente {
   modelo: string;
   comentario: string;
+  /* El auto del stock que el cliente vino a ver, si es uno que tienes. Queda en
+     null cuando busca algo que no está en el patio, que es un caso igual de
+     válido: el texto libre sigue mandando. */
+  vehiculoId: number | null;
 }
 
 export interface Customer {
@@ -406,6 +408,11 @@ export const MODELOS_BUSCADOS: string[] = [
   'Volkswagen Polo',
 ];
 
+/* Las fotos salen de Unsplash. Se reutiliza el mismo puñado de URLs a propósito:
+   son las que están verificadas y cargan, y una foto rota en la demo se nota más
+   que una repetida. */
+const U = 'https://images.unsplash.com/';
+
 export const INITIAL_STOCK_DATA: Car[] = [
   {
     id: 1,
@@ -452,9 +459,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 0,
     fechaVenta: null,
     financiado: null,
-    visitas: [
-      { id: 1, fecha: '2026-08-06', clienteId: 3, nombre: 'Carolina Soto' },
-    ],
   },
   {
     id: 2,
@@ -497,7 +501,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 0,
     fechaVenta: null,
     financiado: null,
-    visitas: [],
   },
   {
     id: 3,
@@ -544,11 +547,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 7500000,
     fechaVenta: null,
     financiado: null,
-    visitas: [
-      { id: 1, fecha: '2026-07-28', clienteId: null, nombre: '' },
-      { id: 2, fecha: '2026-08-05', clienteId: null, nombre: '' },
-      { id: 3, fecha: '2026-08-07', clienteId: 4, nombre: 'Felipe Cárdenas' },
-    ],
   },
   {
     id: 4,
@@ -595,9 +593,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 0,
     fechaVenta: null, // reservado, todavía no vendido
     financiado: null,
-    visitas: [
-      { id: 1, fecha: '2026-07-30', clienteId: 1, nombre: 'Marcelo Aravena' },
-    ],
   },
   {
     id: 5,
@@ -643,10 +638,7 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 0,
     fechaVenta: '2026-08-04',
     financiado: false, // se pagó al contado
-    visitas: [
-      { id: 1, fecha: '2026-07-22', clienteId: null, nombre: 'Rodrigo Fuentes' },
-    ],
-    // Transferencia notarial ya en curso: es el auto que muestra el seguimiento de AutoSave
+    // Transferencia notarial ya en curso: es el auto que muestra el seguimiento de AutoSafe
     // sin tener que generarla primero. Los montos coinciden con cotizarTransferencia().
     transferencia: {
       folio: 'TR-2026-13438',
@@ -655,7 +647,7 @@ export const INITIAL_STOCK_DATA: Car[] = [
       modalidad: 'Digital',
       fechaSolicitud: '2026-07-08',
       fechaEstimadaEntrega: '2026-07-15',
-      notaria: 'AutoSave Digital (firma electrónica avanzada)',
+      notaria: 'AutoSafe Digital (firma electrónica avanzada)',
       vendedor: { clienteId: null, nombre: 'Automotora AutoRed SpA', telefono: '+56 2 2345 6789' },
       comprador: { clienteId: null, nombre: 'Rodrigo Fuentes', telefono: '+56 9 6677 1122' },
       precioOperacion: 11190000,
@@ -670,16 +662,16 @@ export const INITIAL_STOCK_DATA: Car[] = [
         },
         { concepto: 'Firma electrónica avanzada', monto: 12900, nota: '' },
         { concepto: 'Inscripción en Registro Civil', monto: 12900, nota: '' },
-        { concepto: 'Gestión AutoSave', monto: 24900, nota: '' },
+        { concepto: 'Gestión AutoSafe', monto: 24900, nota: '' },
         {
-          concepto: 'Copia certificada del informe AutoSave',
+          concepto: 'Copia certificada del informe AutoSafe',
           monto: 0,
           nota: 'Incluida en la transferencia.',
         },
       ],
       total: 218550,
       hitos: [
-        { estado: 'Solicitada', fecha: '2026-07-08', detalle: 'AutoSave recibió la solicitud y asignó folio.' },
+        { estado: 'Solicitada', fecha: '2026-07-08', detalle: 'AutoSafe recibió la solicitud y asignó folio.' },
         {
           estado: 'Documentos en revisión',
           fecha: '2026-07-09',
@@ -745,7 +737,265 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 0,
     fechaVenta: null,
     financiado: null,
-    visitas: [],
+  },
+  /* Los otros dos de la bandeja de pre-stock. Son autos que ya se compraron pero
+     todavía no entran al stock: sin fotos propias, sin precio de publicación
+     cerrado y con lo mínimo para reconocerlos. Existen para que la bandeja de
+     "esperan entrar al stock" tenga más de un caso que despachar. */
+  {
+    id: 9,
+    patente: 'BF-GH-22',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Kia',
+    modelo: 'Rio',
+    version: '1.4 EX',
+    anio: 2020,
+    anioFabricacion: 2019,
+    sucursal: 'Vitacura',
+    fechaIngreso: '2026-08-18',
+    km: 41200,
+    color: 'Blanco',
+    transmision: 'Manual',
+    combustible: 'Bencina',
+    traccion: '4x2',
+    cilindrada: 1396,
+    puertas: '5',
+    equipamiento: ['Aire acondicionado', 'Bluetooth'],
+    otros: '',
+    origen: 'Retoma',
+    precioVenta: 8490000,
+    precioPublicacionContado: 8490000,
+    precioPublicacionFinanciado: 8790000,
+    precioVentaEstimado: 8300000,
+    costoAdquisicion: 6700000,
+    estado: 'Pre-stock',
+    fotos: [U + 'photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=900&q=80'],
+    comentario: 'Retoma de la venta del Sportage. Llega el lunes.',
+    documentos: [],
+    clienteAdquisicion: {
+      clienteId: null,
+      nombre: 'Retoma cliente Vitacura',
+      telefono: '',
+    },
+    comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+  },
+  {
+    id: 10,
+    patente: 'JT-RW-08',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Toyota',
+    modelo: 'Hilux',
+    version: '2.4 SR',
+    anio: 2019,
+    anioFabricacion: 2018,
+    sucursal: 'Mayorista',
+    fechaIngreso: '2026-08-20',
+    km: 132000,
+    color: 'Gris Plata',
+    transmision: 'Manual',
+    combustible: 'Diesel',
+    traccion: '4x4',
+    cilindrada: 2393,
+    puertas: '4',
+    equipamiento: ['Aire acondicionado', 'Frenos ABS', 'Airbags'],
+    otros: '',
+    origen: 'Remate / Subasta',
+    precioVenta: 16490000,
+    precioPublicacionContado: 16490000,
+    precioPublicacionFinanciado: 16990000,
+    precioVentaEstimado: 16200000,
+    costoAdquisicion: 12800000,
+    estado: 'Pre-stock',
+    fotos: [U + 'photo-1550355291-bbee04a92027?auto=format&fit=crop&w=900&q=80'],
+    comentario: 'Adjudicada en remate, pendiente de traslado y revisión.',
+    documentos: [],
+    clienteAdquisicion: null,
+    comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+  },
+  {
+    id: 11,
+    patente: 'BB-TR-21',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Nissan',
+    modelo: 'Qashqai',
+    version: '2.0 Sense',
+    anio: 2019,
+    anioFabricacion: 2019,
+    sucursal: 'Las Condes',
+    fechaIngreso: '2026-08-19',
+    km: 63800,
+    color: 'Azul Marino',
+    transmision: 'Automático',
+    combustible: 'Bencina',
+    traccion: '4x2',
+    cilindrada: 1997,
+    puertas: '5',
+    equipamiento: ['Aire acondicionado', 'Cámara retroceso', 'Bluetooth', 'Control crucero'],
+    otros: '',
+    origen: 'Retoma',
+    precioVenta: 12490000,
+    precioPublicacionContado: 12490000,
+    precioPublicacionFinanciado: 12890000,
+    precioVentaEstimado: 12300000,
+    costoAdquisicion: 9800000,
+    estado: 'Pre-stock',
+    fotos: [U + 'photo-1590362891991-f776e747a588?auto=format&fit=crop&w=900&q=80'],
+    comentario: 'Entra el jueves. Falta revisión técnica al día.',
+    documentos: [],
+    clienteAdquisicion: null,
+    comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+  },
+  /* Un auto que ES de otro: entra por el estado Consignado y por eso su margen se
+     mide contra el piso pactado con el dueño y no contra un costo de adquisición
+     que nunca existió (costoAdquisicion queda en 0 a propósito). */
+  {
+    id: 12,
+    patente: 'MR-QP-40',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Peugeot',
+    modelo: '208',
+    version: '1.2 Active',
+    anio: 2021,
+    anioFabricacion: 2020,
+    sucursal: 'Vitacura',
+    fechaIngreso: '2026-08-05',
+    km: 28400,
+    color: 'Blanco',
+    transmision: 'Manual',
+    combustible: 'Bencina',
+    traccion: '4x2',
+    cilindrada: 1199,
+    puertas: '5',
+    equipamiento: ['Aire acondicionado', 'Pantalla táctil', 'Bluetooth', 'Sensores estacionamiento'],
+    otros: 'El dueño lo usa hasta que se venda: coordinar cada visita con él.',
+    origen: 'Consignación',
+    precioVenta: 9290000,
+    precioPublicacionContado: 9290000,
+    precioPublicacionFinanciado: 9590000,
+    precioVentaEstimado: 9100000,
+    costoAdquisicion: 0,
+    estado: 'Consignado',
+    fotos: [U + 'photo-1542362567-b07e54358753?auto=format&fit=crop&w=900&q=80'],
+    comentario: 'Consignado por su dueña. Piso acordado $7.900.000.',
+    documentos: [],
+    clienteAdquisicion: null,
+    comprador: null,
+    tenencia: 'Consignado',
+    consignante: {
+      clienteId: null,
+      nombre: 'Marta Ruiz',
+      telefono: '+56 9 6677 1122',
+      notas: 'Solo contesta después de las 19:00.',
+    },
+    precioPisoConsignacion: 7900000,
+    fechaVenta: null,
+    financiado: null,
+  },
+  /* El caso incómodo: se compró caro y hoy se publica bajo el costo. El margen
+     sale negativo y la tarjeta lo pinta en rojo. Existe para que la app tenga que
+     mostrar una pérdida y no solo números lindos. */
+  {
+    id: 13,
+    patente: 'KH-DH-75',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Volkswagen',
+    modelo: 'Golf',
+    version: '1.4 TSI Highline',
+    anio: 2018,
+    anioFabricacion: 2017,
+    sucursal: 'Mayorista',
+    fechaIngreso: '2026-06-28',
+    km: 96500,
+    color: 'Gris Grafito',
+    transmision: 'Automático',
+    combustible: 'Bencina',
+    traccion: '4x2',
+    cilindrada: 1395,
+    puertas: '5',
+    equipamiento: ['Climatizador', 'Airbags', 'Frenos ABS', 'Control estabilidad', 'Pantalla táctil'],
+    otros: 'Cambio de embrague hecho en marzo, con boleta.',
+    origen: 'Nacional',
+    precioVenta: 9290000,
+    precioPublicacionContado: 9290000,
+    precioPublicacionFinanciado: 9590000,
+    precioVentaEstimado: 9200000,
+    costoAdquisicion: 9900000,
+    estado: 'En venta',
+    fotos: [U + 'photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=900&q=80'],
+    comentario: 'Se pagó de más en la compra. Bajar a mercado y salir de él.',
+    documentos: [],
+    clienteAdquisicion: null,
+    comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
+  },
+  /* El que lleva demasiado: pasa los 60 días, así que la bandeja le pinta la
+     etiqueta +60 DÍAS. Trae tres fotos para que la galería tenga qué deslizar. */
+  {
+    id: 14,
+    patente: 'FK-LM-77',
+    vin: '',
+    tipoVehiculo: 'Vehículo liviano',
+    marca: 'Hyundai',
+    modelo: 'Tucson',
+    version: '2.0 GL Diesel',
+    anio: 2019,
+    anioFabricacion: 2018,
+    sucursal: 'La Dehesa',
+    fechaIngreso: '2026-05-02',
+    km: 118000,
+    color: 'Verde Oliva',
+    transmision: 'Automático',
+    combustible: 'Diesel',
+    traccion: '4x4',
+    cilindrada: 1995,
+    puertas: '5',
+    equipamiento: ['Climatizador', 'Cámara retroceso', 'Sensores estacionamiento', 'Control crucero', 'Cierre centralizado'],
+    otros: '',
+    origen: 'Nacional',
+    precioVenta: 14990000,
+    precioPublicacionContado: 14990000,
+    precioPublicacionFinanciado: 15490000,
+    precioVentaEstimado: 14500000,
+    costoAdquisicion: 12200000,
+    estado: 'En venta',
+    fotos: [
+      U + 'photo-1494905998402-395d579af36f?auto=format&fit=crop&w=900&q=80',
+      U + 'photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=900&q=80',
+      U + 'photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=900&q=80',
+    ],
+    comentario: 'Lleva más de tres meses. Es diesel 4x4 y el público es más chico.',
+    documentos: [],
+    clienteAdquisicion: null,
+    comprador: null,
+    tenencia: 'Propio',
+    consignante: null,
+    precioPisoConsignacion: 0,
+    fechaVenta: null,
+    financiado: null,
   },
   /* Los dos autos que siguen existen para que los KPIs del mes tengan de dónde
      salir. Con una sola venta el margen promedio es el de un auto y la penetración
@@ -795,7 +1045,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 0,
     fechaVenta: '2026-08-06',
     financiado: true,
-    visitas: [],
   },
   {
     id: 8,
@@ -845,7 +1094,6 @@ export const INITIAL_STOCK_DATA: Car[] = [
     precioPisoConsignacion: 6100000,
     fechaVenta: '2026-08-08',
     financiado: false,
-    visitas: [],
   },
 ];
 
@@ -1083,7 +1331,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     nombre: 'Marcelo Aravena',
     telefono: '+56 9 8456 1234',
     tipo: 'Particular',
-    estado: 'Caliente',
+    estado: 'Negociando',
     notas: 'Prefiere coordinar por WhatsApp. Quiere cerrar con financiamiento aprobado.',
     canal: 'Carga manual',
     busca: null, // ya encontró lo suyo: tiene el Mazda 3 reservado
@@ -1094,10 +1342,10 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     nombre: 'Automotora Melipilla SpA',
     telefono: '+56 9 7123 9988',
     tipo: 'Empresa',
-    estado: 'Frecuente',
+    estado: 'Cliente',
     notas: 'Revendedor habitual. Le interesan lotes con margen para reventa rapida.',
     canal: 'Carga manual',
-    busca: { modelo: '', comentario: 'Revendedor: compra varios, sin modelo fijo.' },
+    busca: { modelo: '', comentario: 'Revendedor: compra varios, sin modelo fijo.', vehiculoId: null },
     archivado: false,
   },
   {
@@ -1105,10 +1353,11 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     nombre: 'Carolina Soto',
     telefono: '+56 9 5544 3322',
     tipo: 'Particular',
-    estado: 'Caliente',
+    estado: 'Interesado',
     notas: 'Busca automatico y responde mejor despues de las 18:00.',
     canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
-    busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.' },
+    // Vino por el Kia Morning que sí está en el patio (id 1): queda enganchada a él
+    busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.', vehiculoId: 1 },
     archivado: false,
     // Sin relación con ningún auto a propósito: es el interesado en algo que no
     // tienes, el caso que el modelo viejo no sabía representar.
@@ -1118,7 +1367,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     nombre: 'Felipe Cárdenas',
     telefono: '+56 9 3311 7788',
     tipo: 'Particular',
-    estado: 'Caliente',
+    estado: 'Interesado',
     notas: 'Vino a ver el Yaris, pidio confirmar con su pareja antes de reservar.',
     canal: 'Carga manual',
     busca: null,
@@ -1134,8 +1383,67 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     estado: 'Nuevo',
     notas: 'Lead frio. Probar un ultimo contacto antes de descartarlo.',
     canal: 'Tasador web',
-    busca: { modelo: 'Ford Ranger', comentario: 'Dejó de responder hace un mes.' },
+    busca: { modelo: 'Ford Ranger', comentario: 'Dejó de responder hace un mes.', vehiculoId: null },
     archivado: true,
+  },
+  /* Los cinco que siguen existen para que el embudo se vea completo: hay uno en
+     cada estado, particulares y empresa, y dos enganchados a un auto puntual del
+     stock (por eso ese auto muestra un lead en la bandeja). */
+  {
+    id: 6,
+    nombre: 'Paula Herrera',
+    telefono: '+56 9 9087 4411',
+    tipo: 'Particular',
+    estado: 'Nuevo',
+    notas: 'Entró por el tasador. Todavía no la llaman.',
+    canal: 'Tasador web',
+    busca: { modelo: 'Hyundai Tucson 2019', comentario: 'Quiere 4x4 diesel para el sur.', vehiculoId: 14 },
+    archivado: false,
+  },
+  {
+    id: 7,
+    nombre: 'Rodrigo Muñoz',
+    telefono: '+56 9 4432 8890',
+    tipo: 'Particular',
+    estado: 'Contactado',
+    notas: 'Se le llamó el martes, quedó de pasar el fin de semana.',
+    canal: 'Carga manual',
+    // Busca algo que no está en el patio: el caso que igual hay que poder registrar
+    busca: { modelo: 'Camioneta doble cabina', comentario: 'Hasta 14 millones, con IVA.', vehiculoId: null },
+    archivado: false,
+  },
+  {
+    id: 8,
+    nombre: 'Comercial Andes Ltda',
+    telefono: '+56 2 2789 3344',
+    tipo: 'Empresa',
+    estado: 'Cliente',
+    notas: 'Compran flota chica todos los años. Pagan al contado, piden factura.',
+    canal: 'Carga manual',
+    busca: { modelo: '', comentario: 'Tres autos económicos para repartidores.', vehiculoId: null },
+    archivado: false,
+  },
+  {
+    id: 9,
+    nombre: 'Sebastián Rojas',
+    telefono: '+56 9 3321 7755',
+    tipo: 'Particular',
+    estado: 'Negociando',
+    notas: 'Ofertó 7,4 por el Morning. Se le contraofertó 7,7 y lo está pensando.',
+    canal: 'Carga manual',
+    busca: { modelo: 'Kia Morning 2019', comentario: 'Financiado a 36 meses.', vehiculoId: 1 },
+    archivado: false,
+  },
+  {
+    id: 10,
+    nombre: 'Javiera Lillo',
+    telefono: '+56 9 5566 2299',
+    tipo: 'Particular',
+    estado: 'Perdido',
+    notas: 'Compró en otra automotora. Dijo que le dieron más por su auto en parte de pago.',
+    canal: 'Tasador web',
+    busca: { modelo: 'Suzuki Swift', comentario: 'Se cayó por la tasación de su usado.', vehiculoId: null },
+    archivado: false,
   },
 ];
 
@@ -1154,11 +1462,18 @@ export const INITIAL_RELACIONES: RelacionClienteVehiculo[] = [
   // Felipe Cárdenas vino a ver el Yaris y quedó de confirmar. Es el único tipo de
   // relación que no se deriva de un contacto del auto.
   { id: 4, clienteId: 4, vehiculoId: 3, tipo: 'oportunidad', fecha: '2026-08-07' },
+  /* Las oportunidades de los clientes que eligieron un auto concreto en "qué
+     busca". Es lo mismo que crea la app al guardar el cliente, y es lo que hace
+     que esos autos cuenten leads en la bandeja. */
+  { id: 5, clienteId: 3, vehiculoId: 1, tipo: 'oportunidad', fecha: '2026-08-11' },
+  { id: 6, clienteId: 6, vehiculoId: 14, tipo: 'oportunidad', fecha: '2026-08-19' },
+  { id: 7, clienteId: 9, vehiculoId: 1, tipo: 'oportunidad', fecha: '2026-08-20' },
 ];
 
 export const ESTADOS: EstadoAuto[] = [
   'Pre-stock',
   'En preparación',
+  'Consignado',
   'En venta',
   'Reservado',
   'Vendido',
