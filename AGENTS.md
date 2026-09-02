@@ -30,7 +30,7 @@ Desde el 21-08-2026 este repo sirve **solo SDK 54**: es el único que abre en el
 imprimir ningún error**, y parece que el proyecto está roto cuando no lo está. El binario directo
 da exit 0 de verdad.
 
-Tres cosas que el compilador **no** atrapa y conviene revisar a mano:
+Cuatro cosas que el compilador **no** atrapa y conviene revisar a mano:
 
 - **Dos `setState` seguidos en el mismo handler se pisan si los escribes con el objeto del render.**
   `setX({ ...x, a: 1 })` seguido de `setX({ ...x, b: 2 })` usa el `x` de la clausura las dos veces,
@@ -38,6 +38,13 @@ Tres cosas que el compilador **no** atrapa y conviene revisar a mano:
   queda. Pasó en la Ronda 3 y **la marca de "qué busca el cliente" nunca se pudo elegir**, porque
   elegirla también limpia el modelo. Cuando un handler escribe más de una vez, va la forma de
   función: `setX(prev => ({ ...prev, a: 1 }))`, o una sola escritura con los dos campos.
+
+- **Una pantalla con dos entradas necesita UN estado que las dos llenen.** El visor del informe se
+  abre desde la ficha del auto y desde la sección de Informes, pero el sheet de "enviar la copia"
+  leía `activeCar`, que solo existe con la ficha abierta: entrando por la sección salía temprano y
+  **el botón no hacía nada**, sin error ni aviso. Se arregló con un `envioCar` propio que el handler
+  deja puesto venga de donde venga. Cuando agregues una segunda entrada a algo que ya existía,
+  revisa de qué estado cuelga lo que hay adentro, y probá **las dos entradas**, no la nueva sola.
 
 - **Un `s.<estilo>` mal escrito se ignora en silencio.** No falla, simplemente no aplica el estilo.
   Vale la pena cruzar los `s.algo` de la pantalla que tocaste contra `src/styles.ts`.
