@@ -71,3 +71,12 @@ Cuatro cosas que el compilador **no** atrapa y conviene revisar a mano:
   consola y se ven perfectas en el código. Solo aparecen abriendo la pantalla y mirando las filas.
   Antes de dar por buena una pantalla con datos generados, ábrela en el navegador
   (`http://localhost:8083` con Metro arriba) y revisa **más de un caso**.
+
+  Y si la revisas con un script (Playwright contra el navegador anda bien, con
+  `channel="chrome"`): **lo que está adentro de un campo no aparece en el texto de la página.** Un
+  `TextInput` es un `<input>` en web y su valor vive en la propiedad `value`, no en el
+  `innerText`, así que buscar la patente en el texto del paso 2 dice que no está aunque esté
+  escrita en pantalla. Se lee con
+  `document.querySelectorAll('input')` y su `.value`. Pasó el 2-09-2026 y por un rato pareció un
+  bug de la app que no existía: el falso negativo de la verificación cuesta lo mismo que el bug
+  de verdad, y encima manda a arreglar lo que está bien.
