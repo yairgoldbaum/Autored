@@ -337,20 +337,22 @@ export function NewClientSheet({
                   />
                 </View>
                 <ModeloBuscadoField
+                  marca={newClient.buscaMarca}
                   modelo={newClient.buscaModelo}
+                  precioMin={newClient.buscaPrecioMin}
+                  precioMax={newClient.buscaPrecioMax}
                   comentario={newClient.buscaComentario}
                   stock={stock}
                   vehiculoId={newClient.buscaVehiculoId}
+                  onChangeMarca={(v) => setNewClient({ ...newClient, buscaMarca: v })}
                   onChangeModelo={(v) => setNewClient({ ...newClient, buscaModelo: v })}
+                  onChangePrecioMin={(v) => setNewClient({ ...newClient, buscaPrecioMin: v })}
+                  onChangePrecioMax={(v) => setNewClient({ ...newClient, buscaPrecioMax: v })}
                   onChangeComentario={(v) => setNewClient({ ...newClient, buscaComentario: v })}
+                  /* Enganchar un auto del stock ya NO llena marca ni modelo: son cosas
+                     distintas y pisarlas borraba lo que el vendedor había elegido. */
                   onPickVehiculo={(car) =>
-                    setNewClient({
-                      ...newClient,
-                      buscaVehiculoId: car ? car.id : null,
-                      // Elegir del stock también deja escrito qué es, para que la
-                      // ficha del cliente se lea sola sin ir a buscar el auto.
-                      buscaModelo: car ? `${car.marca} ${car.modelo} ${car.anio}` : newClient.buscaModelo,
-                    })
+                    setNewClient({ ...newClient, buscaVehiculoId: car ? car.id : null })
                   }
                 />
               </>

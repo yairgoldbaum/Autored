@@ -1,6 +1,6 @@
 /* Helpers, tipos y constantes que antes vivían dentro de App.tsx y comparten
    varias pantallas. Lógica pura: acá no hay componentes ni estado. */
-import { C } from './theme';
+import { C, fmtCLP } from './theme';
 import { FichaPatente } from './pricing';
 import {
   Auction,
@@ -104,7 +104,10 @@ export interface NewClientData {
   tipo: 'Particular' | 'Empresa';
   estado: string;
   notas: string;
+  buscaMarca: string;
   buscaModelo: string;
+  buscaPrecioMin: string; // como texto: es lo que escribe el input
+  buscaPrecioMax: string;
   buscaComentario: string;
   buscaVehiculoId: number | null;
 }
@@ -259,26 +262,46 @@ export function emptyNewClient(): NewClientData {
     tipo: 'Particular',
     estado: 'Nuevo',
     notas: '',
+    buscaMarca: '',
     buscaModelo: '',
+    buscaPrecioMin: '',
+    buscaPrecioMax: '',
     buscaComentario: '',
     buscaVehiculoId: null,
   };
 }
 
+/** El rango de precio en palabras. '' cuando no puso ninguno de los dos. */
+export function textoRangoPrecio(busca: BusquedaCliente): string {
+  const { precioMin, precioMax } = busca;
+  if (precioMin && precioMax) return `${fmtCLP(precioMin)} a ${fmtCLP(precioMax)}`;
+  if (precioMax) return `hasta ${fmtCLP(precioMax)}`;
+  if (precioMin) return `desde ${fmtCLP(precioMin)}`;
+  return '';
+}
+
 /** Qué busca el cliente, en una línea. '—' cuando no anotó nada. */
 export function textoBusqueda(busca: BusquedaCliente | null): string {
   if (!busca) return '—';
-  if (busca.modelo && busca.comentario) return `${busca.modelo} · ${busca.comentario}`;
-  return busca.modelo || busca.comentario || '—';
+  const vehiculo = [busca.marca, busca.modelo].filter(Boolean).join(' ');
+  const partes = [vehiculo, textoRangoPrecio(busca), busca.comentario].filter(Boolean);
+  return partes.length ? partes.join(' · ') : '—';
 }
 
 /** Lo que el formulario escribió, listo para guardar: null cuando no dijo nada. */
 export function busquedaFromForm(form: NewClientData): BusquedaCliente | null {
-  const modelo = form.buscaModelo.trim();
-  const comentario = form.buscaComentario.trim();
-  return modelo || comentario || form.buscaVehiculoId
-    ? { modelo, comentario, vehiculoId: form.buscaVehiculoId }
-    : null;
+  const soloDigitos = (v: string) => parseInt(v.replace(/\D/g, ''), 10) || 0;
+  const busca: BusquedaCliente = {
+    marca: form.buscaMarca.trim(),
+    modelo: form.buscaModelo.trim(),
+    precioMin: soloDigitos(form.buscaPrecioMin),
+    precioMax: soloDigitos(form.buscaPrecioMax),
+    comentario: form.buscaComentario.trim(),
+    vehiculoId: form.buscaVehiculoId,
+  };
+  const vacio =
+    !busca.marca && !busca.modelo && !busca.precioMin && !busca.precioMax && !busca.comentario && !busca.vehiculoId;
+  return vacio ? null : busca;
 }
 
 /* El rol comercial ya no se elige ni se guarda: sale de las relaciones del cliente.

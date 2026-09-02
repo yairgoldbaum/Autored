@@ -301,12 +301,26 @@ export type CanalCliente = 'Carga manual' | 'Tasador web';
 /* Qué anda buscando el cliente. El modelo NO sale del stock propio a propósito: el
    punto entero es poder registrar interés en un auto que todavía no tienes, que es
    justo el caso que la app no sabía representar. */
+/* Qué busca el cliente (ronda 3, punto 9). David, mirando el formulario: "en el
+   módulo stock nosotros tenemos ciertos parámetros que dicen 'está interesado en
+   cierta marca, modelo, entre qué rango de precio'; le permitimos dar un poco de
+   detalle específico de su interés para después que le quede registrado. Eso
+   podríamos agregarlo".
+
+   Antes era `modelo` en texto libre. Ahora marca y modelo son listas, y el precio es
+   un rango de dos números y no tramos que le pusimos nosotros: un compraventero
+   piensa en "hasta ocho palos", no en un tramo. Todos admiten quedar vacíos. */
 export interface BusquedaCliente {
-  modelo: string;
+  marca: string; // '' = cualquiera
+  modelo: string; // '' = cualquiera
+  precioMin: number; // 0 = sin mínimo
+  precioMax: number; // 0 = sin máximo
+  /* El texto libre NO se va. Un cliente que busca algo que no está en el patio sigue
+     siendo un caso válido, y ahí es lo único que sirve. */
   comentario: string;
   /* El auto del stock que el cliente vino a ver, si es uno que tienes. Queda en
-     null cuando busca algo que no está en el patio, que es un caso igual de
-     válido: el texto libre sigue mandando. */
+     null cuando busca algo que no está en el patio. Enlazarlo no llena marca ni
+     modelo: son cosas distintas. */
   vehiculoId: number | null;
 }
 
@@ -1347,7 +1361,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     estado: 'Cliente',
     notas: 'Revendedor habitual. Le interesan lotes con margen para reventa rapida.',
     canal: 'Carga manual',
-    busca: { modelo: '', comentario: 'Revendedor: compra varios, sin modelo fijo.', vehiculoId: null },
+    busca: { marca: '', modelo: '', precioMin: 0, precioMax: 0, comentario: 'Revendedor: compra varios, sin modelo fijo.', vehiculoId: null },
     archivado: false,
   },
   {
@@ -1359,7 +1373,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Busca automatico y responde mejor despues de las 18:00.',
     canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
     // Vino por el Kia Morning que sí está en el patio (id 1): queda enganchada a él
-    busca: { modelo: 'Kia Morning', comentario: 'Automático, tope 7 millones.', vehiculoId: 1 },
+    busca: { marca: 'Kia', modelo: 'Morning', precioMin: 0, precioMax: 7000000, comentario: 'Automático.', vehiculoId: 1 },
     archivado: false,
     // Sin relación con ningún auto a propósito: es el interesado en algo que no
     // tienes, el caso que el modelo viejo no sabía representar.
@@ -1385,7 +1399,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     estado: 'Nuevo',
     notas: 'Lead frio. Probar un ultimo contacto antes de descartarlo.',
     canal: 'Tasador web',
-    busca: { modelo: 'Ford Ranger', comentario: 'Dejó de responder hace un mes.', vehiculoId: null },
+    busca: { marca: 'Ford', modelo: '', precioMin: 0, precioMax: 0, comentario: 'Ranger. Dejó de responder hace un mes.', vehiculoId: null },
     archivado: true,
   },
   /* Los cinco que siguen existen para que el embudo se vea completo: hay uno en
@@ -1399,7 +1413,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     estado: 'Nuevo',
     notas: 'Entró por el tasador. Todavía no la llaman.',
     canal: 'Tasador web',
-    busca: { modelo: 'Hyundai Tucson 2019', comentario: 'Quiere 4x4 diesel para el sur.', vehiculoId: 14 },
+    busca: { marca: 'Hyundai', modelo: 'Tucson', precioMin: 12000000, precioMax: 17000000, comentario: 'Quiere 4x4 diesel para el sur.', vehiculoId: 14 },
     archivado: false,
   },
   {
@@ -1411,7 +1425,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Se le llamó el martes, quedó de pasar el fin de semana.',
     canal: 'Carga manual',
     // Busca algo que no está en el patio: el caso que igual hay que poder registrar
-    busca: { modelo: 'Camioneta doble cabina', comentario: 'Hasta 14 millones, con IVA.', vehiculoId: null },
+    busca: { marca: '', modelo: '', precioMin: 0, precioMax: 14000000, comentario: 'Camioneta doble cabina, con IVA.', vehiculoId: null },
     archivado: false,
   },
   {
@@ -1422,7 +1436,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     estado: 'Cliente',
     notas: 'Compran flota chica todos los años. Pagan al contado, piden factura.',
     canal: 'Carga manual',
-    busca: { modelo: '', comentario: 'Tres autos económicos para repartidores.', vehiculoId: null },
+    busca: { marca: '', modelo: '', precioMin: 0, precioMax: 6000000, comentario: 'Tres autos económicos para repartidores.', vehiculoId: null },
     archivado: false,
   },
   {
@@ -1433,7 +1447,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     estado: 'Negociando',
     notas: 'Ofertó 7,4 por el Morning. Se le contraofertó 7,7 y lo está pensando.',
     canal: 'Carga manual',
-    busca: { modelo: 'Kia Morning 2019', comentario: 'Financiado a 36 meses.', vehiculoId: 1 },
+    busca: { marca: 'Kia', modelo: 'Morning', precioMin: 0, precioMax: 0, comentario: 'Financiado a 36 meses.', vehiculoId: 1 },
     archivado: false,
   },
   {
@@ -1444,7 +1458,7 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     estado: 'Perdido',
     notas: 'Compró en otra automotora. Dijo que le dieron más por su auto en parte de pago.',
     canal: 'Tasador web',
-    busca: { modelo: 'Suzuki Swift', comentario: 'Se cayó por la tasación de su usado.', vehiculoId: null },
+    busca: { marca: 'Suzuki', modelo: 'Swift', precioMin: 0, precioMax: 0, comentario: 'Se cayó por la tasación de su usado.', vehiculoId: null },
     archivado: false,
   },
 ];

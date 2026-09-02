@@ -17,11 +17,11 @@ import {
 } from 'react-native';
 
 import { C, W, fmtCLP, fmtMiles } from '../src/theme';
-import { Icon } from '../src/ui';
+import { Dropdown, Icon } from '../src/ui';
 import { s } from '../src/styles';
 import { Car, VehicleContact, VeredictoAutosave } from '../src/data';
 import { buscarPatente, tasar } from '../src/pricing';
-import { FiltroDias, hasContactData, veredictoColor } from '../src/helpers';
+import { FiltroDias, MARCA_OPTIONS, hasContactData, veredictoColor } from '../src/helpers';
 
 /* ---------------- Dashboard de inicio ---------------- */
 export function KpiCard({ label, value, insight, color }: { label: string; value: string; insight: string; color: string }) {
@@ -257,34 +257,61 @@ export function MotorPreciosPublicacion({
   );
 }
 
-/* Qué busca el cliente. Sigue siendo texto libre —registrar interés en un auto
-   que todavía no tienes es justo el caso que la app no sabía representar— pero
-   ahora ofrece el stock real debajo: si lo que busca ES uno de tus autos, se
-   elige y el cliente queda enganchado a esa unidad, que pasa a contarle un lead.
-   Elegir es opcional; escribir algo que no tienes sigue valiendo igual. */
+/* Qué busca el cliente (ronda 3, punto 9). David: "en el módulo stock nosotros
+   tenemos ciertos parámetros que dicen 'está interesado en cierta marca, modelo,
+   entre qué rango de precio'; le permitimos dar un poco de detalle específico de su
+   interés". Antes esto era una sola caja de texto libre.
+
+   Marca y modelo son listas para no tener dos vocabularios en la misma app: la marca
+   sale de MARCA_OPTIONS, que es la lista que usa el alta de vehículos, y el modelo de
+   los modelos que hay en el stock de esa marca, que es de donde los saca el filtro del
+   Stock. Los dos admiten quedar vacíos.
+
+   El rango son dos números y no tramos prefijados: un compraventero piensa en "hasta
+   ocho palos", no en un tramo que le pusimos nosotros.
+
+   El texto libre se queda igual: registrar interés en un auto que todavía no tienes es
+   justo el caso que la app no sabía representar. Y debajo sigue el stock real: si lo
+   que busca ES uno de tus autos, se elige y el cliente queda enganchado a esa unidad,
+   que pasa a contarle un lead. */
 export function ModeloBuscadoField({
+  marca,
   modelo,
+  precioMin,
+  precioMax,
   comentario,
   stock,
   vehiculoId,
+  onChangeMarca,
   onChangeModelo,
+  onChangePrecioMin,
+  onChangePrecioMax,
   onChangeComentario,
   onPickVehiculo,
 }: {
+  marca: string;
   modelo: string;
+  precioMin: string;
+  precioMax: string;
   comentario: string;
   stock: Car[];
   vehiculoId: number | null;
+  onChangeMarca: (v: string) => void;
   onChangeModelo: (v: string) => void;
+  onChangePrecioMin: (v: string) => void;
+  onChangePrecioMax: (v: string) => void;
   onChangeComentario: (v: string) => void;
   onPickVehiculo: (car: Car | null) => void;
 }) {
-  const q = modelo.trim().toLowerCase();
   // Los vendidos no se ofrecen: no hay nada que mostrarle al cliente.
   const disponibles = stock.filter((c) => c.estado !== 'Vendido');
+  // Los modelos se acotan a la marca elegida, igual que en el filtro del Stock.
+  const modelosDisponibles = [
+    ...new Set(disponibles.filter((c) => !marca || c.marca === marca).map((c) => c.modelo)),
+  ].sort();
   const coincide = (c: Car) =>
-    !q || `${c.marca} ${c.modelo} ${c.version} ${c.anio} ${c.patente}`.toLowerCase().includes(q);
-  // El elegido va siempre primero aunque el texto deje de calzar con él
+    (!marca || c.marca === marca) && (!modelo || c.modelo === modelo);
+  // El elegido va siempre primero aunque marca y modelo dejen de calzar con él
   const elegido = disponibles.find((c) => c.id === vehiculoId) || null;
   const sugerencias = [
     ...(elegido ? [elegido] : []),
@@ -293,23 +320,62 @@ export function ModeloBuscadoField({
 
   return (
     <>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.sheetFieldLabel}>Marca</Text>
+          <Dropdown
+            value={marca}
+            onChange={(v) => {
+              onChangeMarca(v);
+              // Cambiar de marca deja el modelo anterior sin sentido.
+              onChangeModelo('');
+            }}
+            options={[{ label: 'Cualquiera', value: '' }, ...MARCA_OPTIONS.map((m) => ({ label: m, value: m }))]}
+          />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.sheetFieldLabel}>Modelo</Text>
+          <Dropdown
+            value={modelo}
+            onChange={onChangeModelo}
+            options={[
+              { label: 'Cualquiera', value: '' },
+              ...modelosDisponibles.map((m) => ({ label: m, value: m })),
+            ]}
+          />
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.sheetFieldLabel}>Precio desde</Text>
+          <TextInput
+            placeholder="Sin mínimo"
+            placeholderTextColor={C.slate400}
+            keyboardType="number-pad"
+            value={precioMin}
+            onChangeText={(v) => onChangePrecioMin(v.replace(/\D/g, ''))}
+            style={s.sheetInput}
+          />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.sheetFieldLabel}>Hasta</Text>
+          <TextInput
+            placeholder="Sin máximo"
+            placeholderTextColor={C.slate400}
+            keyboardType="number-pad"
+            value={precioMax}
+            onChangeText={(v) => onChangePrecioMax(v.replace(/\D/g, ''))}
+            style={s.sheetInput}
+          />
+        </View>
+      </View>
+
       <View>
-        <Text style={s.sheetFieldLabel}>Qué busca</Text>
-        <TextInput
-          placeholder="Ej: Kia Morning (o lo que sea, aunque no lo tengas)"
-          placeholderTextColor={C.slate400}
-          value={modelo}
-          onChangeText={(v) => {
-            onChangeModelo(v);
-            // Si reescriben a mano, el auto elegido deja de corresponder
-            if (vehiculoId) onPickVehiculo(null);
-          }}
-          style={s.sheetInput}
-        />
         {sugerencias.length > 0 ? (
           <>
             <Text style={s.buscaStockLabel}>
-              {elegido ? 'Enganchado a este auto de tu stock' : 'O elige uno de tu stock'}
+              {elegido ? 'Enganchado a este auto de tu stock' : 'Engánchalo a un auto de tu stock'}
             </Text>
             <ScrollView
               horizontal
@@ -345,7 +411,7 @@ export function ModeloBuscadoField({
       <View>
         <Text style={s.sheetFieldLabel}>Comentario</Text>
         <TextInput
-          placeholder="Ej: automático, tope 7 millones"
+          placeholder="Ej: automático, para el sur, o lo que no está en las listas"
           placeholderTextColor={C.slate400}
           value={comentario}
           onChangeText={onChangeComentario}

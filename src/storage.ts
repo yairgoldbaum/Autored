@@ -17,7 +17,7 @@ import {
   SolicitudTransferencia,
   TIPOS_TRANSFERENCIA,
 } from './transferencias';
-import { ESTADOS_CLIENTE } from './helpers';
+import { ESTADOS_CLIENTE, MARCA_OPTIONS } from './helpers';
 
 // La versión se sube cada vez que cambian los datos de fábrica: el estado guardado
 // pisa a data.ts, así que sin subirla las semillas nuevas no aparecen nunca.
@@ -302,16 +302,68 @@ function normalizeEstadoCliente(estado: string | undefined): string {
   }
 }
 
+/* Migración del punto 9 de la ronda 3. Hasta v3, `modelo` era texto libre y podía
+   decir cualquier cosa ("Camioneta doble cabina", "Hyundai Tucson 2019"). Ese texto
+   NO se tira: si la primera palabra es una marca conocida se rescata como marca y el
+   resto como modelo; lo que no calza se concatena al comentario, para no perder lo
+   que el vendedor escribió. */
 function normalizeBusqueda(customer: Partial<Customer> & { interes?: unknown }): BusquedaCliente | null {
-  const busca = customer.busca;
+  const busca = customer.busca as Partial<BusquedaCliente> | undefined;
+  const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  const numero = (v: unknown) => (typeof v === 'number' && v > 0 ? v : 0);
+
   if (busca && typeof busca === 'object') {
-    const modelo = typeof busca.modelo === 'string' ? busca.modelo : '';
-    const comentario = typeof busca.comentario === 'string' ? busca.comentario : '';
-    const vehiculoId = typeof busca.vehiculoId === 'number' ? busca.vehiculoId : null;
-    return modelo || comentario || vehiculoId ? { modelo, comentario, vehiculoId } : null;
+    // Ya guardado con la forma nueva: se respeta tal cual.
+    if (typeof busca.marca === 'string' || typeof busca.precioMax === 'number') {
+      const armada: BusquedaCliente = {
+        marca: texto(busca.marca),
+        modelo: texto(busca.modelo),
+        precioMin: numero(busca.precioMin),
+        precioMax: numero(busca.precioMax),
+        comentario: texto(busca.comentario),
+        vehiculoId: typeof busca.vehiculoId === 'number' ? busca.vehiculoId : null,
+      };
+      return esBusquedaVacia(armada) ? null : armada;
+    }
+    return desdeTextoLibre(texto(busca.modelo), texto(busca.comentario),
+      typeof busca.vehiculoId === 'number' ? busca.vehiculoId : null);
   }
-  const legacy = typeof customer.interes === 'string' ? customer.interes.trim() : '';
-  return legacy ? { modelo: legacy, comentario: '', vehiculoId: null } : null;
+
+  // Más viejo todavía: el campo `interes`, que era un auto del stock propio.
+  return desdeTextoLibre(texto(customer.interes), '', null);
+}
+
+function esBusquedaVacia(b: BusquedaCliente): boolean {
+  return !b.marca && !b.modelo && !b.precioMin && !b.precioMax && !b.comentario && !b.vehiculoId;
+}
+
+function desdeTextoLibre(modeloLibre: string, comentario: string, vehiculoId: number | null): BusquedaCliente | null {
+  let marca = '';
+  let modelo = '';
+  let sobra = '';
+  if (modeloLibre) {
+    const palabras = modeloLibre.split(/\s+/);
+    const calce = MARCA_OPTIONS.find((m) => m.toLowerCase() === palabras[0].toLowerCase());
+    if (calce) {
+      marca = calce;
+      // La segunda palabra es el modelo; lo que venga después (un año, una versión)
+      // se guarda en el comentario en vez de tirarse.
+      modelo = palabras[1] || '';
+      sobra = palabras.slice(2).join(' ');
+    } else {
+      sobra = modeloLibre;
+    }
+  }
+  const comentarioFinal = [sobra, comentario].filter(Boolean).join(' · ');
+  const armada: BusquedaCliente = {
+    marca,
+    modelo,
+    precioMin: 0,
+    precioMax: 0,
+    comentario: comentarioFinal,
+    vehiculoId,
+  };
+  return esBusquedaVacia(armada) ? null : armada;
 }
 
 function normalizeContact(contact: unknown): VehicleContact | null {

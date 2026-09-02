@@ -1123,7 +1123,10 @@ function AppInner() {
       tipo: client.tipo,
       estado: client.estado,
       notas: client.notas,
+      buscaMarca: client.busca?.marca || '',
       buscaModelo: client.busca?.modelo || '',
+      buscaPrecioMin: client.busca?.precioMin ? String(client.busca.precioMin) : '',
+      buscaPrecioMax: client.busca?.precioMax ? String(client.busca.precioMax) : '',
       buscaComentario: client.busca?.comentario || '',
       buscaVehiculoId: client.busca?.vehiculoId ?? null,
     });
