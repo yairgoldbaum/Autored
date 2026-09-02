@@ -310,6 +310,51 @@ export function leadsDeVehiculo(relaciones: RelacionClienteVehiculo[], vehiculoI
   return relaciones.filter((r) => r.vehiculoId === vehiculoId && r.tipo === 'oportunidad').length;
 }
 
+/* Vistas del sitio web del cliente (ronda 3, punto 8). Autored acaba de lanzar el
+   manejo del sitio web de sus clientes y David dijo: "para esos clientes nosotros sí
+   vamos a tener acceso a saber cuánto cliquean cada auto, entonces a nivel de la app
+   siempre voy a mostrar cuántas vistas está teniendo en su sitio web". El para qué,
+   con sus palabras: "mira, este es un auto que lleva tanto en stock y tiene muchas
+   vistas; o no tiene ninguna vista, se da cuenta que se está quedando pegado y mejor
+   que se deshaga rápido".
+
+   El dato es inventado: la integración la hacen ellos. Se calcula determinista por
+   auto para que no cambie entre pantallas ni entre recargas, y crece con los días en
+   stock, porque un auto lleva acumuladas las vistas del tiempo que lleva publicado.
+
+   No confundir con las visitas que se sacaron el 20-08: aquellas eran personas que el
+   vendedor anotaba a mano cuando venían al patio. Estas son clics y llegan solas. */
+const hashTexto = (txt: string) => {
+  let h = 0;
+  for (let i = 0; i < txt.length; i++) h = (h * 31 + txt.charCodeAt(i)) >>> 0;
+  return h;
+};
+
+/** Vistas de un día puntual, contando `atras` días hacia atrás desde hoy. */
+export function vistasDelDia(car: Car, atras: number): number {
+  const h = hashTexto(`${car.patente}|vistas|${atras}`);
+  // Un auto que ya se vendió deja de moverse: no sigue recibiendo clics.
+  if (car.estado === 'Vendido' || car.estado === 'Pre-stock') return 0;
+  const base = 2 + (h % 11); // 2 a 12 clics al día
+  return base;
+}
+
+/** Vistas acumuladas: es el número que se muestra en la bandeja y en la ficha. */
+export function vistasDeVehiculo(car: Car): number {
+  if (car.estado === 'Vendido' || car.estado === 'Pre-stock') return 0;
+  const dias = Math.min(diasEnStock(car), 120);
+  let total = 0;
+  for (let i = 0; i < dias; i++) total += vistasDelDia(car, i);
+  return total;
+}
+
+/** La tendencia de la ficha: los últimos `n` días, del más viejo al más nuevo. */
+export function tendenciaVistas(car: Car, n = 14): number[] {
+  const dias = Math.min(diasEnStock(car), n);
+  if (dias <= 0) return [];
+  return Array.from({ length: dias }, (_, i) => vistasDelDia(car, dias - 1 - i));
+}
+
 export function cumpleFiltroDias(car: Car, filtro: FiltroDias): boolean {
   if (!filtro) return true;
   const d = diasEnStock(car);

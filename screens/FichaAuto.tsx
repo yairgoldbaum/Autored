@@ -18,7 +18,14 @@ import {
   fmtFecha,
   resumenVeredictos,
 } from '../src/autosave';
-import { hasContactData, requiresBuyer, totalAntecedentes, veredictoColor } from '../src/helpers';
+import {
+  hasContactData,
+  requiresBuyer,
+  tendenciaVistas,
+  totalAntecedentes,
+  veredictoColor,
+  vistasDeVehiculo,
+} from '../src/helpers';
 import {
   Field,
   MotorPreciosPublicacion,
@@ -341,6 +348,20 @@ export function FichaAuto({
                   </TouchableOpacity>
                 ) : null}
 
+                {/* Vistas del sitio web (punto 8). El número es lo que pidió David:
+                    "pónganlo en la bandeja y en la vista detalle de un stock, como un
+                    número nomás". La tendencia es apuesta nuestra, va más allá del
+                    "número nomás" y vale mostrársela para ver si le sirve. El dato es
+                    inventado: la integración la hacen ellos. */}
+                {!modoCliente && vistasDeVehiculo(car) > 0
+                  ? renderSeccion(
+                      'vistas',
+                      'Vistas en tu sitio web',
+                      `${fmtMiles(vistasDeVehiculo(car))} vistas en ${diasEnStock(car)} días`,
+                      () => renderVistas(car),
+                    )
+                  : null}
+
                 {/* AutoSafe conserva su bloque propio con la barra de marca: la
                     sección solo aporta el encabezado colapsable. */}
                 {!modoCliente && activeInforme ? (
@@ -583,6 +604,40 @@ export function FichaAuto({
             </Text>
           ) : null}
         </View>
+      </View>
+    );
+  }
+
+  function renderVistas(car: Car) {
+    const total = vistasDeVehiculo(car);
+    const serie = tendenciaVistas(car);
+    const maximo = Math.max(...serie, 1);
+    return (
+      <View>
+        <Text style={s.vistasNumero}>{fmtMiles(total)}</Text>
+        <Text style={s.vistasSub}>
+          Clics en la publicación desde que entró al stock, hace {diasEnStock(car)} días
+        </Text>
+        {serie.length > 1 ? (
+          <>
+            <View style={s.vistasBarras}>
+              {serie.map((v, i) => (
+                <View
+                  key={i}
+                  style={[
+                    s.vistasBarra,
+                    i === serie.length - 1 && s.vistasBarraHoy,
+                    { height: Math.max(3, (v / maximo) * 48) },
+                  ]}
+                />
+              ))}
+            </View>
+            <View style={s.vistasEje}>
+              <Text style={s.vistasEjeText}>hace {serie.length} días</Text>
+              <Text style={s.vistasEjeText}>hoy</Text>
+            </View>
+          </>
+        ) : null}
       </View>
     );
   }

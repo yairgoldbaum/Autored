@@ -14,6 +14,7 @@ import {
   badgeForEstado,
   emptyStockFilters,
   leadsDeVehiculo,
+  vistasDeVehiculo,
 } from '../src/helpers';
 
 interface StockScreenProps {
@@ -194,6 +195,7 @@ export function StockScreen({
             // restando costoAdquisicion a mano (en consignación es 0).
             const margen = car.precioVenta - costoBase(car);
             const leads = leadsDeVehiculo(relaciones, car.id);
+            const vistas = vistasDeVehiculo(car);
             return (
               <TouchableOpacity key={car.id} activeOpacity={0.9} onPress={() => setActiveCar(car)} style={s.carCard}>
                 <View style={s.carThumb}>
@@ -292,8 +294,13 @@ export function StockScreen({
                         </View>
                       )}
                     </View>
+                    {/* El tercer número son las vistas del sitio web (punto 8). David
+                        pidió exactamente esto cuando se le propuso un gráfico:
+                        "pónganlo en la bandeja y en la vista detalle de un stock,
+                        como un número nomás, así como los días en stock". */}
                     <Text style={s.diasStock}>
                       {leads} {leads === 1 ? 'lead' : 'leads'} · {dias} {dias === 1 ? 'día' : 'días'} en stock
+                      {vistas > 0 ? ` · ${fmtMiles(vistas)} vistas web` : ''}
                     </Text>
                     {/* El auto está esperando: acá se despacha a stock. Abre el
                         selector de estado para que el vendedor elija a cuál. */}

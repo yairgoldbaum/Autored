@@ -987,6 +987,17 @@ export const s = StyleSheet.create({
   detailNoteInset: { marginTop: 12, backgroundColor: C.slate50, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.slate100 },
   detailNoteInsetLabel: { fontSize: 10, color: C.slate400, fontWeight: W.bold, textTransform: 'uppercase', marginBottom: 4 },
   detailNoteInsetText: { color: C.slate600, fontSize: 12, fontWeight: W.medium, lineHeight: 18 },
+  /* Vistas del sitio web en la ficha (ronda 3, punto 8). David pidió "un número
+     nomás"; la tendencia de los últimos días es apuesta nuestra, para ver si le
+     sirve al compraventero. */
+  vistasNumero: { fontSize: 26, fontWeight: W.black, color: C.slate900 },
+  vistasSub: { fontSize: 12, color: C.slate500, marginTop: 2 },
+  vistasBarras: { flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 48, marginTop: 14 },
+  vistasBarra: { flex: 1, minWidth: 2, borderRadius: 2, backgroundColor: C.teal300 },
+  vistasBarraHoy: { backgroundColor: C.chileanTeal },
+  vistasEje: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  vistasEjeText: { fontSize: 10, color: C.slate400 },
+
   /* Motor de Precios con la cara de Autored (ronda 3, punto 6). Las tres tarjetas de
      precio son david-pantallas-4.png; el de venta va destacado en oscuro como en la
      captura, porque es el que ellos ponen al centro. */
