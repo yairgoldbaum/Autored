@@ -21,22 +21,20 @@ import { Field, PartyRow, ReportRow, SegBtn, TechItem } from '../components/shar
 interface InformeAutosaveOverlayProps {
   activeCar: Car | null;
   activeInforme: InformeAutosave | null;
-  activeBloqueos: string[];
   isAutosaveReportOpen: boolean;
   setIsAutosaveReportOpen: (open: boolean) => void;
   handleAbrirEnvioInforme: (car: Car) => void;
-  handleAbrirTransferencia: (car: Car) => void;
+  handleIrATransferencias: () => void;
 }
 
 /* ======================= AUTOSAVE: VENTANA DEL INFORME ======================= */
 export function InformeAutosaveOverlay({
   activeCar,
   activeInforme,
-  activeBloqueos,
   isAutosaveReportOpen,
   setIsAutosaveReportOpen,
   handleAbrirEnvioInforme,
-  handleAbrirTransferencia,
+  handleIrATransferencias,
 }: InformeAutosaveOverlayProps) {
   const insets = useSafeAreaInsets();
   if (!activeCar || !activeInforme || !isAutosaveReportOpen) return null;
@@ -297,33 +295,34 @@ export function InformeAutosaveOverlay({
               Enviar al cliente
             </Text>
           </TouchableOpacity>
+          {/* Antes abría el trámite notarial simulado y se apagaba con los bloqueos
+              del informe. Desde el 1-09 (ronda 3, punto 7) lleva al módulo de
+              Transferencias y los bloqueos ya no aplican: el flujo corta al elegir
+              el tipo, así que no hay nada que bloquear. */}
           <TouchableOpacity
-            disabled={car.estado !== 'Vendido' || activeBloqueos.length > 0 || !!car.transferencia}
-            onPress={() => {
-              setIsAutosaveReportOpen(false);
-              handleAbrirTransferencia(car);
-            }}
+            disabled={car.estado !== 'Vendido'}
+            onPress={handleIrATransferencias}
             style={[
               s.detailActionGray,
               { backgroundColor: C.chileanNavy },
-              (car.estado !== 'Vendido' || activeBloqueos.length > 0 || !!car.transferencia) && s.asCtaDisabled,
+              car.estado !== 'Vendido' && s.asCtaDisabled,
             ]}
           >
             <Icon
-              name="file-signature"
+              name="right-left"
               size={12}
-              color={car.estado !== 'Vendido' || activeBloqueos.length > 0 || !!car.transferencia ? C.slate400 : C.white}
+              color={car.estado !== 'Vendido' ? C.slate400 : C.white}
             />
             <Text
               style={[
                 s.detailActionGrayText,
-                { color: car.estado !== 'Vendido' || activeBloqueos.length > 0 || !!car.transferencia ? C.slate400 : C.white },
+                { color: car.estado !== 'Vendido' ? C.slate400 : C.white },
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.85}
             >
-              Transferencia
+              Transferir
             </Text>
           </TouchableOpacity>
         </View>
@@ -469,7 +468,18 @@ interface TransferSheetProps {
   showNotification: (message: string, type?: string) => void;
 }
 
-/* ======================= SHEET: TRANSFERENCIA NOTARIAL ======================= */
+/* ======================= SHEET: TRANSFERENCIA NOTARIAL =======================
+   DESCONECTADO desde el 1-09-2026 (ronda 3, punto 7). Nadie lo monta: era el
+   formulario del trámite notarial simulado —origen, modalidad, notaría, quién
+   paga— que se abría desde la ficha del auto vendido y desde el informe.
+   David recortó el alcance en la reunión del 21-08: "no creo que sea exigente
+   que ustedes armen todo el módulo de transferencia en la app, porque tenemos un
+   equipo detrás que ya tiene todo ese know-how". Lo que quedó en su lugar es el
+   módulo de Transferencias (screens/Transferencias.tsx), que llega hasta elegir
+   el tipo y ahí corta.
+   Se deja el código porque está hecho y volver a enchufarlo es barato: hay que
+   devolver el estado transfer* a App.tsx y sus cinco handlers. Lo mismo se hizo
+   con la Inspección con IA; el criterio está escrito en src/inspection/README.md. */
 export function TransferSheet({
   activeCar,
   activeInforme,

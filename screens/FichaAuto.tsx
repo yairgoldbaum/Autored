@@ -13,12 +13,9 @@ import { Icon, PageOverlay, Ping, Sheet } from '../src/ui';
 import { s } from '../src/styles';
 import { Auction, Car, ESTADOS, EstadoAuto, InformeAutosave, VehicleContact, costoBase, diasEnStock } from '../src/data';
 import {
-  PITCH_TRANSFERENCIA,
   PRECIO_COPIA_INFORME,
   alertaPrincipal,
-  cotizarTransferencia,
   fmtFecha,
-  progresoTransferencia,
   resumenVeredictos,
 } from '../src/autosave';
 import { hasContactData, requiresBuyer, totalAntecedentes, veredictoColor } from '../src/helpers';
@@ -28,7 +25,6 @@ import {
   PhotoGallery,
   SegBtn,
   TechItem,
-  TransferMetaRow,
   VehicleContactCard,
 } from '../components/shared';
 
@@ -41,12 +37,12 @@ interface FichaAutoProps {
   setModoCliente: (on: boolean) => void;
   activeStockAuctionMap: Map<number, Auction>;
   activeInforme: InformeAutosave | null;
-  activeBloqueos: string[];
   setIsAutosaveReportOpen: (open: boolean) => void;
   handleAbrirEnvioInforme: (car: Car) => void;
-  handleAbrirTransferencia: (car: Car) => void;
-  handleAvanzarTransferencia: (car: Car) => void;
-  handleCompartirTransferencia: (car: Car) => void;
+  /* El acceso directo del punto 7: cierra la ficha y abre el módulo de
+     Transferencias. No lleva la patente puesta, porque la pantalla de crear
+     corta al elegir el tipo. */
+  handleIrATransferencias: () => void;
   handleLlamar: (telefono: string) => void;
   handleWhatsapp: (telefono: string) => void;
   setAdjustedPrice: React.Dispatch<React.SetStateAction<number>>;
@@ -64,12 +60,9 @@ export function FichaAuto({
   setModoCliente,
   activeStockAuctionMap,
   activeInforme,
-  activeBloqueos,
   setIsAutosaveReportOpen,
   handleAbrirEnvioInforme,
-  handleAbrirTransferencia,
-  handleAvanzarTransferencia,
-  handleCompartirTransferencia,
+  handleIrATransferencias,
   handleLlamar,
   handleWhatsapp,
   setAdjustedPrice,
@@ -324,13 +317,37 @@ export function FichaAuto({
                     está comprado cuando entra a esta app. El módulo sigue en
                     `src/inspection/`, desconectado. */}
 
+                {/* Acceso directo a Transferencias (punto 7). David: "en la ficha de
+                    tu auto, cuando hay un auto que ya está vendido, tenéis que tener
+                    un botón que diga transferir". Andrés: "sí, como un acceso
+                    directo". No lleva la patente puesta: la pantalla de crear corta
+                    al elegir el tipo, así que no hay dónde ponerla todavía. */}
+                {!modoCliente && car.estado === 'Vendido' ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleIrATransferencias}
+                    style={s.transferirCard}
+                    accessibilityRole="button"
+                    accessibilityLabel="Transferir este vehículo"
+                  >
+                    <View style={s.transferirIcono}>
+                      <Icon name="right-left" size={15} color={C.white} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={s.transferirTitulo}>Transferir este vehículo</Text>
+                      <Text style={s.transferirSub}>Te lleva a Transferencias para crear la solicitud</Text>
+                    </View>
+                    <Icon name="chevron-right" size={14} color={C.slate400} />
+                  </TouchableOpacity>
+                ) : null}
+
                 {/* AutoSafe conserva su bloque propio con la barra de marca: la
                     sección solo aporta el encabezado colapsable. */}
                 {!modoCliente && activeInforme ? (
                   <>
                     {renderSeccion(
                       'autosave',
-                      'AutoSafe · Historial y Transferencia',
+                      'AutoSafe · Historial del vehículo',
                       alertaInforme ? alertaInforme.titulo : 'Sin hallazgos',
                     )}
                     {seccionesAbiertas['autosave'] ? renderAutosaveBlock(car) : null}
@@ -490,17 +507,15 @@ export function FichaAuto({
   }
 
   /* ======================= AUTOSAVE: BLOQUE EN LA FICHA ======================= */
-  // Las dos tarjetas de AutoSafe van juntas y comparten la barra cian de marca: es otra
-  // empresa del grupo, y se distingue por jerarquía, no metiendo un segundo color.
+  // Conserva la barra cian de marca: es otra empresa del grupo, y se distingue por
+  // jerarquía, no metiendo un segundo color. Desde el 1-09 la única tarjeta es la
+  // del informe: la de transferencia salió con el punto 7 de la ronda 3.
   function renderAutosaveBlock(car: Car) {
     if (!activeInforme) return null;
     return (
       <View style={s.asBlock}>
         <View style={s.asBrandBar} />
-        <View style={{ flex: 1, gap: 12 }}>
-          {renderInformeCard(car, activeInforme)}
-          {renderTransferCard(car)}
-        </View>
+        <View style={{ flex: 1, gap: 12 }}>{renderInformeCard(car, activeInforme)}</View>
       </View>
     );
   }
@@ -572,160 +587,14 @@ export function FichaAuto({
     );
   }
 
-  function renderTransferCard(car: Car) {
-    if (car.transferencia) return renderTransferTracker(car, car.transferencia);
-    if (!activeInforme) return null;
-
-    const vendido = car.estado === 'Vendido';
-    const bloqueado = activeBloqueos.length > 0;
-    const habilitado = vendido && !bloqueado;
-    const cotizacion = cotizarTransferencia({
-      precioOperacion: car.precioVenta,
-      tasacionFiscal: activeInforme.tasacionFiscal,
-      modalidad: 'Digital',
-      copiaInformeYaPagada: false,
-    });
-
-    return (
-      <View style={s.detailTechCard}>
-        <View style={s.asCardHead}>
-          <Text style={s.asBrandLabel}>AutoSafe · Transferencia</Text>
-        </View>
-
-        {!vendido ? (
-          <Text style={[s.asMetaText, { marginTop: 0, marginBottom: 12 }]}>
-            Se habilita al marcar el auto como Vendido.
-          </Text>
-        ) : null}
-
-        <Text style={s.asClientTitle}>Qué le ofreces al cliente</Text>
-        <View style={{ gap: 6, marginTop: 8 }}>
-          {PITCH_TRANSFERENCIA.map((item) => (
-            <View key={item} style={s.asPitchRow}>
-              <Icon name="check" size={9} color={C.teal700} />
-              <Text style={s.asPitchText}>{item}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={s.asQuoteRow}>
-          <TechItem label="Costo estimado" value={`desde ${fmtCLP(cotizacion.total)}`} />
-          <TechItem label="Plazo" value={`${cotizacion.plazoTexto} (digital)`} />
-        </View>
-
-        {bloqueado ? (
-          <View style={[s.asAlertStrip, { backgroundColor: C.red50, borderLeftColor: C.red600, marginTop: 12 }]}>
-            <Text style={[s.asAlertTitle, { color: C.red700 }]}>No se puede inscribir todavía</Text>
-            {activeBloqueos.map((b) => (
-              <Text key={b} style={s.asAlertText}>
-                · {b}
-              </Text>
-            ))}
-          </View>
-        ) : null}
-
-        <TouchableOpacity
-          activeOpacity={0.85}
-          disabled={!habilitado}
-          onPress={() => handleAbrirTransferencia(car)}
-          style={[s.asCtaDark, { marginTop: 12 }, !habilitado && s.asCtaDisabled]}
-        >
-          <Text style={[s.asCtaDarkText, !habilitado && { color: C.slate400 }]}>
-            {bloqueado ? 'Bloqueada por el informe' : vendido ? 'Iniciar transferencia notarial' : 'Disponible al vender'}
-          </Text>
-          {habilitado ? <Icon name="arrow-right" size={12} color={C.white} /> : null}
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  function renderTransferTracker(car: Car, t: NonNullable<Car['transferencia']>) {
-    const { paso, total } = progresoTransferencia(t);
-    const idxActual = t.hitos.findIndex((h) => h.estado === t.estado);
-    // Una vez inscrita el trámite terminó: el último hito va como completado, no "en curso".
-    const finalizado = t.estado === 'Inscrita';
-
-    return (
-      <View style={s.detailTechCard}>
-        <View style={s.asCardHead}>
-          <Text style={s.asBrandLabel}>AutoSafe · Transferencia</Text>
-          <Text style={s.asFolio}>{t.folio}</Text>
-        </View>
-
-        <View style={{ marginTop: 4 }}>
-          {t.hitos.map((hito, i) => {
-            const completado = i < idxActual || (finalizado && i === idxActual);
-            const actual = i === idxActual && !finalizado;
-            const ultimo = i === t.hitos.length - 1;
-            return (
-              <View key={hito.estado} style={s.asTimelineItem}>
-                <View style={s.asTimelineGutter}>
-                  <View
-                    style={[
-                      s.asTimelineNode,
-                      completado && s.asTimelineNodeDone,
-                      actual && s.asTimelineNodeActive,
-                    ]}
-                  >
-                    {actual ? <Ping color={C.teal400} size={6} /> : null}
-                  </View>
-                  {!ultimo ? <View style={[s.asTimelineLine, completado && { backgroundColor: C.slate800 }]} /> : null}
-                </View>
-                <View style={{ flex: 1, paddingBottom: ultimo ? 0 : 14 }}>
-                  <View style={s.detailMoneyRow}>
-                    <Text
-                      style={[s.asTimelineLabel, (completado || actual) && { color: C.slate800 }]}
-                      numberOfLines={2}
-                    >
-                      {hito.estado}
-                    </Text>
-                    <Text style={s.asTimelineDate}>
-                      {actual ? 'En curso' : hito.fecha ? fmtFecha(hito.fecha) : 'Pendiente'}
-                    </Text>
-                  </View>
-                  {actual ? <Text style={s.asTimelineDetail}>{hito.detalle}</Text> : null}
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={s.asTransferMeta}>
-          <TransferMetaRow
-            label="Traspaso"
-            value={
-              t.origen === 'Directo'
-                ? `Directo · ${t.vendedor.nombre} → ${t.comprador.nombre}`
-                : `Automotora → ${t.comprador.nombre}`
-            }
-          />
-          <TransferMetaRow label="Notaría" value={t.notaria} />
-          <TransferMetaRow label="Modalidad" value={t.modalidad} />
-          <TransferMetaRow label="Entrega estimada" value={fmtFecha(t.fechaEstimadaEntrega)} />
-          <TransferMetaRow label="Total" value={`${fmtCLP(t.total)} · paga ${t.responsablePago.toLowerCase()}`} strong />
-        </View>
-
-        <View style={[s.detailFooterActions, { marginTop: 12 }]}>
-          <TouchableOpacity onPress={() => handleCompartirTransferencia(car)} style={s.detailActionGray}>
-            <Icon name="comment-dots" size={12} color={C.slate700} />
-            <Text style={s.detailActionGrayText} numberOfLines={1}>Compartir</Text>
-          </TouchableOpacity>
-          {!finalizado ? (
-            <TouchableOpacity
-              onPress={() => handleAvanzarTransferencia(car)}
-              style={[s.detailActionGray, { backgroundColor: C.chileanNavy }]}
-            >
-              <Icon name="rotate" size={12} color={C.white} />
-              <Text style={[s.detailActionGrayText, { color: C.white }]}>Actualizar</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-        <Text style={[s.asMetaText, { marginTop: 8, textAlign: 'center' }]}>
-          {finalizado ? `Transferencia inscrita · padrón a nombre de ${t.comprador.nombre}` : `Paso ${paso} de ${total}`}
-        </Text>
-      </View>
-    );
-  }
+  /* Acá vivían renderTransferCard y renderTransferTracker: la cotización del
+     trámite notarial, el seguimiento por hitos hasta el nuevo padrón y los
+     bloqueos por informe. Salieron el 1-09 (ronda 3, punto 7). David recortó el
+     alcance él mismo: "no creo que sea exigente que ustedes armen todo el módulo
+     de transferencia en la app, porque tenemos un equipo detrás que ya tiene todo
+     ese know-how". En su lugar quedó el acceso directo al módulo, arriba en la
+     ficha, para el auto vendido. Ver src/autosave.ts y screens/InformeAutosave.tsx.
+     El sheet notarial sigue en el repo, desconectado. */
 }
 
 interface PriceSheetProps {

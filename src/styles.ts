@@ -987,6 +987,30 @@ export const s = StyleSheet.create({
   detailNoteInset: { marginTop: 12, backgroundColor: C.slate50, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.slate100 },
   detailNoteInsetLabel: { fontSize: 10, color: C.slate400, fontWeight: W.bold, textTransform: 'uppercase', marginBottom: 4 },
   detailNoteInsetText: { color: C.slate600, fontSize: 12, fontWeight: W.medium, lineHeight: 18 },
+  /* Acceso directo a Transferencias desde la ficha del auto vendido (ronda 3,
+     punto 7). Reemplaza a la tarjeta de transferencia notarial que vivía en el
+     bloque de AutoSafe. */
+  transferirCard: {
+    backgroundColor: C.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.slate200,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  transferirIcono: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: C.chileanNavy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  transferirTitulo: { fontSize: 14, fontWeight: W.extrabold, color: C.slate900 },
+  transferirSub: { fontSize: 11, color: C.slate500, marginTop: 2 },
+
   /* Inspección de recepción con IA. La tarjeta salió de la ficha el 1-09 (ronda 3,
      punto 3), así que estos estilos no los usa nadie hoy: se dejan para cuando el
      módulo vuelva a enchufarse. Ver src/inspection/README.md. */

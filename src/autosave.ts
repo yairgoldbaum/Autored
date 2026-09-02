@@ -605,6 +605,12 @@ const fmtCLPLocal = (n: number) => `$${new Intl.NumberFormat('es-CL').format(Mat
 
 /** Impedimentos legales para inscribir en el Registro Civil. Vacío = se puede transferir.
  *  Esto es lo que conecta los dos productos de AutoSafe: sin informe limpio, no hay transferencia. */
+/* Lo que sigue —bloqueos, cotización, creación, avance, progreso y el texto de
+   WhatsApp del trámite notarial— dejó de usarlo la app el 1-09-2026 (ronda 3,
+   punto 7), salvo cotizarTransferencia, que todavía llama el TransferSheet
+   desconectado. Se conserva entero: si Autored decide que el trámite vuelva a la
+   app, esto ya está escrito y probado. Ver el encabezado del TransferSheet en
+   screens/InformeAutosave.tsx. */
 export function bloqueosTransferencia(informe: InformeAutosave | null | undefined): string[] {
   if (!informe) return [];
   const bloqueos: string[] = [];

@@ -24,9 +24,6 @@ import {
   RelacionClienteVehiculo,
   EstadoAuto,
   EnvioInforme,
-  ModalidadTransferencia,
-  ResponsablePago,
-  TraspasoOrigen,
   VehicleContact,
   VehicleDocument,
   INITIAL_STOCK_DATA,
@@ -50,15 +47,9 @@ import {
   tasar,
 } from './src/pricing';
 import {
-  AUTOMOTORA,
-  NOTARIAS,
   PRECIO_COPIA_INFORME,
-  avanzarTransferencia,
-  bloqueosTransferencia,
-  crearTransferencia,
   generarInformeAutosave,
   textoWhatsappInforme,
-  textoWhatsappTransferencia,
 } from './src/autosave';
 /* La Inspección con IA salió de la app el 1-09 (ronda 3, punto 3). David:
    "yo sacaría el de inspección y agregamos esto otro". El módulo sigue en
@@ -112,7 +103,7 @@ import { ClientesScreen, NewClientSheet } from './screens/Clientes';
 import { MotorPreciosOverlay } from './screens/MotorPrecios';
 import { AltaVehiculoWizard } from './screens/AltaVehiculo';
 import { FichaAuto, PriceSheet, StatusSheet } from './screens/FichaAuto';
-import { EnvioInformeSheet, InformeAutosaveOverlay, TransferSheet } from './screens/InformeAutosave';
+import { EnvioInformeSheet, InformeAutosaveOverlay } from './screens/InformeAutosave';
 
 const STOCK_FAB_SIZE = 60;
 const STOCK_FAB_GAP = 18;
@@ -213,12 +204,6 @@ function AppInner() {
   const [isEnvioInformeSheetOpen, setIsEnvioInformeSheetOpen] = useState(false);
   const [envioDestinatario, setEnvioDestinatario] = useState<EnvioInforme['destinatario']>('Comprador');
   const [envioContacto, setEnvioContacto] = useState<VehicleContact>(emptyContact());
-  const [isTransferSheetOpen, setIsTransferSheetOpen] = useState(false);
-  const [transferOrigen, setTransferOrigen] = useState<TraspasoOrigen>('Automotora');
-  const [transferModalidad, setTransferModalidad] = useState<ModalidadTransferencia>('Digital');
-  const [transferNotaria, setTransferNotaria] = useState<string>(NOTARIAS[0]);
-  const [transferPagador, setTransferPagador] = useState<ResponsablePago>('Comprador');
-  const [transferProcesando, setTransferProcesando] = useState(false);
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
 
   // Motor de precios (tasación rápida, datos simulados)
@@ -295,7 +280,6 @@ function AppInner() {
       if (isAuctionFeaturesSheetOpen) { setIsAuctionFeaturesSheetOpen(false); return true; }
       if (isNewClientSheetOpen) { setIsNewClientSheetOpen(false); return true; }
       if (isEnvioInformeSheetOpen) { setIsEnvioInformeSheetOpen(false); return true; }
-      if (isTransferSheetOpen) { setIsTransferSheetOpen(false); return true; }
       if (isCargarAutoOpen) { setIsCargarAutoOpen(false); return true; }
       if (isMotorOpen) { setIsMotorOpen(false); return true; }
       // El informe se apila sobre la ficha: hay que cerrarlo antes que ella.
@@ -313,7 +297,6 @@ function AppInner() {
     isAuctionFeaturesSheetOpen,
     isNewClientSheetOpen,
     isEnvioInformeSheetOpen,
-    isTransferSheetOpen,
     isCargarAutoOpen,
     isMotorOpen,
     isAutosaveReportOpen,
@@ -475,7 +458,6 @@ function AppInner() {
   // El informe AutoSafe no es estado: se deriva del auto y siempre da lo mismo para la
   // misma patente. La automotora tiene acceso libre; lo que se cobra es la copia al cliente.
   const activeInforme = useMemo(() => (activeCar ? generarInformeAutosave(activeCar) : null), [activeCar]);
-  const activeBloqueos = useMemo(() => bloqueosTransferencia(activeInforme), [activeInforme]);
 
   // Las relaciones de cada cliente, indexadas una vez para no recorrer la lista entera
   // por cada tarjeta.
@@ -883,11 +865,10 @@ function AppInner() {
     setIsStatusSheetOpen(false);
     showNotification(`Estado cambiado a "${selectedStatus}"`);
 
-    // Recién vendido: se ofrece cerrar la transferencia notarial con AutoSafe. El sheet ES
-    // el pitch (llega prellenado y con costos); la notificación no es pulsable y no serviría.
-    if (nextStatus === 'Vendido' && !updatedCar.transferencia) {
-      setTimeout(() => handleAbrirTransferencia(updatedCar), 320); // el sheet anterior tarda 180ms en cerrarse
-    }
+    /* Antes, marcar Vendido abría solo el sheet de transferencia notarial. Salió
+       con el punto 7 de la ronda 3: el flujo ahora corta al elegir el tipo, así
+       que no hay formulario que prellenar. El vendedor entra a Transferencias
+       cuando quiere, desde la barra o desde el acceso directo de la ficha. */
   };
 
   /* ------------------- AutoSafe ------------------- */
@@ -937,72 +918,18 @@ function AppInner() {
     handleWhatsapp(envio.telefono, textoWhatsappInforme(activeCar, activeInforme));
   };
 
-  const handleAbrirTransferencia = (car: Car) => {
-    // Traspaso directo solo si hay un dueño anterior registrado a quien transferir.
-    const origen: TraspasoOrigen = hasContactData(car.clienteAdquisicion) ? 'Directo' : 'Automotora';
-    setTransferOrigen(origen);
-    setTransferModalidad('Digital');
-    setTransferNotaria(NOTARIAS[0]);
-    setTransferPagador('Comprador');
-    setIsTransferSheetOpen(true);
-  };
+  /* Acá vivían handleAbrirTransferencia, handleCambiarModalidad,
+     handleGenerarTransferencia, handleAvanzarTransferencia y
+     handleCompartirTransferencia: el trámite notarial simulado que se generaba
+     desde la ficha. Salieron el 1-09 (ronda 3, punto 7), junto con el estado del
+     sheet. El TransferSheet sigue en screens/InformeAutosave.tsx sin enchufar.
+     Ver el README de src/inspection/ para el mismo criterio. */
 
-  const handleCambiarModalidad = (modalidad: ModalidadTransferencia) => {
-    setTransferModalidad(modalidad);
-    // La firma electrónica avanzada es la primera notaría del catálogo; la presencial no.
-    if (modalidad === 'Digital') setTransferNotaria(NOTARIAS[0]);
-    else if (transferNotaria === NOTARIAS[0]) setTransferNotaria(NOTARIAS[1]);
-  };
-
-  const handleGenerarTransferencia = () => {
-    if (!activeCar || !activeInforme) return;
-    if (!hasContactData(activeCar.comprador)) {
-      showNotification('Registra al comprador antes de generar la transferencia.', 'warning');
-      return;
-    }
-    if (activeBloqueos.length) {
-      showNotification('El informe AutoSafe detecta impedimentos para inscribir la transferencia.', 'warning');
-      return;
-    }
-    const vendedor =
-      transferOrigen === 'Directo' && hasContactData(activeCar.clienteAdquisicion)
-        ? (activeCar.clienteAdquisicion as VehicleContact)
-        : { clienteId: null, nombre: AUTOMOTORA.nombre, telefono: AUTOMOTORA.telefono };
-
-    setTransferProcesando(true);
-    setTimeout(() => {
-      const transferencia = crearTransferencia({
-        car: activeCar,
-        informe: activeInforme,
-        vendedor,
-        comprador: activeCar.comprador as VehicleContact,
-        origen: transferOrigen,
-        modalidad: transferModalidad,
-        notaria: transferNotaria,
-        responsablePago: transferPagador,
-        copiaInformeYaPagada: (activeCar.informesEnviados || []).length > 0,
-      });
-      patchCar(activeCar.id, { transferencia });
-      setTransferProcesando(false);
-      setIsTransferSheetOpen(false);
-      showNotification(`Transferencia ${transferencia.folio} solicitada a AutoSafe.`);
-    }, 900);
-  };
-
-  const handleAvanzarTransferencia = (car: Car) => {
-    if (!car.transferencia) return;
-    const siguiente = avanzarTransferencia(car.transferencia);
-    if (siguiente.estado === car.transferencia.estado) {
-      showNotification('La transferencia ya está inscrita.');
-      return;
-    }
-    patchCar(car.id, { transferencia: siguiente });
-    showNotification(`Transferencia actualizada: ${siguiente.estado}.`);
-  };
-
-  const handleCompartirTransferencia = (car: Car) => {
-    if (!car.transferencia) return;
-    handleWhatsapp(car.transferencia.comprador.telefono, textoWhatsappTransferencia(car, car.transferencia));
+  // El acceso directo del punto 7: cierra la ficha y abre el módulo nuevo.
+  const handleIrATransferencias = () => {
+    setIsAutosaveReportOpen(false);
+    setActiveCar(null);
+    setActiveTab('transferencias');
   };
 
   const handleEnviarOfertaSubasta = () => {
@@ -1338,7 +1265,6 @@ function AppInner() {
     isAuctionFeaturesSheetOpen ||
     isNewClientSheetOpen ||
     isEnvioInformeSheetOpen ||
-    isTransferSheetOpen ||
     isCargarAutoOpen ||
     isMotorOpen ||
     isAutosaveReportOpen;
@@ -1559,12 +1485,9 @@ function AppInner() {
           setModoCliente={setModoCliente}
           activeStockAuctionMap={activeStockAuctionMap}
           activeInforme={activeInforme}
-          activeBloqueos={activeBloqueos}
           setIsAutosaveReportOpen={setIsAutosaveReportOpen}
           handleAbrirEnvioInforme={handleAbrirEnvioInforme}
-          handleAbrirTransferencia={handleAbrirTransferencia}
-          handleAvanzarTransferencia={handleAvanzarTransferencia}
-          handleCompartirTransferencia={handleCompartirTransferencia}
+          handleIrATransferencias={handleIrATransferencias}
           handleLlamar={handleLlamar}
           handleWhatsapp={handleWhatsapp}
           setAdjustedPrice={setAdjustedPrice}
@@ -1577,11 +1500,10 @@ function AppInner() {
         <InformeAutosaveOverlay
           activeCar={activeCar}
           activeInforme={activeInforme}
-          activeBloqueos={activeBloqueos}
           isAutosaveReportOpen={isAutosaveReportOpen}
           setIsAutosaveReportOpen={setIsAutosaveReportOpen}
           handleAbrirEnvioInforme={handleAbrirEnvioInforme}
-          handleAbrirTransferencia={handleAbrirTransferencia}
+          handleIrATransferencias={handleIrATransferencias}
         />
         <MotorPreciosOverlay
           isMotorOpen={isMotorOpen}
@@ -1701,24 +1623,6 @@ function AppInner() {
           setEnvioContacto={setEnvioContacto}
           handleCambiarDestinatario={handleCambiarDestinatario}
           handleEnviarInforme={handleEnviarInforme}
-        />
-        <TransferSheet
-          activeCar={activeCar}
-          activeInforme={activeInforme}
-          activeBloqueos={activeBloqueos}
-          isTransferSheetOpen={isTransferSheetOpen}
-          setIsTransferSheetOpen={setIsTransferSheetOpen}
-          transferOrigen={transferOrigen}
-          setTransferOrigen={setTransferOrigen}
-          transferModalidad={transferModalidad}
-          transferNotaria={transferNotaria}
-          setTransferNotaria={setTransferNotaria}
-          transferPagador={transferPagador}
-          setTransferPagador={setTransferPagador}
-          transferProcesando={transferProcesando}
-          handleCambiarModalidad={handleCambiarModalidad}
-          handleGenerarTransferencia={handleGenerarTransferencia}
-          showNotification={showNotification}
         />
 
         {/* NOTIFICACIÓN (siempre encima de todo) */}
