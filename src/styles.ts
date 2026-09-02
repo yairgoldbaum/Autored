@@ -987,6 +987,12 @@ export const s = StyleSheet.create({
   detailNoteInset: { marginTop: 12, backgroundColor: C.slate50, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: C.slate100 },
   detailNoteInsetLabel: { fontSize: 10, color: C.slate400, fontWeight: W.bold, textTransform: 'uppercase', marginBottom: 4 },
   detailNoteInsetText: { color: C.slate600, fontSize: 12, fontWeight: W.medium, lineHeight: 18 },
+  /* Las dos fechas del cliente (ronda 3, punto 10). El último contacto va bajo el
+     nombre, en relativo, porque es lo que dice quién se está enfriando; la de
+     registro va abajo, en chico. */
+  cliUltimoContacto: { fontSize: 11, color: C.slate400, marginTop: 2 },
+  cliRegistro: { fontSize: 11, color: C.slate400 },
+
   /* Vistas del sitio web en la ficha (ronda 3, punto 8). David pidió "un número
      nomás"; la tendencia de los últimos días es apuesta nuestra, para ver si le
      sirve al compraventero. */

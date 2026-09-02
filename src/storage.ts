@@ -17,7 +17,7 @@ import {
   SolicitudTransferencia,
   TIPOS_TRANSFERENCIA,
 } from './transferencias';
-import { ESTADOS_CLIENTE, MARCA_OPTIONS } from './helpers';
+import { ESTADOS_CLIENTE, MARCA_OPTIONS, todayIsoDate } from './helpers';
 
 // La versión se sube cada vez que cambian los datos de fábrica: el estado guardado
 // pisa a data.ts, así que sin subirla las semillas nuevas no aparecen nunca.
@@ -44,14 +44,15 @@ export async function loadState(): Promise<PersistedState | null> {
     if (!data || !Array.isArray(data.stock) || !Array.isArray(data.auctions) || !Array.isArray(data.customers)) {
       return null;
     }
+    const relaciones = Array.isArray(data.relaciones) ? data.relaciones.flatMap(normalizeRelacion) : [];
     return {
       stock: data.stock.map(normalizeCar),
       auctions: data.auctions.map(normalizeAuction),
-      customers: data.customers.map(normalizeCustomer),
+      customers: rellenarFechasClientes(data.customers.map(normalizeCustomer), relaciones),
       // Tercera colección, nueva. Un estado guardado antes de que existiera no la
       // trae: se arranca vacía y syncStockAndCustomers rearma las que se derivan
       // de los contactos embebidos del auto.
-      relaciones: Array.isArray(data.relaciones) ? data.relaciones.flatMap(normalizeRelacion) : [],
+      relaciones,
       // Cuarta colección, nueva en v4. Un estado guardado antes de que existiera
       // no la trae: arranca vacía y la app siembra el historial de fábrica.
       informes: Array.isArray(data.informes) ? data.informes.flatMap(normalizeInforme) : [],
@@ -276,11 +277,42 @@ function normalizeCustomer(customer: Partial<Customer> & { id: number }): Custom
     // Los clientes guardados antes de que existiera `busca` traen el viejo `interes`,
     // que era un auto del stock propio. Se rescata como el modelo que buscan.
     busca: normalizeBusqueda(customer),
+    /* Las dos fechas del punto 10. Un cliente guardado antes de que existieran no
+       las trae, así que se rellenan con una regla fija y no queda al criterio de
+       quien lo implemente: el registro toma la relación más antigua del cliente y
+       el último contacto la más reciente. Sin relaciones, las dos quedan en la
+       fecha de la migración. Las relaciones se pasan aparte porque acá no están. */
+    fechaRegistro: customer.fechaRegistro || '',
+    fechaUltimoContacto: customer.fechaUltimoContacto || '',
     archivado: customer.archivado === true,
     // Los ids de autos que el cliente guardaba (vehiculosAdquisicionIds,
     // vehiculosVentaIds, reservadoId) se descartan: esa relación ahora vive en
     // `relaciones`, y syncStockAndCustomers la rearma desde los contactos del auto.
   };
+}
+
+/* Relleno de las dos fechas del punto 10 para los clientes guardados antes de que
+   existieran. La regla es fija a propósito: sin ella, la lista se ordena distinto
+   según quién la implemente.
+     fechaRegistro      -> la fecha de su relación más antigua; si no tiene ninguna,
+                           la fecha de la migración.
+     fechaUltimoContacto -> la de su relación más reciente; si no tiene, queda igual
+                           a la de registro. */
+function rellenarFechasClientes(
+  customers: Customer[],
+  relaciones: RelacionClienteVehiculo[],
+): Customer[] {
+  const hoy = todayIsoDate();
+  return customers.map((c) => {
+    if (c.fechaRegistro && c.fechaUltimoContacto) return c;
+    const fechas = relaciones
+      .filter((r) => r.clienteId === c.id && r.fecha)
+      .map((r) => r.fecha)
+      .sort();
+    const registro = c.fechaRegistro || fechas[0] || hoy;
+    const ultimo = c.fechaUltimoContacto || fechas[fechas.length - 1] || registro;
+    return { ...c, fechaRegistro: registro, fechaUltimoContacto: ultimo };
+  });
 }
 
 /* Los estados del trato cambiaron al embudo de venta (Nuevo, Contactado,

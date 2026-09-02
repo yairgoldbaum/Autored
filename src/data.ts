@@ -334,6 +334,16 @@ export interface Customer {
   canal: CanalCliente;
   busca: BusquedaCliente | null;
   archivado: boolean;
+  /* Las dos fechas del punto 9 de la ronda 3. David pidió una: "creo que falta como
+     una noción de fecha, de cuándo interactuó con ese gallo la última vez", y el
+     ejemplo: "si dejo una nota 'cliente vino a la tienda y se interesó en este
+     auto', ¿cuándo pasó eso?". Van las dos por decisión de Eitan del 1-09.
+
+     `fechaRegistro` es fija. `fechaUltimoContacto` se mueve sola con cada nota,
+     cambio de estado del embudo o auto asociado: es la que sirve para ver quién se
+     está enfriando, y por eso es la que se muestra en la tarjeta, en relativo. */
+  fechaRegistro: string; // YYYY-MM-DD
+  fechaUltimoContacto: string; // YYYY-MM-DD
 }
 
 /* Qué une a un cliente con un auto.
@@ -1351,6 +1361,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Prefiere coordinar por WhatsApp. Quiere cerrar con financiamiento aprobado.',
     canal: 'Carga manual',
     busca: null, // ya encontró lo suyo: tiene el Mazda 3 reservado
+    fechaRegistro: '2026-06-14',
+    fechaUltimoContacto: '2026-08-30',
     archivado: false,
   },
   {
@@ -1362,6 +1374,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Revendedor habitual. Le interesan lotes con margen para reventa rapida.',
     canal: 'Carga manual',
     busca: { marca: '', modelo: '', precioMin: 0, precioMax: 0, comentario: 'Revendedor: compra varios, sin modelo fijo.', vehiculoId: null },
+    fechaRegistro: '2025-11-03',
+    fechaUltimoContacto: '2026-08-28',
     archivado: false,
   },
   {
@@ -1374,6 +1388,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     canal: 'Tasador web', // lead que cayó solo, el caso que Autored quiere alimentar
     // Vino por el Kia Morning que sí está en el patio (id 1): queda enganchada a él
     busca: { marca: 'Kia', modelo: 'Morning', precioMin: 0, precioMax: 7000000, comentario: 'Automático.', vehiculoId: 1 },
+    fechaRegistro: '2026-08-19',
+    fechaUltimoContacto: '2026-08-31',
     archivado: false,
     // Sin relación con ningún auto a propósito: es el interesado en algo que no
     // tienes, el caso que el modelo viejo no sabía representar.
@@ -1387,6 +1403,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Vino a ver el Yaris, pidio confirmar con su pareja antes de reservar.',
     canal: 'Carga manual',
     busca: null,
+    fechaRegistro: '2026-02-27',
+    fechaUltimoContacto: '2026-07-15',
     archivado: false,
     // Tiene una relación de oportunidad con el Toyota Yaris: vino a verlo y quedó
     // de confirmar. No es venta todavía y no cuelga de ningún contacto del auto.
@@ -1400,6 +1418,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Lead frio. Probar un ultimo contacto antes de descartarlo.',
     canal: 'Tasador web',
     busca: { marca: 'Ford', modelo: '', precioMin: 0, precioMax: 0, comentario: 'Ranger. Dejó de responder hace un mes.', vehiculoId: null },
+    fechaRegistro: '2026-05-08',
+    fechaUltimoContacto: '2026-07-28',
     archivado: true,
   },
   /* Los cinco que siguen existen para que el embudo se vea completo: hay uno en
@@ -1414,6 +1434,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Entró por el tasador. Todavía no la llaman.',
     canal: 'Tasador web',
     busca: { marca: 'Hyundai', modelo: 'Tucson', precioMin: 12000000, precioMax: 17000000, comentario: 'Quiere 4x4 diesel para el sur.', vehiculoId: 14 },
+    fechaRegistro: '2026-08-11',
+    fechaUltimoContacto: '2026-08-25',
     archivado: false,
   },
   {
@@ -1426,6 +1448,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     canal: 'Carga manual',
     // Busca algo que no está en el patio: el caso que igual hay que poder registrar
     busca: { marca: '', modelo: '', precioMin: 0, precioMax: 14000000, comentario: 'Camioneta doble cabina, con IVA.', vehiculoId: null },
+    fechaRegistro: '2026-07-02',
+    fechaUltimoContacto: '2026-08-20',
     archivado: false,
   },
   {
@@ -1437,6 +1461,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Compran flota chica todos los años. Pagan al contado, piden factura.',
     canal: 'Carga manual',
     busca: { marca: '', modelo: '', precioMin: 0, precioMax: 6000000, comentario: 'Tres autos económicos para repartidores.', vehiculoId: null },
+    fechaRegistro: '2026-03-16',
+    fechaUltimoContacto: '2026-06-30',
     archivado: false,
   },
   {
@@ -1448,6 +1474,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Ofertó 7,4 por el Morning. Se le contraofertó 7,7 y lo está pensando.',
     canal: 'Carga manual',
     busca: { marca: 'Kia', modelo: 'Morning', precioMin: 0, precioMax: 0, comentario: 'Financiado a 36 meses.', vehiculoId: 1 },
+    fechaRegistro: '2026-08-24',
+    fechaUltimoContacto: '2026-09-01',
     archivado: false,
   },
   {
@@ -1459,6 +1487,8 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notas: 'Compró en otra automotora. Dijo que le dieron más por su auto en parte de pago.',
     canal: 'Tasador web',
     busca: { marca: 'Suzuki', modelo: 'Swift', precioMin: 0, precioMax: 0, comentario: 'Se cayó por la tasación de su usado.', vehiculoId: null },
+    fechaRegistro: '2026-01-20',
+    fechaUltimoContacto: '2026-05-12',
     archivado: false,
   },
 ];

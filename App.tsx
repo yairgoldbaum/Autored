@@ -1180,6 +1180,10 @@ function AppInner() {
         notas: newClient.notas.trim(),
         canal: existing?.canal ?? 'Carga manual',
         busca: busquedaFromForm(newClient),
+        fechaRegistro: existing?.fechaRegistro || todayIsoDate(),
+        // Editarlo cuenta como haberlo tocado: es justo el caso del ejemplo de
+        // David, dejar una nota y no saber cuándo pasó.
+        fechaUltimoContacto: todayIsoDate(),
         archivado: existing?.archivado ?? false,
       };
       const nextCustomers = customers.map((c) => (c.id === updated.id ? updated : c));
@@ -1209,6 +1213,8 @@ function AppInner() {
       notas: newClient.notas.trim(),
       canal: 'Carga manual',
       busca: busquedaFromForm(newClient),
+      fechaRegistro: todayIsoDate(),
+      fechaUltimoContacto: todayIsoDate(),
       archivado: false,
     };
     setCustomers([...customers, client]);
@@ -1282,15 +1288,22 @@ function AppInner() {
     Linking.openURL(url).catch(() => showNotification('No se pudo abrir WhatsApp.', 'warning'));
   };
 
+  /* Dejar una nota, mover el embudo o editarlo mueven `fechaUltimoContacto`: es lo
+     que David pedía saber. "Si dejo una nota 'cliente vino a la tienda y se interesó
+     en este auto', ¿cuándo pasó eso?" */
   const handleUpdateClienteNotas = (id: number, notas: string) => {
-    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, notas } : c)));
+    setCustomers((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, notas, fechaUltimoContacto: todayIsoDate() } : c)),
+    );
   };
 
   /* El estado del cliente se mueve desde su tarjeta, sin abrir el editor: es lo
      que más cambia y antes había que entrar a Editar para tocarlo. */
   const handleCambiarEstadoCliente = (cliente: Customer, estado: string) => {
     if (estado === cliente.estado) return;
-    setCustomers((prev) => prev.map((c) => (c.id === cliente.id ? { ...c, estado } : c)));
+    setCustomers((prev) =>
+      prev.map((c) => (c.id === cliente.id ? { ...c, estado, fechaUltimoContacto: todayIsoDate() } : c)),
+    );
     showNotification(`${cliente.nombre} pasó a "${estado}".`);
   };
 

@@ -19,8 +19,10 @@ import {
   NewClientData,
   TIPO_CLIENTE_OPTIONS,
   cumpleFiltroCliente,
+  haceCuanto,
   lineaCliente,
 } from '../src/helpers';
+import { fmtFecha } from '../src/autosave';
 import { ModeloBuscadoField } from '../components/shared';
 
 interface ClientesScreenProps {
@@ -142,6 +144,12 @@ export function ClientesScreen({
                 <View style={s.cliCardHead}>
                   <View style={s.cliTitleBlock}>
                     <Text style={s.cliNombre}>{cli.nombre}</Text>
+                    {/* El último contacto en relativo (punto 10): es lo que sirve
+                        para ver de un vistazo quién se está enfriando. La fecha de
+                        registro va abajo, en el detalle. */}
+                    <Text style={s.cliUltimoContacto}>
+                      Último contacto {haceCuanto(cli.fechaUltimoContacto)}
+                    </Text>
                   </View>
                   <View style={s.rowCenter}>
                     <TouchableOpacity onPress={() => handleEditarCliente(cli)} style={s.cliIconBtn}>
@@ -205,6 +213,8 @@ export function ClientesScreen({
                     </Text>
                   </View>
                 </View>
+
+                <Text style={s.cliRegistro}>Cliente desde el {fmtFecha(cli.fechaRegistro)}</Text>
 
                 {/* Notas editables: reemplazan el antiguo control de estado del trato. */}
                 <View style={s.cliStatusBlock}>

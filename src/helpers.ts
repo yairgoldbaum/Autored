@@ -554,6 +554,9 @@ export function syncStockAndCustomers(
         // este auto asociado. `busca` es para el que quiere algo que no tienes.
         canal: 'Carga manual',
         busca: null,
+        // Nace hoy: es un contacto del auto que todavía no existía como cliente.
+        fechaRegistro: todayIsoDate(),
+        fechaUltimoContacto: todayIsoDate(),
         archivado: false,
       };
       nextCustomers.push(created);
@@ -660,6 +663,24 @@ export function makeEmptyWizard(): WizardData {
     fechaVenta: null,
     financiado: null,
   };
+}
+
+/* "hace 3 días" para la tarjeta del cliente (ronda 3, punto 10). Es lo que sirve
+   para ver quién se está enfriando; la fecha exacta va en el detalle. */
+export function haceCuanto(iso: string, hoy: Date = new Date()): string {
+  if (!iso) return '—';
+  const [a, m, d] = iso.split('-').map(Number);
+  if (!a || !m || !d) return '—';
+  const fecha = new Date(a, m - 1, d);
+  const dias = Math.floor((hoy.getTime() - fecha.getTime()) / 86400000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  if (dias < 30) return `hace ${dias} días`;
+  const meses = Math.floor(dias / 30);
+  if (meses === 1) return 'hace un mes';
+  if (meses < 12) return `hace ${meses} meses`;
+  const anios = Math.floor(dias / 365);
+  return anios === 1 ? 'hace un año' : `hace ${anios} años`;
 }
 
 export function todayIsoDate() {
