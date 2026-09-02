@@ -1031,16 +1031,19 @@ export const s = StyleSheet.create({
   mpPrecioValor: { fontSize: 19, fontWeight: W.black, color: C.slate900, textAlign: 'center' },
   mpPrecioValorFuerte: { color: C.white },
   mpRangoLabel: { fontSize: 9, fontWeight: W.bold, color: C.slate400, letterSpacing: 0.5 },
-  mpRangoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' },
   mpRangoPill: {
     borderRadius: 9999,
     borderWidth: 1,
     borderColor: C.slate200,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 3,
+    maxWidth: '100%',
+    minWidth: 0,
   },
   mpRangoPillFuerte: { borderColor: C.slate700, backgroundColor: C.slate800 },
-  mpRangoText: { fontSize: 10, fontWeight: W.bold, color: C.slate600 },
+  /* 9 y no 10: el rango va en una línea y con dos precios de ocho dígitos
+     ("$12.990.000 – $15.710.000") a 10 se cortaba en las tarjetas de media pantalla. */
+  mpRangoText: { fontSize: 9, fontWeight: W.bold, color: C.slate600, textAlign: 'center' },
   mpRangoTextFuerte: { color: C.white },
   mpEstrellas: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   mpComercialidadText: { fontSize: 12, fontWeight: W.bold, color: C.slate600 },

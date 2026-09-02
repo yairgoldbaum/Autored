@@ -67,6 +67,28 @@ export const ESTADOS_TRANSFERENCIA: EstadoTransferencia[] = [
   'Rechazada',
 ];
 
+/* Los cuatro filtros que el plan mandaba dejar detrás de un botón, igual que hace el
+   Stock. Los dos visibles —patente y estado— viven aparte, en la pantalla.
+
+   Las fechas van por MES y no por día: la captura de Autored es de escritorio y tiene
+   dos selectores de calendario, que en un teléfono piden un componente entero. El mes
+   alcanza para lo que se busca acá ("las de julio para atrás") y reusa el vocabulario
+   que los KPIs ya usan. Formato 'AAAA-MM', o '' para no filtrar. */
+export interface FiltrosTransferencia {
+  desde: string;
+  hasta: string;
+  marca: string;
+  modelo: string;
+}
+
+export function emptyFiltrosTransferencia(): FiltrosTransferencia {
+  return { desde: '', hasta: '', marca: '', modelo: '' };
+}
+
+export function hayFiltrosTransferencia(f: FiltrosTransferencia): boolean {
+  return !!(f.desde || f.hasta || f.marca || f.modelo);
+}
+
 /* Una fila de la tabla. Igual que el historial de informes, guarda lo mínimo: la
    marca, el modelo y el año se derivan de la patente, para no tener dos verdades. */
 export interface SolicitudTransferencia {

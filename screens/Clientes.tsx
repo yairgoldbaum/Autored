@@ -354,15 +354,19 @@ export function NewClientSheet({
                   comentario={newClient.buscaComentario}
                   stock={stock}
                   vehiculoId={newClient.buscaVehiculoId}
-                  onChangeMarca={(v) => setNewClient({ ...newClient, buscaMarca: v })}
-                  onChangeModelo={(v) => setNewClient({ ...newClient, buscaModelo: v })}
-                  onChangePrecioMin={(v) => setNewClient({ ...newClient, buscaPrecioMin: v })}
-                  onChangePrecioMax={(v) => setNewClient({ ...newClient, buscaPrecioMax: v })}
-                  onChangeComentario={(v) => setNewClient({ ...newClient, buscaComentario: v })}
+                  /* Van con la forma de función (`prev => …`) y no con `{ ...newClient }`
+                     porque elegir marca dispara DOS de estos seguidos —la marca y el
+                     modelo que se limpia— y con el objeto de la clausura el segundo
+                     escribía sobre el estado viejo: la marca se perdía sin avisar. */
+                  onChangeMarca={(v) => setNewClient((prev) => ({ ...prev, buscaMarca: v }))}
+                  onChangeModelo={(v) => setNewClient((prev) => ({ ...prev, buscaModelo: v }))}
+                  onChangePrecioMin={(v) => setNewClient((prev) => ({ ...prev, buscaPrecioMin: v }))}
+                  onChangePrecioMax={(v) => setNewClient((prev) => ({ ...prev, buscaPrecioMax: v }))}
+                  onChangeComentario={(v) => setNewClient((prev) => ({ ...prev, buscaComentario: v }))}
                   /* Enganchar un auto del stock ya NO llena marca ni modelo: son cosas
                      distintas y pisarlas borraba lo que el vendedor había elegido. */
                   onPickVehiculo={(car) =>
-                    setNewClient({ ...newClient, buscaVehiculoId: car ? car.id : null })
+                    setNewClient((prev) => ({ ...prev, buscaVehiculoId: car ? car.id : null }))
                   }
                 />
               </>

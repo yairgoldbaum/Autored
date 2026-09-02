@@ -61,8 +61,10 @@ import {
 } from './src/informes';
 import {
   EstadoTransferencia,
+  FiltrosTransferencia,
   SolicitudTransferencia,
   TipoTransferencia,
+  emptyFiltrosTransferencia,
 } from './src/transferencias';
 /* La Inspección con IA salió de la app el 1-09 (ronda 3, punto 3). David:
    "yo sacaría el de inspección y agregamos esto otro". El módulo sigue en
@@ -104,7 +106,11 @@ import {
 import { NOTIF_MS, NavButton, NotificationBanner } from './components/shared';
 import { KpisScreen } from './screens/Kpis';
 import { InformesScreen } from './screens/Informes';
-import { NuevaSolicitudOverlay, TransferenciasScreen } from './screens/Transferencias';
+import {
+  NuevaSolicitudOverlay,
+  TransferenciasFilterSheet,
+  TransferenciasScreen,
+} from './screens/Transferencias';
 import { FilterSheet, StockScreen } from './screens/Stock';
 import {
   AuctionBidSheet,
@@ -160,6 +166,10 @@ function AppInner() {
   const [transferencias, setTransferencias] = useState<SolicitudTransferencia[]>(INITIAL_TRANSFERENCIAS);
   const [trPatente, setTrPatente] = useState('');
   const [trEstado, setTrEstado] = useState<EstadoTransferencia | 'Todos'>('Todos');
+  /* Los otros cuatro filtros de la captura (fecha desde, fecha hasta, marca, modelo)
+     van detrás del botón, como en el Stock. Patente y estado se quedan a la vista. */
+  const [trFiltros, setTrFiltros] = useState<FiltrosTransferencia>(emptyFiltrosTransferencia());
+  const [isTrFilterSheetOpen, setIsTrFilterSheetOpen] = useState(false);
   const [isNuevaSolicitudOpen, setIsNuevaSolicitudOpen] = useState(false);
   const [trTipoElegido, setTrTipoElegido] = useState<TipoTransferencia | null>(null);
 
@@ -229,6 +239,11 @@ function AppInner() {
   // AutoSafe: informe (derivado, no se persiste) y transferencia notarial
   const [isAutosaveReportOpen, setIsAutosaveReportOpen] = useState(false);
   const [isEnvioInformeSheetOpen, setIsEnvioInformeSheetOpen] = useState(false);
+  /* Sobre qué auto se está vendiendo la copia. NO se puede usar `activeCar`: el
+     informe se abre desde dos lados y solo uno de ellos tiene la ficha abierta.
+     Entrando por la sección de Informes `activeCar` es null, y el sheet salía
+     temprano sin dibujar nada: el botón parecía muerto. */
+  const [envioCar, setEnvioCar] = useState<Car | null>(null);
   const [envioDestinatario, setEnvioDestinatario] = useState<EnvioInforme['destinatario']>('Comprador');
   const [envioContacto, setEnvioContacto] = useState<VehicleContact>(emptyContact());
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
@@ -312,6 +327,7 @@ function AppInner() {
       if (isEnvioInformeSheetOpen) { setIsEnvioInformeSheetOpen(false); return true; }
       if (isCargarAutoOpen) { setIsCargarAutoOpen(false); return true; }
       if (isNuevaSolicitudOpen) { setIsNuevaSolicitudOpen(false); return true; }
+      if (isTrFilterSheetOpen) { setIsTrFilterSheetOpen(false); return true; }
       // El informe se apila sobre la ficha: hay que cerrarlo antes que ella.
       if (isAutosaveReportOpen) { setIsAutosaveReportOpen(false); return true; }
       // El de la sección de Informes no tiene ficha debajo, pero sí es una pantalla.
@@ -331,6 +347,7 @@ function AppInner() {
     isEnvioInformeSheetOpen,
     isCargarAutoOpen,
     isNuevaSolicitudOpen,
+    isTrFilterSheetOpen,
     isAutosaveReportOpen,
     informeAbierto,
     activeCar,
@@ -498,6 +515,10 @@ function AppInner() {
     () => (informeAbierto ? generarInformeAutosave(informeAbierto.car) : null),
     [informeAbierto],
   );
+  /* El folio que se le manda al cliente sale del auto sobre el que se abrió el
+     sheet, no del de la ficha: el generador es determinista por auto, así que el
+     folio es el mismo se haya entrado por donde se haya entrado. */
+  const envioInforme = useMemo(() => (envioCar ? generarInformeAutosave(envioCar) : null), [envioCar]);
 
   // Las relaciones de cada cliente, indexadas una vez para no recorrer la lista entera
   // por cada tarjeta.
@@ -521,7 +542,10 @@ function AppInner() {
       if (!cumpleFiltroCliente(c, rels, clienteFiltro)) return false;
       if (!q) return true;
       const vehicleLabels = getCustomerVehicleLabels(rels, stockById).join(' ').toLowerCase();
-      const busca = `${c.busca?.modelo || ''} ${c.busca?.comentario || ''}`.toLowerCase();
+      // La marca entra al buscador igual que el modelo: es campo propio desde la
+      // ronda 3 y el placeholder promete buscar por interés.
+      const busca =
+        `${c.busca?.marca || ''} ${c.busca?.modelo || ''} ${c.busca?.comentario || ''}`.toLowerCase();
       const notas = c.notas.toLowerCase();
       return (
         c.nombre.toLowerCase().includes(q) ||
@@ -536,10 +560,12 @@ function AppInner() {
   /* ------------------- Motor de precios ------------------- */
   /* El Motor es una pestaña desde la ronda 3 (punto 1): tocarlo en la barra limpia lo
      de la consulta anterior y lleva a su pantalla, no abre una ventana encima. */
+  /* Antes limpiaba patente, kilometraje y tasación en cada toque, porque el Motor era
+     un overlay que se abría y se cerraba. Desde la ronda 3 es una de las cinco
+     secciones de la barra, y era la única que se borraba sola: ir al Stock a comparar
+     un precio y volver obligaba a retipear todo. Ahora se comporta como las otras
+     cuatro y conserva lo consultado; para empezar de nuevo se borra la patente. */
   const handleAbrirMotor = () => {
-    setMotorPatente('');
-    setMotorKm('');
-    setTasacion(null);
     setMotorCalculando(false);
     setActiveTab('motor');
   };
@@ -929,36 +955,39 @@ function AppInner() {
       : hasContactData(car.clienteAdquisicion)
         ? 'Vendedor'
         : 'Otro';
+    setEnvioCar(car);
     setEnvioDestinatario(destino);
     setEnvioContacto(contactoParaDestinatario(car, destino));
     setIsEnvioInformeSheetOpen(true);
   };
 
   const handleCambiarDestinatario = (destino: EnvioInforme['destinatario']) => {
-    if (!activeCar) return;
+    if (!envioCar) return;
     setEnvioDestinatario(destino);
-    setEnvioContacto(contactoParaDestinatario(activeCar, destino));
+    setEnvioContacto(contactoParaDestinatario(envioCar, destino));
   };
 
   const handleEnviarInforme = () => {
-    if (!activeCar || !activeInforme) return;
+    if (!envioCar || !envioInforme) return;
     if (!hasContactData(envioContacto)) {
       showNotification('Ingresa el nombre y teléfono de quien recibirá el informe.', 'warning');
       return;
     }
     const envio: EnvioInforme = {
       id: Date.now(),
-      folio: activeInforme.folio,
+      folio: envioInforme.folio,
       fecha: todayIsoDate(),
       destinatario: envioDestinatario,
       nombre: envioContacto.nombre.trim(),
       telefono: envioContacto.telefono.trim(),
       monto: PRECIO_COPIA_INFORME,
     };
-    patchCar(activeCar.id, { informesEnviados: [...(activeCar.informesEnviados || []), envio] });
+    /* El envío se anota en el auto del patio. El pie del informe solo aparece para
+       patentes del stock, así que acá siempre hay un id real que tocar. */
+    patchCar(envioCar.id, { informesEnviados: [...(envioCar.informesEnviados || []), envio] });
     setIsEnvioInformeSheetOpen(false);
-    showNotification(`Copia del informe ${activeInforme.folio} enviada a ${envio.nombre}.`);
-    handleWhatsapp(envio.telefono, textoWhatsappInforme(activeCar, activeInforme));
+    showNotification(`Copia del informe ${envioInforme.folio} enviada a ${envio.nombre}.`);
+    handleWhatsapp(envio.telefono, textoWhatsappInforme(envioCar, envioInforme));
   };
 
   /* Acá vivían handleAbrirTransferencia, handleCambiarModalidad,
@@ -1367,6 +1396,7 @@ function AppInner() {
     isEnvioInformeSheetOpen ||
     isCargarAutoOpen ||
     isNuevaSolicitudOpen ||
+    isTrFilterSheetOpen ||
     !!informeAbierto ||
     isAutosaveReportOpen;
   const showStockFab = activeTab === 'stock' && !hasOpenSurface;
@@ -1508,6 +1538,8 @@ function AppInner() {
               setTrPatente={setTrPatente}
               trEstado={trEstado}
               setTrEstado={setTrEstado}
+              trFiltros={trFiltros}
+              setIsTrFilterSheetOpen={setIsTrFilterSheetOpen}
               handleAbrirNuevaSolicitud={handleAbrirNuevaSolicitud}
             />
           )}
@@ -1648,6 +1680,14 @@ function AppInner() {
           handleAbrirEnvioInforme={handleAbrirEnvioInforme}
           handleIrATransferencias={handleIrATransferencias}
         />
+        <TransferenciasFilterSheet
+          abierto={isTrFilterSheetOpen}
+          setAbierto={setIsTrFilterSheetOpen}
+          transferencias={transferencias}
+          stock={stock}
+          filtros={trFiltros}
+          setFiltros={setTrFiltros}
+        />
         <NuevaSolicitudOverlay
           abierto={isNuevaSolicitudOpen}
           onCerrar={() => setIsNuevaSolicitudOpen(false)}
@@ -1750,8 +1790,8 @@ function AppInner() {
           handleGuardarCliente={handleGuardarCliente}
         />
         <EnvioInformeSheet
-          activeCar={activeCar}
-          activeInforme={activeInforme}
+          car={envioCar}
+          informe={envioInforme}
           isEnvioInformeSheetOpen={isEnvioInformeSheetOpen}
           setIsEnvioInformeSheetOpen={setIsEnvioInformeSheetOpen}
           envioDestinatario={envioDestinatario}

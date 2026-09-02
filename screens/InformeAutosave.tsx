@@ -152,13 +152,21 @@ export function InformeAutosaveOverlay({
           </View>
           ) : null}
 
-          {/* Encargo */}
+          {/* Encargo. En el informe completo la ausencia ya la dice el bloque Resumen,
+              así que sin encargo vigente no hace falta la tarjeta. En el CAV no hay
+              Resumen, y un CAV existe justamente para certificar que NO hay encargo:
+              callarlo dejaba el documento diciendo menos de lo que certifica. */}
           {verEncargo && informe.encargo.vigente ? (
             <View style={[s.detailTechCard, { borderColor: C.red100, backgroundColor: C.red50 }]}>
               <Text style={[s.detailTechTitle, { color: C.red700 }]}>Encargo por robo</Text>
               <Text style={s.asEventTitle}>Vigente desde el {fmtFecha(informe.encargo.fecha)}</Text>
               <Text style={s.asEventMeta}>{informe.encargo.juzgado}</Text>
               <Text style={[s.asAlertText, { marginTop: 6 }]}>{informe.encargo.detalle}</Text>
+            </View>
+          ) : verEncargo && !esCompleto ? (
+            <View style={s.detailTechCard}>
+              <Text style={s.detailTechTitle}>Encargo por robo</Text>
+              <Text style={s.emptySectionText}>Sin encargos vigentes.</Text>
             </View>
           ) : null}
 
@@ -381,8 +389,8 @@ export function InformeAutosaveOverlay({
 }
 
 interface EnvioInformeSheetProps {
-  activeCar: Car | null;
-  activeInforme: InformeAutosave | null;
+  car: Car | null;
+  informe: InformeAutosave | null;
   isEnvioInformeSheetOpen: boolean;
   setIsEnvioInformeSheetOpen: (open: boolean) => void;
   envioDestinatario: EnvioInforme['destinatario'];
@@ -394,8 +402,8 @@ interface EnvioInformeSheetProps {
 
 /* ======================= SHEET: ENVIAR INFORME AL CLIENTE ======================= */
 export function EnvioInformeSheet({
-  activeCar,
-  activeInforme,
+  car: carProp,
+  informe,
   isEnvioInformeSheetOpen,
   setIsEnvioInformeSheetOpen,
   envioDestinatario,
@@ -405,8 +413,8 @@ export function EnvioInformeSheet({
   handleEnviarInforme,
 }: EnvioInformeSheetProps) {
   const insets = useSafeAreaInsets();
-  if (!activeCar || !activeInforme) return null;
-  const car = activeCar;
+  if (!carProp || !informe) return null;
+  const car = carProp;
   const opciones: { key: EnvioInforme['destinatario']; label: string; disponible: boolean }[] = [
     { key: 'Comprador', label: 'Comprador', disponible: hasContactData(car.comprador) },
     { key: 'Vendedor', label: 'Vendedor', disponible: hasContactData(car.clienteAdquisicion) },
@@ -414,12 +422,12 @@ export function EnvioInformeSheet({
   ];
 
   return (
-    <Sheet visible={isEnvioInformeSheetOpen && !!activeCar} onClose={() => setIsEnvioInformeSheetOpen(false)} maxHeightPct={88}>
+    <Sheet visible={isEnvioInformeSheetOpen && !!carProp} onClose={() => setIsEnvioInformeSheetOpen(false)} maxHeightPct={88}>
       <View style={s.sheetHeader}>
         <View style={{ flex: 1 }}>
           <Text style={s.sheetTitle}>Enviar informe al cliente</Text>
           <Text style={s.subMuted}>
-            {car.marca} {car.modelo} · Folio {activeInforme.folio}
+            {car.marca} {car.modelo} · Folio {informe.folio}
           </Text>
         </View>
         <TouchableOpacity onPress={() => setIsEnvioInformeSheetOpen(false)}>

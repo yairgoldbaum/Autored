@@ -126,8 +126,11 @@ export function InformesScreen({
 
       {/* Historial */}
       <View style={{ gap: 12 }}>
+        {/* El contador sigue a lo que se está viendo: con el buscador puesto decía el
+            total y contradecía a la lista de abajo. */}
         <Text style={s.sectionLabel}>
-          Informes que has sacado ({informes.length})
+          Informes que has sacado ({historial.length}
+          {busqueda && historial.length !== informes.length ? ` de ${informes.length}` : ''})
         </Text>
 
         <View style={s.searchWrap}>

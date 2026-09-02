@@ -3,21 +3,25 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { C } from '../src/theme';
-import { Icon, PageOverlay } from '../src/ui';
+import { Dropdown, Icon, PageOverlay, Sheet } from '../src/ui';
 import { s } from '../src/styles';
 import { Car } from '../src/data';
 import { fmtFecha } from '../src/autosave';
+import { etiquetaPeriodo } from '../src/helpers';
 import { normalizarPatente } from '../src/pricing';
 import { autoParaPatente } from '../src/informes';
 import {
   DESCRIPCION_TRANSFERENCIA,
   ESTADOS_TRANSFERENCIA,
   EstadoTransferencia,
+  FiltrosTransferencia,
   ICONO_TRANSFERENCIA,
   SIGLA_TRANSFERENCIA,
   SolicitudTransferencia,
   TIPOS_TRANSFERENCIA,
   TipoTransferencia,
+  emptyFiltrosTransferencia,
+  hayFiltrosTransferencia,
 } from '../src/transferencias';
 
 /* Color por tipo, tomado de las tarjetas de david-pantallas-2.png. */
@@ -45,7 +49,15 @@ interface TransferenciasScreenProps {
   setTrPatente: React.Dispatch<React.SetStateAction<string>>;
   trEstado: EstadoTransferencia | 'Todos';
   setTrEstado: React.Dispatch<React.SetStateAction<EstadoTransferencia | 'Todos'>>;
+  trFiltros: FiltrosTransferencia;
+  setIsTrFilterSheetOpen: (open: boolean) => void;
   handleAbrirNuevaSolicitud: () => void;
+}
+
+/** Marca, modelo y mes de una solicitud, derivados de la patente como todo lo demás. */
+function datosDeSolicitud(sol: SolicitudTransferencia, stock: Car[]) {
+  const auto = autoParaPatente(sol.patente, stock);
+  return { auto, mes: sol.fecha.slice(0, 7) };
 }
 
 /* La lista de solicitudes es lo principal de la sección. David: "que pongan esa vista
@@ -68,22 +80,46 @@ export function TransferenciasScreen({
   setTrPatente,
   trEstado,
   setTrEstado,
+  trFiltros,
+  setIsTrFilterSheetOpen,
   handleAbrirNuevaSolicitud,
 }: TransferenciasScreenProps) {
   const patenteFiltro = normalizarPatente(trPatente);
-  const lista = transferencias.filter((sol) => {
-    if (trEstado !== 'Todos' && sol.estado !== trEstado) return false;
+  /* Todo menos el estado. Los chips de estado cuentan sobre esto y no sobre el total,
+     si no decían "Todos 8" con dos solicitudes en pantalla. */
+  const base = transferencias.filter((sol) => {
     if (patenteFiltro && !sol.patente.includes(patenteFiltro)) return false;
+    const { auto, mes } = datosDeSolicitud(sol, stock);
+    if (trFiltros.desde && mes < trFiltros.desde) return false;
+    if (trFiltros.hasta && mes > trFiltros.hasta) return false;
+    if (trFiltros.marca && auto?.marca !== trFiltros.marca) return false;
+    if (trFiltros.modelo && auto?.modelo !== trFiltros.modelo) return false;
     return true;
   });
+  const lista = base.filter((sol) => trEstado === 'Todos' || sol.estado === trEstado);
 
   const chips: (EstadoTransferencia | 'Todos')[] = ['Todos', ...ESTADOS_TRANSFERENCIA];
+  const filtrando = hayFiltrosTransferencia(trFiltros);
 
   return (
     <View style={{ gap: 22 }}>
-      <View>
-        <Text style={s.h2Black}>Transferencias</Text>
-        <Text style={s.subMuted}>En qué va cada solicitud y cómo empezar una nueva</Text>
+      <View style={s.screenHead}>
+        <View style={s.screenHeadText}>
+          <Text style={s.h2Black}>Transferencias</Text>
+          <Text style={s.subMuted}>En qué va cada solicitud y cómo empezar una nueva</Text>
+        </View>
+        {/* Los otros cuatro filtros de la captura van detrás del botón, que es el
+            patrón que el Stock ya usa. Patente y estado se quedan a la vista. */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setIsTrFilterSheetOpen(true)}
+          style={[s.filterBtn, s.screenHeadAction, filtrando && { borderColor: C.chileanTeal }]}
+          accessibilityRole="button"
+          accessibilityLabel="Filtros"
+        >
+          <Icon name="sliders" size={12} color={filtrando ? C.chileanTeal : C.slate700} />
+          <Text style={[s.filterBtnText, filtrando && { color: C.chileanTeal }]}>Filtros</Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity
@@ -97,8 +133,8 @@ export function TransferenciasScreen({
         <Text style={s.trNuevaBtnText}>Nueva solicitud</Text>
       </TouchableOpacity>
 
-      {/* Filtros. De los seis de la captura quedan los dos que se usan mirando el
-          teléfono: por patente y por estado. */}
+      {/* Los dos que se usan mirando el teléfono quedan a la vista: patente y estado.
+          Los otros cuatro de la captura están en el sheet del botón de arriba. */}
       <View style={{ gap: 10 }}>
         <View style={s.searchWrap}>
           <Icon name="magnifying-glass" size={14} color={C.slate400} style={{ marginLeft: 14 }} />
@@ -122,7 +158,7 @@ export function TransferenciasScreen({
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
           {chips.map((est) => {
             const activo = trEstado === est;
-            const cant = est === 'Todos' ? transferencias.length : transferencias.filter((t) => t.estado === est).length;
+            const cant = est === 'Todos' ? base.length : base.filter((t) => t.estado === est).length;
             return (
               <TouchableOpacity
                 key={est}
@@ -269,5 +305,109 @@ export function NuevaSolicitudOverlay({
         })}
       </ScrollView>
     </PageOverlay>
+  );
+}
+
+interface TransferenciasFilterSheetProps {
+  abierto: boolean;
+  setAbierto: (open: boolean) => void;
+  transferencias: SolicitudTransferencia[];
+  stock: Car[];
+  filtros: FiltrosTransferencia;
+  setFiltros: React.Dispatch<React.SetStateAction<FiltrosTransferencia>>;
+}
+
+/* Los cuatro filtros que no caben a la vista, detrás del botón de arriba, con el
+   mismo sheet que usa el Stock. Nadie habló de filtros en la reunión del 21-08: es
+   decisión de implementación, y por eso los dos que se usan de verdad —patente y
+   estado— quedaron afuera del sheet, a un toque.
+
+   Las opciones salen de las solicitudes que hay, no de catálogos: ofrecer una marca
+   que ninguna solicitud tiene es un filtro que solo puede devolver vacío. */
+export function TransferenciasFilterSheet({
+  abierto,
+  setAbierto,
+  transferencias,
+  stock,
+  filtros,
+  setFiltros,
+}: TransferenciasFilterSheetProps) {
+  const autos = transferencias.map((sol) => autoParaPatente(sol.patente, stock));
+  const marcas = [...new Set(autos.map((a) => a?.marca).filter(Boolean) as string[])].sort();
+  const modelos = [
+    ...new Set(
+      autos
+        .filter((a) => a && (!filtros.marca || a.marca === filtros.marca))
+        .map((a) => a?.modelo)
+        .filter(Boolean) as string[],
+    ),
+  ].sort();
+  // Los meses que la lista tiene, del más viejo al más nuevo.
+  const meses = [...new Set(transferencias.map((sol) => sol.fecha.slice(0, 7)).filter(Boolean))].sort();
+
+  return (
+    <Sheet visible={abierto} onClose={() => setAbierto(false)} maxHeightPct={85}>
+      <View style={s.sheetHeader}>
+        <Text style={s.sheetTitle}>Filtrar solicitudes</Text>
+        <TouchableOpacity onPress={() => setAbierto(false)}>
+          <Icon name="circle-xmark" size={18} color={C.slate400} />
+        </TouchableOpacity>
+      </View>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+        <View>
+          <Text style={s.sheetFieldLabel}>Fecha de creación</Text>
+          <View style={s.fieldPair}>
+            <View style={s.fieldPairItem}>
+              <Dropdown
+                small
+                value={filtros.desde}
+                placeholder="Desde"
+                onChange={(v) => setFiltros((prev) => ({ ...prev, desde: v }))}
+                options={[{ label: 'Desde siempre', value: '' }, ...meses.map((m) => ({ label: etiquetaPeriodo(m), value: m }))]}
+              />
+            </View>
+            <View style={s.fieldPairItem}>
+              <Dropdown
+                small
+                value={filtros.hasta}
+                placeholder="Hasta"
+                onChange={(v) => setFiltros((prev) => ({ ...prev, hasta: v }))}
+                options={[{ label: 'Hasta hoy', value: '' }, ...meses.map((m) => ({ label: etiquetaPeriodo(m), value: m }))]}
+              />
+            </View>
+          </View>
+        </View>
+        <View>
+          <Text style={s.sheetFieldLabel}>Marca</Text>
+          <Dropdown
+            small
+            value={filtros.marca}
+            placeholder="Todas las marcas"
+            /* Cambiar de marca deja el modelo anterior sin sentido. Va en una sola
+               escritura: dos seguidas sobre el mismo objeto se pisan. */
+            onChange={(v) => setFiltros((prev) => ({ ...prev, marca: v, modelo: '' }))}
+            options={[{ label: 'Todas las marcas', value: '' }, ...marcas.map((m) => ({ label: m, value: m }))]}
+          />
+        </View>
+        <View>
+          <Text style={s.sheetFieldLabel}>Modelo</Text>
+          <Dropdown
+            small
+            value={filtros.modelo}
+            placeholder="Todos los modelos"
+            onChange={(v) => setFiltros((prev) => ({ ...prev, modelo: v }))}
+            options={[{ label: 'Todos los modelos', value: '' }, ...modelos.map((m) => ({ label: m, value: m }))]}
+          />
+        </View>
+      </ScrollView>
+      <View style={s.sheetFooter}>
+        <TouchableOpacity onPress={() => setFiltros(emptyFiltrosTransferencia())} style={s.sheetBtnGray}>
+          <Text style={s.sheetBtnGrayText}>Limpiar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setAbierto(false)} style={s.sheetBtnTeal}>
+          <Text style={s.sheetBtnTealText}>Aplicar Filtros</Text>
+        </TouchableOpacity>
+      </View>
+    </Sheet>
   );
 }

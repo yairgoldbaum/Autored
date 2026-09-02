@@ -232,15 +232,14 @@ export function MotorPreciosScreen({
         >
           {fmtCLP(valor)}
         </Text>
+        {/* El rango va en UNA línea. Con dos pastillas y la flecha al medio, en las dos
+            tarjetas de media pantalla no cabía a 390px: envolvía dejando la flecha
+            colgando al final de la primera línea y el máximo solo abajo. */}
         <Text style={s.mpRangoLabel}>RANGO</Text>
-        <View style={s.mpRangoRow}>
-          <View style={[s.mpRangoPill, fuerte && s.mpRangoPillFuerte]}>
-            <Text style={[s.mpRangoText, fuerte && s.mpRangoTextFuerte]}>{fmtCLP(rango.min)}</Text>
-          </View>
-          <Icon name="left-right" size={9} color={fuerte ? C.slate400 : C.slate300} />
-          <View style={[s.mpRangoPill, fuerte && s.mpRangoPillFuerte]}>
-            <Text style={[s.mpRangoText, fuerte && s.mpRangoTextFuerte]}>{fmtCLP(rango.max)}</Text>
-          </View>
+        <View style={[s.mpRangoPill, fuerte && s.mpRangoPillFuerte]}>
+          <Text style={[s.mpRangoText, fuerte && s.mpRangoTextFuerte]} numberOfLines={1}>
+            {fmtCLP(rango.min)} – {fmtCLP(rango.max)}
+          </Text>
         </View>
       </View>
     );

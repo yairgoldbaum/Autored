@@ -30,7 +30,14 @@ Desde el 21-08-2026 este repo sirve **solo SDK 54**: es el único que abre en el
 imprimir ningún error**, y parece que el proyecto está roto cuando no lo está. El binario directo
 da exit 0 de verdad.
 
-Dos cosas que el compilador **no** atrapa y conviene revisar a mano:
+Tres cosas que el compilador **no** atrapa y conviene revisar a mano:
+
+- **Dos `setState` seguidos en el mismo handler se pisan si los escribes con el objeto del render.**
+  `setX({ ...x, a: 1 })` seguido de `setX({ ...x, b: 2 })` usa el `x` de la clausura las dos veces,
+  así que el segundo descarta lo del primero. No hay error ni warning: el campo simplemente no
+  queda. Pasó en la Ronda 3 y **la marca de "qué busca el cliente" nunca se pudo elegir**, porque
+  elegirla también limpia el modelo. Cuando un handler escribe más de una vez, va la forma de
+  función: `setX(prev => ({ ...prev, a: 1 }))`, o una sola escritura con los dos campos.
 
 - **Un `s.<estilo>` mal escrito se ignora en silencio.** No falla, simplemente no aplica el estilo.
   Vale la pena cruzar los `s.algo` de la pantalla que tocaste contra `src/styles.ts`.

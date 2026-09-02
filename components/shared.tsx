@@ -305,9 +305,15 @@ export function ModeloBuscadoField({
 }) {
   // Los vendidos no se ofrecen: no hay nada que mostrarle al cliente.
   const disponibles = stock.filter((c) => c.estado !== 'Vendido');
-  // Los modelos se acotan a la marca elegida, igual que en el filtro del Stock.
+  /* Los modelos se acotan a la marca elegida, igual que en el filtro del Stock. El
+     modelo que el cliente YA tiene guardado entra igual aunque no esté en el patio:
+     si no, un "Ranger" migrado del texto libre desaparecía del formulario y el campo
+     se veía vacío cuando en realidad el dato estaba. */
   const modelosDisponibles = [
-    ...new Set(disponibles.filter((c) => !marca || c.marca === marca).map((c) => c.modelo)),
+    ...new Set([
+      ...disponibles.filter((c) => !marca || c.marca === marca).map((c) => c.modelo),
+      ...(modelo ? [modelo] : []),
+    ]),
   ].sort();
   const coincide = (c: Car) =>
     (!marca || c.marca === marca) && (!modelo || c.modelo === modelo);
