@@ -42,7 +42,6 @@ interface FichaAutoProps {
   activeStockAuctionMap: Map<number, Auction>;
   activeInforme: InformeAutosave | null;
   activeBloqueos: string[];
-  setInspectingCar: (car: Car | null) => void;
   setIsAutosaveReportOpen: (open: boolean) => void;
   handleAbrirEnvioInforme: (car: Car) => void;
   handleAbrirTransferencia: (car: Car) => void;
@@ -66,7 +65,6 @@ export function FichaAuto({
   activeStockAuctionMap,
   activeInforme,
   activeBloqueos,
-  setInspectingCar,
   setIsAutosaveReportOpen,
   handleAbrirEnvioInforme,
   handleAbrirTransferencia,
@@ -321,44 +319,10 @@ export function FichaAuto({
                   ),
                 )}
 
-                {/* Inspección de recepción con IA. Es una herramienta del mayorista
-                    para recibir el auto, no algo que se le muestre al cliente. */}
-                {modoCliente ? null : car.inspeccion ? (
-                  <TouchableOpacity onPress={() => setInspectingCar(car)} style={s.inspDoneCard} activeOpacity={0.8}>
-                    <View style={s.detailHeaderRow}>
-                      <View style={[s.rowCenter, { flex: 1, minWidth: 0 }]}>
-                        <View style={s.inspDoneIcon}>
-                          <Icon name="clipboard-check" size={16} color={C.teal700} />
-                        </View>
-                        <View style={{ marginLeft: 10, flex: 1, minWidth: 0 }}>
-                          <Text style={s.inspTitle}>Inspección de Recepción</Text>
-                          <Text style={s.inspSub}>
-                            Nota {car.inspeccion.notaCondicion}/10 • Reparaciones est.{' '}
-                            {fmtCLP(car.inspeccion.costoTotalEstimadoCLP)}
-                          </Text>
-                        </View>
-                      </View>
-                      <Icon name="chevron-right" size={14} color={C.slate400} />
-                    </View>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity onPress={() => setInspectingCar(car)} style={s.inspCtaCard} activeOpacity={0.8}>
-                    <View style={s.rowCenter}>
-                      <View style={s.inspCtaIcon}>
-                        <Icon name="wand-magic-sparkles" size={16} color={C.white} />
-                      </View>
-                      <View style={{ marginLeft: 12, flex: 1 }}>
-                        <Text style={s.inspCtaTitle}>Inspección de Recepción con IA</Text>
-                        <Text style={s.inspCtaSub}>
-                          {car.estado === 'Pre-stock' || car.estado === 'En preparación'
-                            ? 'Recomendado: fotografía el auto al recibirlo y la IA detectará daños y generará el informe.'
-                            : 'Fotografía el auto y la IA detectará hallazgos y generará el informe PDF.'}
-                        </Text>
-                      </View>
-                      <Icon name="chevron-right" size={14} color={C.teal200} />
-                    </View>
-                  </TouchableOpacity>
-                )}
+                {/* Acá vivía la tarjeta de Inspección de Recepción con IA. Salió el
+                    1-09 (ronda 3, punto 3): David pidió sacarla porque el auto ya
+                    está comprado cuando entra a esta app. El módulo sigue en
+                    `src/inspection/`, desconectado. */}
 
                 {/* AutoSafe conserva su bloque propio con la barra de marca: la
                     sección solo aporta el encabezado colapsable. */}

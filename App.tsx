@@ -60,8 +60,10 @@ import {
   textoWhatsappInforme,
   textoWhatsappTransferencia,
 } from './src/autosave';
-import { InspectionScreen } from './src/inspection/InspectionScreen';
-import { InspectionReport } from './src/inspection/types';
+/* La Inspección con IA salió de la app el 1-09 (ronda 3, punto 3). David:
+   "yo sacaría el de inspección y agregamos esto otro". El módulo sigue en
+   `src/inspection/` sin enchufar; el argumento fue de alcance, no de que
+   estuviera mal. Ver src/inspection/README.md. */
 import {
   AUCTION_DURATION_MS,
   ClienteFiltro,
@@ -156,8 +158,6 @@ function AppInner() {
      otra pantalla llega a mostrar precios delante del cliente, usa esta misma.
      No se persiste: al reabrir la app se vuelve al modo de gestión. */
   const [modoCliente, setModoCliente] = useState(false);
-  // Inspección de recepción con IA (se abre desde la ficha del auto)
-  const [inspectingCar, setInspectingCar] = useState<Car | null>(null);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isPriceSheetOpen, setIsPriceSheetOpen] = useState(false);
   const [isStatusSheetOpen, setIsStatusSheetOpen] = useState(false);
@@ -300,7 +300,6 @@ function AppInner() {
       if (isMotorOpen) { setIsMotorOpen(false); return true; }
       // El informe se apila sobre la ficha: hay que cerrarlo antes que ella.
       if (isAutosaveReportOpen) { setIsAutosaveReportOpen(false); return true; }
-      if (inspectingCar) { setInspectingCar(null); return true; }
       if (activeCar) { setActiveCar(null); return true; }
       return false;
     });
@@ -318,7 +317,6 @@ function AppInner() {
     isCargarAutoOpen,
     isMotorOpen,
     isAutosaveReportOpen,
-    inspectingCar,
     activeCar,
   ]);
 
@@ -1007,19 +1005,6 @@ function AppInner() {
     handleWhatsapp(car.transferencia.comprador.telefono, textoWhatsappTransferencia(car, car.transferencia));
   };
 
-  // Guarda el informe de inspección IA en la ficha del auto (persiste en AsyncStorage).
-  // Las fotos se guardan por URI; el base64 solo vive en memoria durante la sesión.
-  const handleGuardarInspeccion = (report: InspectionReport) => {
-    setStock((prev) =>
-      prev.map((c) => (c.id === report.carId ? { ...c, inspeccion: report } : c)),
-    );
-    setActiveCar((prev) =>
-      prev && prev.id === report.carId ? { ...prev, inspeccion: report } : prev,
-    );
-    setInspectingCar(null);
-    showNotification('Informe de inspección guardado en la ficha del auto.');
-  };
-
   const handleEnviarOfertaSubasta = () => {
     if (!activeAuction) return;
     if (!bidAmount || bidAmount <= 0) {
@@ -1345,7 +1330,6 @@ function AppInner() {
   const stockFabBottom = bottomNavOffset + STOCK_FAB_GAP;
   const hasOpenSurface =
     !!activeCar ||
-    !!inspectingCar ||
     isFilterSheetOpen ||
     isPriceSheetOpen ||
     isStatusSheetOpen ||
@@ -1576,7 +1560,6 @@ function AppInner() {
           activeStockAuctionMap={activeStockAuctionMap}
           activeInforme={activeInforme}
           activeBloqueos={activeBloqueos}
-          setInspectingCar={setInspectingCar}
           setIsAutosaveReportOpen={setIsAutosaveReportOpen}
           handleAbrirEnvioInforme={handleAbrirEnvioInforme}
           handleAbrirTransferencia={handleAbrirTransferencia}
@@ -1613,15 +1596,6 @@ function AppInner() {
           handleTasar={handleTasar}
           handleTomarAuto={handleTomarAuto}
         />
-        {inspectingCar && (
-          <InspectionScreen
-            car={inspectingCar}
-            existingReport={inspectingCar.inspeccion ?? null}
-            onClose={() => setInspectingCar(null)}
-            onSave={handleGuardarInspeccion}
-            notify={showNotification}
-          />
-        )}
         <AltaVehiculoWizard
           isCargarAutoOpen={isCargarAutoOpen}
           setIsCargarAutoOpen={setIsCargarAutoOpen}
