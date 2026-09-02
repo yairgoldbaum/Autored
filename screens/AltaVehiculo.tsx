@@ -50,6 +50,8 @@ interface AltaVehiculoWizardProps {
   setIsCargarAutoOpen: (open: boolean) => void;
   cargarStep: number;
   setCargarStep: React.Dispatch<React.SetStateAction<number>>;
+  altaFase: 'patente' | 'fotos';
+  setAltaFase: React.Dispatch<React.SetStateAction<'patente' | 'fotos'>>;
   wizardData: WizardData;
   setWizardData: React.Dispatch<React.SetStateAction<WizardData>>;
   busquedaPatente: BusquedaPatente;
@@ -73,6 +75,8 @@ export function AltaVehiculoWizard({
   setIsCargarAutoOpen,
   cargarStep,
   setCargarStep,
+  altaFase,
+  setAltaFase,
   wizardData,
   setWizardData,
   busquedaPatente,
@@ -95,6 +99,14 @@ export function AltaVehiculoWizard({
 
   function renderWizard() {
     if (!isCargarAutoOpen) return null;
+    /* En la mitad de la patente no hay a dónde avanzar todavía: se sale de ahí
+       buscando la patente, leyéndola de una foto o eligiendo cargarlo a mano.
+       Es lo que hace que la patente sea el primer paso de verdad y no un campo
+       más que se puede saltar de largo. Deja de frenar apenas el auto tiene
+       marca: si ya se tomó una ficha y el vendedor volvió acá con "Cambiar",
+       los datos ya están y encerrarlo sería un bug. */
+    const esperandoPatente =
+      cargarStep === 1 && wizardData.id === null && altaFase === 'patente' && !wizardData.marca;
     return (
       <PageOverlay>
         {/* Sin KeyboardAvoidingView a propósito: acá lo que hace falta es que el
@@ -140,6 +152,7 @@ export function AltaVehiculoWizard({
               )}
               {cargarStep < WIZARD_PASOS ? (
                 <TouchableOpacity
+                  disabled={esperandoPatente}
                   onPress={() => {
                     if (cargarStep === 2 && (!wizardData.patente || !wizardData.marca)) {
                       showNotification('Por favor, introduce al menos la patente y la marca.', 'warning');
@@ -147,9 +160,9 @@ export function AltaVehiculoWizard({
                     }
                     setCargarStep(cargarStep + 1);
                   }}
-                  style={s.wizardNext}
+                  style={[s.wizardNext, esperandoPatente && s.wizardNextOff]}
                 >
-                  <Text style={s.wizardNextText}>Siguiente</Text>
+                  <Text style={[s.wizardNextText, esperandoPatente && s.wizardNextTextOff]}>Siguiente</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity onPress={handleGuardarAutoWizard} style={[s.wizardNext, { backgroundColor: C.teal600 }]}>
@@ -162,13 +175,62 @@ export function AltaVehiculoWizard({
     );
   }
 
+  /* El paso 1 son dos mitades, una después de la otra: primero la patente, y
+     las fotos recién cuando el auto ya está identificado (o cuando el vendedor
+     eligió cargarlo a mano). Antes estaban las dos juntas, con la cámara arriba
+     y la patente al fondo, y la patente es lo que el vendedor tiene primero:
+     escribirla trae la ficha y el paso 2 llega lleno. Al editar no hay nada que
+     buscar, así que ahí se entra derecho a las fotos. */
   function renderWizardStep1() {
+    if (wizardData.id === null && altaFase === 'patente') return renderPaso1Patente();
+    return renderPaso1Fotos();
+  }
+
+  function renderPaso1Patente() {
+    return (
+      <View style={{ gap: 16 }}>
+        <View>
+          <Text style={s.stepTitle}>Empecemos por la Patente</Text>
+          <Text style={s.stepSub}>
+            Con la patente traemos la ficha del vehículo y el resto del formulario llega lleno.
+          </Text>
+        </View>
+
+        {renderBuscarPatente()}
+      </View>
+    );
+  }
+
+  function renderPaso1Fotos() {
+    const identificado = wizardData.id === null && !!wizardData.marca;
+
     return (
       <View style={{ gap: 16 }}>
         <View>
           <Text style={s.stepTitle}>Cargar Fotos del Vehículo</Text>
           <Text style={s.stepSub}>La primera foto se convertirá en la portada del vehículo.</Text>
         </View>
+
+        {/* Qué auto se está fotografiando, con la salida para corregir la patente:
+            el "Atrás" del pie no existe en el paso 1 y sin esto no había vuelta. */}
+        {identificado ? (
+          <View style={s.altaAutoChip}>
+            <Icon name="car-side" size={16} color={C.chileanTeal} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.altaAutoChipNombre} numberOfLines={1}>
+                {wizardData.marca} {wizardData.modelo} {wizardData.anio ? `· ${wizardData.anio}` : ''}
+              </Text>
+              <Text style={s.altaAutoChipPatente}>{wizardData.patente || 'Sin patente'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setAltaFase('patente')} style={s.altaAutoChipBtn}>
+              <Text style={s.altaAutoChipBtnText}>Cambiar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* El lector de la patente también vive acá: por el camino manual se llega
+            a las fotos sin patente, y ahí la foto es la que la puede dar. */}
+        {wizardData.id === null ? renderLectorPatente() : null}
 
         {/* Cámara real */}
         <View style={s.cameraBox}>
@@ -186,7 +248,7 @@ export function AltaVehiculoWizard({
             </TouchableOpacity>
           </View>
           {/* Se avisa antes de sacar la foto, si no el lector aparece de la nada */}
-          {wizardData.id === null ? (
+          {wizardData.id === null && normalizarPatente(wizardData.patente).length < 5 ? (
             <View style={s.cameraAiHint}>
               <Icon name="wand-magic-sparkles" size={10} color={C.teal300} />
               <Text style={s.cameraAiHintText}>La patente se lee sola desde la foto</Text>
@@ -209,10 +271,11 @@ export function AltaVehiculoWizard({
           ))}
         </View>
 
-        {/* La patente va acá abajo, junto a las fotos, porque es lo otro que el
-            vendedor tiene parado al lado del auto. Escribirla evita llenar a mano
-            el paso siguiente. No aparece al editar: ahí el auto ya tiene ficha. */}
-        {wizardData.id === null ? renderBuscarPatente() : null}
+        {wizardData.fotos.length === 0 ? (
+          <Text style={s.altaManualSub}>
+            Las fotos no son obligatorias: puedes seguir y agregarlas después.
+          </Text>
+        ) : null}
       </View>
     );
   }
@@ -300,6 +363,31 @@ export function AltaVehiculoWizard({
           : null}
 
         {vigente && busquedaPatente.estado === 'sin_registro' ? renderFichaSinRegistro() : null}
+
+        {/* Las dos alternativas a escribir la patente. Desaparecen cuando hay un
+            resultado en pantalla: ahí lo que toca es tomar la ficha o llenar a
+            mano, y dejarlas puestas competía con eso. */}
+        {!buscando && !(vigente && busquedaPatente.estado !== 'idle') ? (
+          <View style={{ gap: 12 }}>
+            <View style={s.altaSepRow}>
+              <View style={s.altaSepLinea} />
+              <Text style={s.altaSepTexto}>O</Text>
+              <View style={s.altaSepLinea} />
+            </View>
+
+            <TouchableOpacity onPress={handleCapturarFoto} style={s.altaFotoBtn}>
+              <Icon name="camera" size={13} color={C.slate700} />
+              <Text style={s.altaFotoBtnText}>Sacar la foto y leer la patente</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setAltaFase('fotos')} style={s.altaManualBtn}>
+              <Text style={s.altaManualText}>Cargarlo a mano</Text>
+              <Text style={s.altaManualSub}>
+                Sin buscar en el registro: las fotos y después los datos, todo escrito por ti.
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -436,9 +524,11 @@ export function AltaVehiculoWizard({
           El registro no tiene esa patente. Revisa que esté bien escrita o sigue y llena la ficha
           del auto a mano: la patente ya queda guardada.
         </Text>
-        <TouchableOpacity onPress={() => setCargarStep(2)} style={s.fichaManualBtn}>
+        {/* Sigue por las fotos, igual que el camino con ficha: la patente ya quedó
+            escrita y el auto está delante del vendedor. */}
+        <TouchableOpacity onPress={() => setAltaFase('fotos')} style={s.fichaManualBtn}>
           <Icon name="pen" size={12} color={C.amber700} />
-          <Text style={s.fichaManualText}>Llenar los datos a mano</Text>
+          <Text style={s.fichaManualText}>Seguir y llenar los datos a mano</Text>
         </TouchableOpacity>
       </View>
     );

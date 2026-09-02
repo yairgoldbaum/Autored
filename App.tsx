@@ -257,6 +257,13 @@ function AppInner() {
   // Wizard cargar auto
   const [isCargarAutoOpen, setIsCargarAutoOpen] = useState(false);
   const [cargarStep, setCargarStep] = useState(1);
+  /* El paso 1 del alta tiene dos mitades y esto dice en cuál estás. Primero la
+     patente ('patente'), y las fotos aparecen recién después: cuando se tomó la
+     ficha encontrada, cuando el registro no la tiene, o cuando el vendedor
+     eligió cargarlo a mano. Las aperturas que YA traen el auto identificado
+     (editar, subasta, tasación del Motor) arrancan derecho en 'fotos', porque
+     ahí no hay ninguna patente que buscar. */
+  const [altaFase, setAltaFase] = useState<'patente' | 'fotos'>('patente');
   const [wizardData, setWizardData] = useState<WizardData>(makeEmptyWizard());
   const [busquedaPatente, setBusquedaPatente] = useState(makeBusquedaPatente());
   const [lecturaPatente, setLecturaPatente] = useState(makeLecturaPatente());
@@ -612,6 +619,7 @@ function AppInner() {
     });
     setBusquedaPatente(makeBusquedaPatente());
     setLecturaPatente(makeLecturaPatente());
+    setAltaFase('fotos');
     setCargarStep(1);
     setIsCargarAutoOpen(true);
   };
@@ -622,6 +630,7 @@ function AppInner() {
     setBusquedaPatente(makeBusquedaPatente());
     setLecturaPatente(makeLecturaPatente());
     setDocumentDraft({ tipo: '', nombre: '', fechaVencimiento: '', archivoNombre: '' });
+    setAltaFase('patente');
     setCargarStep(1);
     setIsCargarAutoOpen(true);
   };
@@ -666,8 +675,11 @@ function AppInner() {
       // pero no pisa el que el vendedor haya escrito mirando el tablero.
       km: prev.km || ficha.kmPermiso,
     }));
-    setCargarStep(2);
-    showNotification(`Datos de ${ficha.marca} ${ficha.modelo} cargados. Revísalos antes de seguir.`);
+    /* No salta al paso 2: se queda en el 1 y abre la mitad de las fotos, que es
+       lo que sigue apenas el auto quedó identificado. Los datos se revisan
+       después, ya cargados. */
+    setAltaFase('fotos');
+    showNotification(`Datos de ${ficha.marca} ${ficha.modelo} cargados. Ahora las fotos.`);
   };
 
   /* Lector de patente de la foto. Corre solo mientras el auto no tenga patente:
@@ -740,6 +752,7 @@ function AppInner() {
     setDocumentDraft({ tipo: '', nombre: '', fechaVencimiento: '', archivoNombre: '' });
     setBusquedaPatente(makeBusquedaPatente());
     setLecturaPatente(makeLecturaPatente());
+    setAltaFase('fotos');
     setCargarStep(1);
     setIsCargarAutoOpen(true);
   };
@@ -799,6 +812,7 @@ function AppInner() {
     setBusquedaPatente(makeBusquedaPatente());
     setLecturaPatente(makeLecturaPatente());
     setDocumentDraft({ tipo: '', nombre: '', fechaVencimiento: '', archivoNombre: '' });
+    setAltaFase('fotos');
     setCargarStep(1);
     setIsCargarAutoOpen(true);
   };
@@ -1699,6 +1713,8 @@ function AppInner() {
           setIsCargarAutoOpen={setIsCargarAutoOpen}
           cargarStep={cargarStep}
           setCargarStep={setCargarStep}
+          altaFase={altaFase}
+          setAltaFase={setAltaFase}
           wizardData={wizardData}
           setWizardData={setWizardData}
           busquedaPatente={busquedaPatente}
