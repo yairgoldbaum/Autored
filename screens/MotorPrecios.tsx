@@ -1,36 +1,44 @@
 import React from 'react';
-import {
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { C, fmtCLP, fmtMiles } from '../src/theme';
-import { Icon, PageOverlay, Spinner } from '../src/ui';
+import { Icon, Spinner } from '../src/ui';
 import { s } from '../src/styles';
-import { PATENTES_DEMO, Tasacion, normalizarPatente } from '../src/pricing';
+import {
+  ETIQUETA_COMERCIALIDAD,
+  PATENTES_DEMO,
+  RangoPrecio,
+  TasacionAutored,
+  normalizarPatente,
+} from '../src/pricing';
 
-interface MotorPreciosOverlayProps {
-  isMotorOpen: boolean;
-  setIsMotorOpen: (open: boolean) => void;
+interface MotorPreciosScreenProps {
   motorPatente: string;
   setMotorPatente: React.Dispatch<React.SetStateAction<string>>;
   motorKm: string;
   setMotorKm: React.Dispatch<React.SetStateAction<string>>;
   motorCalculando: boolean;
-  tasacion: Tasacion | null;
-  setTasacion: React.Dispatch<React.SetStateAction<Tasacion | null>>;
+  tasacion: TasacionAutored | null;
+  setTasacion: React.Dispatch<React.SetStateAction<TasacionAutored | null>>;
   handleTasar: () => void;
   handleTomarAuto: () => void;
 }
 
-/* ======================= MOTOR DE PRECIOS ======================= */
-export function MotorPreciosOverlay({
-  isMotorOpen,
-  setIsMotorOpen,
+/* Motor de Precios con la cara de Autored (ronda 3, punto 6). Arriba la estructura de
+   david-pantallas-4.png (AutoRed Analytics): búsqueda por patente, las tres tarjetas
+   de precio con su rango, la comercialidad en estrellas y el resumen del vehículo.
+   Abajo, la lista de publicaciones similares de david-pantallas-3.png, que es lo que
+   avala esos precios.
+
+   Las dos capturas van en una sola pantalla: David dijo que las dos servían de
+   contexto pero no dijo cómo combinarlas, y en un teléfono no caben dos.
+
+   Lo que se perdió respecto de la versión anterior: el rango de oferta y el margen,
+   que no existen en el motor de ellos. Vale preguntárselo a Autored cuando salgan con
+   clientes reales. Las tasaciones fiscales, los precios 0 km y el estado del vehículo
+   del screenshot quedan fuera: son tablas anchas que en móvil piden diseño propio y
+   David pidió grandes rasgos. */
+export function MotorPreciosScreen({
   motorPatente,
   setMotorPatente,
   motorKm,
@@ -40,225 +48,200 @@ export function MotorPreciosOverlay({
   setTasacion,
   handleTasar,
   handleTomarAuto,
-}: MotorPreciosOverlayProps) {
-  const insets = useSafeAreaInsets();
+}: MotorPreciosScreenProps) {
+  const patenteOk = normalizarPatente(motorPatente).length >= 5;
+  const kmNum = parseInt(motorKm.replace(/\D/g, ''), 10) || 0;
+  const listo = patenteOk && kmNum > 0;
 
-  return renderMotorPrecios();
+  return (
+    <View style={{ gap: 22 }}>
+      <View>
+        <Text style={s.h2Black}>Motor de Precios</Text>
+        <Text style={s.subMuted}>Pon una patente y mira a cuánto se está moviendo ese auto</Text>
+      </View>
 
-  function renderMotorPrecios() {
-    if (!isMotorOpen) return null;
-    const patenteOk = normalizarPatente(motorPatente).length >= 5;
-    const kmNum = parseInt(motorKm.replace(/\D/g, ''), 10) || 0;
-    const listo = patenteOk && kmNum > 0;
-
-    return (
-      <PageOverlay>
-        {/* Sin KeyboardAvoidingView a propósito: acá lo que hace falta es que el
-            campo enfocado suba sobre el teclado, y de eso se encarga
-            `automaticallyAdjustKeyboardInsets` en el ScrollView de abajo.
-            Envolver todo en un KAV solo achicaba la pantalla sin mover el campo. */}
-        <View style={{ flex: 1 }}>
-          {/* Header */}
-          <View style={[s.overlayHeader, { paddingTop: insets.top + 16 }]}>
-            <TouchableOpacity onPress={() => setIsMotorOpen(false)} style={s.rowCenter}>
-              <Icon name="xmark" size={18} color={C.slate400} />
-              <Text style={s.cancelText}> Cerrar</Text>
-            </TouchableOpacity>
-            <Text style={s.overlayTitle}>Motor de Precios</Text>
-            <View style={s.stepPill}>
-              <Text style={s.stepPillText}>Demo</Text>
-            </View>
-          </View>
-
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 32 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets
-          >
-            <View>
-              <Text style={s.stepTitle}>Tasación express</Text>
-              <Text style={s.stepSub}>
-                El cliente te ofrece su auto. Ingresa la patente y el kilometraje para saber cuánto puedes pagarle.
-              </Text>
-            </View>
-
-            {/* Paso 1: patente */}
-            <View style={s.motorField}>
-              <Text style={s.fieldLabel}>1. Patente del vehículo</Text>
-              <TextInput
-                placeholder="KDPT45"
-                placeholderTextColor={C.slate400}
-                maxLength={6}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                value={motorPatente}
-                onChangeText={(t) => {
-                  setMotorPatente(normalizarPatente(t));
+      {/* Búsqueda */}
+      <View style={[s.detailTechCard, { gap: 14 }]}>
+        <View style={{ gap: 8 }}>
+          <Text style={s.sectionLabel}>Patente</Text>
+          <TextInput
+            placeholder="XXXX00"
+            placeholderTextColor={C.slate300}
+            maxLength={6}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            value={motorPatente}
+            onChangeText={(t) => {
+              setMotorPatente(normalizarPatente(t));
+              setTasacion(null);
+            }}
+            style={s.patenteInput}
+          />
+          <View style={s.motorDemoRow}>
+            <Text style={s.motorDemoLabel}>Prueba con:</Text>
+            {PATENTES_DEMO.map((p) => (
+              <TouchableOpacity
+                key={p}
+                onPress={() => {
+                  setMotorPatente(p);
                   setTasacion(null);
                 }}
-                style={s.patenteInput}
-              />
-              <View style={s.motorDemoRow}>
-                <Text style={s.motorDemoLabel}>Prueba con:</Text>
-                {PATENTES_DEMO.map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    onPress={() => {
-                      setMotorPatente(p);
-                      setTasacion(null);
-                    }}
-                    style={s.motorDemoChip}
-                  >
-                    <Text style={s.motorDemoChipText}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Paso 2: kilometraje */}
-            <View style={s.motorField}>
-              <Text style={s.fieldLabel}>2. Kilometraje</Text>
-              <View style={s.motorKmWrap}>
-                <TextInput
-                  placeholder="58000"
-                  placeholderTextColor={C.slate400}
-                  keyboardType="number-pad"
-                  value={motorKm}
-                  onChangeText={(t) => {
-                    setMotorKm(t.replace(/\D/g, ''));
-                    setTasacion(null);
-                  }}
-                  style={s.motorKmInput}
-                />
-                <Text style={s.motorKmSuffix}>km</Text>
-              </View>
-              {kmNum > 0 && <Text style={s.motorKmHint}>{fmtMiles(kmNum)} km recorridos</Text>}
-            </View>
-
-            {/* Botón tasar */}
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={handleTasar}
-              disabled={!listo || motorCalculando}
-              style={[s.motorTasarBtn, (!listo || motorCalculando) && { backgroundColor: C.slate300 }]}
-            >
-              {motorCalculando ? (
-                <Spinner size={14} color={C.white} />
-              ) : (
-                <Icon name="bolt" size={14} color={C.white} />
-              )}
-              <Text style={s.motorTasarText}>
-                {motorCalculando ? 'Calculando precio…' : 'Calcular oferta'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Resultado */}
-            {tasacion && renderTasacion(tasacion)}
-          </ScrollView>
-        </View>
-      </PageOverlay>
-    );
-  }
-
-  function renderTasacion(t: Tasacion) {
-    const v = t.vehiculo;
-    const kmSobre = t.km > t.kmEsperado;
-    return (
-      <View style={{ gap: 16 }}>
-        {/* Auto identificado */}
-        <View style={s.motorCarBox}>
-          <View style={s.motorCarIcon}>
-            <Icon name="car-side" size={18} color={C.teal700} />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={s.motorCarTitle}>
-              {v.marca} {v.modelo} {v.anio}
-            </Text>
-            <Text style={s.motorCarSub}>
-              {v.version} · {v.transmision} · {v.combustible}
-            </Text>
-          </View>
-          <View style={s.motorConfTag}>
-            <Text style={s.motorConfText}>{t.confianza}% confianza</Text>
+                style={s.motorDemoChip}
+              >
+                <Text style={s.motorDemoChipText}>{p}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
-        {/* LA CIFRA: rango de compra */}
-        <View style={s.motorResultBox}>
-          <Text style={s.motorResultLabel}>Ofrécele al cliente entre</Text>
-          <Text style={s.motorResultRange} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-            {fmtCLP(t.ofertaMin)}
-          </Text>
-          <Text style={s.motorResultAnd}>y</Text>
-          <Text style={s.motorResultRange} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-            {fmtCLP(t.ofertaMax)}
-          </Text>
-          <View style={s.motorResultFoot}>
-            <Icon name="circle-info" size={11} color={C.teal200} />
-            <Text style={s.motorResultFootText}>
-              Equivale a un 25%–30% bajo el precio de venta. Parte ofreciendo el piso.
-            </Text>
-          </View>
-        </View>
-
-        {/* Cómo se llegó a la cifra */}
-        <View style={s.motorBreakdown}>
-          <Text style={s.motorBreakTitle}>Cómo se calculó</Text>
-
-          <View style={s.motorBreakRow}>
-            <Text style={s.motorBreakLabel}>Precio de venta estimado</Text>
-            <Text style={s.motorBreakValueStrong}>{fmtCLP(t.precioVenta)}</Text>
-          </View>
-          <View style={s.motorBreakRow}>
-            <Text style={s.motorBreakLabel}>Referencia de mercado {v.anio}</Text>
-            <Text style={s.motorBreakValue}>{fmtCLP(v.referencia)}</Text>
-          </View>
-          <View style={s.motorBreakRow}>
-            <Text style={s.motorBreakLabel}>
-              Ajuste por kilometraje ({fmtMiles(t.km)} vs {fmtMiles(t.kmEsperado)} esperados)
-            </Text>
-            <Text style={[s.motorBreakValue, { color: kmSobre ? C.red600 : C.emerald600 }]}>
-              {t.ajusteKm >= 0 ? '+' : '−'}
-              {fmtCLP(Math.abs(t.ajusteKm)).replace('-', '')}
-            </Text>
-          </View>
-          <View style={[s.motorBreakRow, s.motorBreakRowLast]}>
-            <Text style={s.motorBreakLabel}>Tu margen bruto</Text>
-            <Text style={[s.motorBreakValueStrong, { color: C.emerald600 }]}>
-              {fmtCLP(t.margenMin)} – {fmtCLP(t.margenMax)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Comparables imaginarios */}
         <View style={{ gap: 8 }}>
-          <Text style={s.sectionLabel}>Publicaciones similares</Text>
-          {t.comparables.map((c) => (
-            <View key={c.fuente} style={s.motorCompRow}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={s.motorCompTitle} numberOfLines={1}>
-                  {c.titulo}
+          <Text style={s.sectionLabel}>Kilometraje</Text>
+          <View style={s.motorKmWrap}>
+            <TextInput
+              placeholder="58000"
+              placeholderTextColor={C.slate400}
+              keyboardType="number-pad"
+              value={motorKm}
+              onChangeText={(t) => {
+                setMotorKm(t.replace(/\D/g, ''));
+                setTasacion(null);
+              }}
+              style={s.motorKmInput}
+            />
+            <Text style={s.motorKmSuffix}>km</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleTasar}
+          disabled={!listo || motorCalculando}
+          style={[s.motorTasarBtn, (!listo || motorCalculando) && { backgroundColor: C.slate300 }]}
+        >
+          {motorCalculando ? <Spinner size={14} color={C.white} /> : <Icon name="magnifying-glass" size={13} color={C.white} />}
+          <Text style={s.motorTasarText}>{motorCalculando ? 'Buscando precios…' : 'Buscar'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {tasacion ? renderResultado(tasacion) : null}
+    </View>
+  );
+
+  function renderResultado(t: TasacionAutored) {
+    const v = t.vehiculo;
+    return (
+      <View style={{ gap: 22 }}>
+        {/* Título y comercialidad, como el encabezado del resultado de ellos */}
+        <View style={{ gap: 8 }}>
+          <Text style={s.h2Black}>
+            {v.marca} {v.modelo} {v.anio}
+          </Text>
+          <View style={[s.mpEstrellas, { gap: 6 }]}>
+            <Text style={s.mpComercialidadText}>Comercialidad:</Text>
+            <View style={s.mpEstrellas}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Icon
+                  key={i}
+                  name="star"
+                  size={12}
+                  color={i <= t.comercialidad ? C.amber500 : C.slate200}
+                />
+              ))}
+            </View>
+            <Text style={[s.mpComercialidadText, { color: C.slate400 }]}>
+              {ETIQUETA_COMERCIALIDAD[t.comercialidad]}
+            </Text>
+          </View>
+        </View>
+
+        {/* Los tres precios. El de venta va destacado, como en la captura. */}
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {renderPrecio('Precio de toma', t.precioToma, t.rangoToma, false)}
+            {renderPrecio('Precio de publicación', t.precioPublicacion, t.rangoPublicacion, false)}
+          </View>
+          {renderPrecio('Precio de venta', t.precioVenta, t.rangoVenta, true)}
+          <Text style={[s.mpPubMeta, { textAlign: 'center' }]}>
+            Precios calculados para un vehículo con {fmtMiles(t.km)} km
+          </Text>
+        </View>
+
+        {/* Resumen del vehículo */}
+        <View style={s.detailTechCard}>
+          <Text style={s.detailTechTitle}>Resumen del vehículo</Text>
+          <View style={s.mpResumenRow}>
+            <Text style={s.mpResumenLabel}>Patente</Text>
+            <Text style={s.mpResumenValor}>{t.patente}</Text>
+          </View>
+          <View style={s.mpResumenRow}>
+            <Text style={s.mpResumenLabel}>Versión</Text>
+            <Text style={s.mpResumenValor} numberOfLines={1}>
+              {v.version}
+            </Text>
+          </View>
+          <View style={s.mpResumenRow}>
+            <Text style={s.mpResumenLabel}>Transmisión</Text>
+            <Text style={s.mpResumenValor}>{v.transmision}</Text>
+          </View>
+          <View style={[s.mpResumenRow, { borderBottomWidth: 0 }]}>
+            <Text style={s.mpResumenLabel}>Combustible</Text>
+            <Text style={s.mpResumenValor}>{v.combustible}</Text>
+          </View>
+        </View>
+
+        {/* Publicaciones que avalan los precios */}
+        <View style={{ gap: 8 }}>
+          <Text style={s.sectionLabel}>
+            Publicaciones similares ({t.publicaciones.length})
+          </Text>
+          {t.publicaciones.map((pub, i) => (
+            <View key={`${pub.titulo}-${i}`} style={s.mpPubRow}>
+              <Text style={s.mpPubTitulo} numberOfLines={1}>
+                {pub.titulo}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <Text style={s.mpPubMeta} numberOfLines={1}>
+                  {fmtMiles(pub.km)} km · {pub.ubicacion}
                 </Text>
-                <Text style={s.motorCompSub}>
-                  {c.fuente} · {fmtMiles(c.km)} km
-                </Text>
+                <Text style={s.mpPubPrecio}>{fmtCLP(pub.precio)}</Text>
               </View>
-              <Text style={s.motorCompPrice}>{fmtCLP(c.precio)}</Text>
             </View>
           ))}
         </View>
 
-        {/* Acciones */}
-        <TouchableOpacity activeOpacity={0.9} onPress={handleTomarAuto} style={s.motorTakeBtn}>
-          <Icon name="plus" size={13} color={C.white} />
-          <Text style={s.motorTakeText}>Cerrar trato y cargar al stock</Text>
+        {/* Se conserva de la versión anterior: pasar del motor al alta con el auto
+            precargado. No está en la pantalla de Autored, pero es el único puente que
+            había entre tasar y cargar, y el precio de toma lo hace natural. */}
+        <TouchableOpacity activeOpacity={0.85} onPress={handleTomarAuto} style={s.asCtaDark}>
+          <Text style={s.asCtaDarkText}>Tomar este auto</Text>
+          <Icon name="arrow-right" size={12} color={C.white} />
         </TouchableOpacity>
+      </View>
+    );
+  }
 
-        <Text style={s.motorDisclaimer}>
-          Prueba de concepto: valores simulados localmente, sin conexión a una base de datos real.
+  function renderPrecio(label: string, valor: number, rango: RangoPrecio, fuerte: boolean) {
+    return (
+      <View style={[s.mpPrecioCard, fuerte && s.mpPrecioCardFuerte]}>
+        <Text style={[s.mpPrecioLabel, fuerte && s.mpPrecioLabelFuerte]}>{label}</Text>
+        <Text
+          style={[s.mpPrecioValor, fuerte && s.mpPrecioValorFuerte]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {fmtCLP(valor)}
         </Text>
+        <Text style={s.mpRangoLabel}>RANGO</Text>
+        <View style={s.mpRangoRow}>
+          <View style={[s.mpRangoPill, fuerte && s.mpRangoPillFuerte]}>
+            <Text style={[s.mpRangoText, fuerte && s.mpRangoTextFuerte]}>{fmtCLP(rango.min)}</Text>
+          </View>
+          <Icon name="left-right" size={9} color={fuerte ? C.slate400 : C.slate300} />
+          <View style={[s.mpRangoPill, fuerte && s.mpRangoPillFuerte]}>
+            <Text style={[s.mpRangoText, fuerte && s.mpRangoTextFuerte]}>{fmtCLP(rango.max)}</Text>
+          </View>
+        </View>
       </View>
     );
   }

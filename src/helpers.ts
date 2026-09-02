@@ -31,6 +31,7 @@ export type TabKey =
   | 'clientes'
   | 'informes'
   | 'transferencias'
+  | 'motor'
   | 'subastas'
   | 'kpis';
 

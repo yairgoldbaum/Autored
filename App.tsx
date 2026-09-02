@@ -41,12 +41,12 @@ import { Icon } from './src/ui';
 import { s } from './src/styles';
 import { loadState, saveState } from './src/storage';
 import {
-  Tasacion,
+  TasacionAutored,
   buscarFichaPatente,
   buscarPatente,
   leerPatenteEnFoto,
   normalizarPatente,
-  tasar,
+  tasarAutored,
 } from './src/pricing';
 import {
   PRECIO_COPIA_INFORME,
@@ -113,7 +113,7 @@ import {
   SubastasScreen,
 } from './screens/Subastas';
 import { ClientesScreen, NewClientSheet } from './screens/Clientes';
-import { MotorPreciosOverlay } from './screens/MotorPrecios';
+import { MotorPreciosScreen } from './screens/MotorPrecios';
 import { AltaVehiculoWizard } from './screens/AltaVehiculo';
 import { FichaAuto, PriceSheet, StatusSheet } from './screens/FichaAuto';
 import { EnvioInformeSheet, InformeAutosaveOverlay } from './screens/InformeAutosave';
@@ -234,11 +234,10 @@ function AppInner() {
   const [bottomNavHeight, setBottomNavHeight] = useState(0);
 
   // Motor de precios (tasación rápida, datos simulados)
-  const [isMotorOpen, setIsMotorOpen] = useState(false);
   const [motorPatente, setMotorPatente] = useState('');
   const [motorKm, setMotorKm] = useState('');
   const [motorCalculando, setMotorCalculando] = useState(false);
-  const [tasacion, setTasacion] = useState<Tasacion | null>(null);
+  const [tasacion, setTasacion] = useState<TasacionAutored | null>(null);
 
   // Wizard cargar auto
   const [isCargarAutoOpen, setIsCargarAutoOpen] = useState(false);
@@ -312,7 +311,6 @@ function AppInner() {
       if (isNewClientSheetOpen) { setIsNewClientSheetOpen(false); return true; }
       if (isEnvioInformeSheetOpen) { setIsEnvioInformeSheetOpen(false); return true; }
       if (isCargarAutoOpen) { setIsCargarAutoOpen(false); return true; }
-      if (isMotorOpen) { setIsMotorOpen(false); return true; }
       if (isNuevaSolicitudOpen) { setIsNuevaSolicitudOpen(false); return true; }
       // El informe se apila sobre la ficha: hay que cerrarlo antes que ella.
       if (isAutosaveReportOpen) { setIsAutosaveReportOpen(false); return true; }
@@ -332,7 +330,6 @@ function AppInner() {
     isNewClientSheetOpen,
     isEnvioInformeSheetOpen,
     isCargarAutoOpen,
-    isMotorOpen,
     isNuevaSolicitudOpen,
     isAutosaveReportOpen,
     informeAbierto,
@@ -537,12 +534,14 @@ function AppInner() {
   }, [customers, clienteSearch, clienteFiltro, stockById, relacionesPorCliente]);
 
   /* ------------------- Motor de precios ------------------- */
+  /* El Motor es una pestaña desde la ronda 3 (punto 1): tocarlo en la barra limpia lo
+     de la consulta anterior y lleva a su pantalla, no abre una ventana encima. */
   const handleAbrirMotor = () => {
     setMotorPatente('');
     setMotorKm('');
     setTasacion(null);
     setMotorCalculando(false);
-    setIsMotorOpen(true);
+    setActiveTab('motor');
   };
 
   const handleTasar = () => {
@@ -559,7 +558,7 @@ function AppInner() {
     setTasacion(null);
     setMotorCalculando(true);
     setTimeout(() => {
-      setTasacion(tasar(vehiculo, km));
+      setTasacion(tasarAutored(vehiculo, km, motorPatente));
       setMotorCalculando(false);
     }, 700);
   };
@@ -580,13 +579,14 @@ function AppInner() {
       combustible: vehiculo.combustible,
       origen: 'Captación directa',
       precioVenta: tasacion.precioVenta,
-      costoAdquisicion: tasacion.ofertaMin,
-      comentario: `Tasado con Motor de Precios. Rango de compra ${fmtCLP(tasacion.ofertaMin)} – ${fmtCLP(tasacion.ofertaMax)}.`,
+      // El motor de Autored no da rango de oferta: lo que propone pagar es el precio
+      // de toma, que es justamente el dato exclusivo de ellos.
+      costoAdquisicion: tasacion.precioToma,
+      comentario: `Tasado con el Motor de Precios. Precio de toma ${fmtCLP(tasacion.precioToma)}, rango ${fmtCLP(tasacion.rangoToma.min)} – ${fmtCLP(tasacion.rangoToma.max)}.`,
     });
     setBusquedaPatente(makeBusquedaPatente());
     setLecturaPatente(makeLecturaPatente());
     setCargarStep(1);
-    setIsMotorOpen(false);
     setIsCargarAutoOpen(true);
   };
 
@@ -1350,7 +1350,6 @@ function AppInner() {
     isNewClientSheetOpen ||
     isEnvioInformeSheetOpen ||
     isCargarAutoOpen ||
-    isMotorOpen ||
     isNuevaSolicitudOpen ||
     !!informeAbierto ||
     isAutosaveReportOpen;
@@ -1496,6 +1495,19 @@ function AppInner() {
               handleAbrirNuevaSolicitud={handleAbrirNuevaSolicitud}
             />
           )}
+          {activeTab === 'motor' && (
+            <MotorPreciosScreen
+              motorPatente={motorPatente}
+              setMotorPatente={setMotorPatente}
+              motorKm={motorKm}
+              setMotorKm={setMotorKm}
+              motorCalculando={motorCalculando}
+              tasacion={tasacion}
+              setTasacion={setTasacion}
+              handleTasar={handleTasar}
+              handleTomarAuto={handleTomarAuto}
+            />
+          )}
           {activeTab === 'kpis' && (
             <KpisScreen
               kpis={kpis}
@@ -1551,13 +1563,11 @@ function AppInner() {
             active={activeTab === 'transferencias'}
             onPress={() => setActiveTab('transferencias')}
           />
-          {/* El Motor sigue siendo un overlay y no un `TabKey`: pasa a pestaña de
-              verdad cuando se rehaga con la cara de Autored (punto 6). */}
           <NavButton
             icon="gauge-high"
             label="Motor de Precios"
             showLabel={false}
-            active={isMotorOpen}
+            active={activeTab === 'motor'}
             onPress={handleAbrirMotor}
           />
         </View>
@@ -1627,19 +1637,6 @@ function AppInner() {
           onCerrar={() => setIsNuevaSolicitudOpen(false)}
           tipoElegido={trTipoElegido}
           setTipoElegido={setTrTipoElegido}
-        />
-        <MotorPreciosOverlay
-          isMotorOpen={isMotorOpen}
-          setIsMotorOpen={setIsMotorOpen}
-          motorPatente={motorPatente}
-          setMotorPatente={setMotorPatente}
-          motorKm={motorKm}
-          setMotorKm={setMotorKm}
-          motorCalculando={motorCalculando}
-          tasacion={tasacion}
-          setTasacion={setTasacion}
-          handleTasar={handleTasar}
-          handleTomarAuto={handleTomarAuto}
         />
         <AltaVehiculoWizard
           isCargarAutoOpen={isCargarAutoOpen}

@@ -202,3 +202,130 @@ export function tasar(vehiculo: VehiculoRegistro, km: number): Tasacion {
     comparables,
   };
 }
+
+/* ======================= MOTOR DE AUTORED (ronda 3, punto 6) =======================
+   Reemplaza a `tasar` en la pantalla. David mostró dos capturas y dijo que las dos
+   servían de contexto: "acá tenemos un buscador de precios que estamos migrando,
+   este es nuestro nuevo motor de precio pero el diseño es más parecido a este,
+   entonces va a necesitar como los dos. Básicamente tú pones una patente y te da
+   precios promedio y te muestra publicaciones similares que avalan estos precios".
+   Y el nivel: "esta sí la pueden construir, no a nivel de tanto detalle, pero como a
+   grandes rasgos, porque es una pura página".
+
+   Los tres precios son la razón de ser del motor de ellos: el de toma es el dato
+   exclusivo de Autored, el que le da margen a la compraventa; el de publicación sale
+   de scrapear Mercado Libre y Chileautos; el de venta, del registro civil. */
+
+export interface RangoPrecio {
+  min: number;
+  max: number;
+}
+
+export interface PublicacionSimilar {
+  titulo: string;
+  km: number;
+  ubicacion: string;
+  precio: number;
+}
+
+export interface TasacionAutored {
+  vehiculo: VehiculoRegistro;
+  patente: string;
+  km: number;
+  precioToma: number;
+  rangoToma: RangoPrecio;
+  precioVenta: number;
+  rangoVenta: RangoPrecio;
+  precioPublicacion: number;
+  rangoPublicacion: RangoPrecio;
+  /* De 1 a 5 estrellas, derivada de cuántas publicaciones comparables hay: pocas
+     publicaciones es un auto que se mueve poco. Es el mismo criterio que hace
+     creíble el número y no pide inventar otra serie. */
+  comercialidad: number;
+  publicaciones: PublicacionSimilar[];
+}
+
+/* Las ubicaciones son las que se ven en la tabla real de Autored
+   (david-pantallas-3.png), para que las publicaciones no suenen inventadas. */
+const UBICACIONES = [
+  'Talca, Maule',
+  'Concepción, Bío Bío',
+  'Rancagua, O’Higgins',
+  'Temuco, Araucanía',
+  'La Florida, Metropolitana',
+  'Colina, Metropolitana',
+  'Mejillones, Antofagasta',
+  'Puerto Montt, Los Lagos',
+  'Valdivia, Los Ríos',
+  'Antofagasta, Antofagasta',
+  'Viña del Mar, Valparaíso',
+  'Ñuñoa, Metropolitana',
+];
+
+export const ETIQUETA_COMERCIALIDAD = ['', 'Muy baja', 'Baja', 'Media', 'Alta', 'Muy alta'];
+
+/* Las brechas salen de la captura real: el de toma bastante abajo del de venta
+   (10.320.000 contra 12.590.000, un 82%) y el de publicación apenas arriba
+   (13.090.000, un 104%). Se hacen variar por patente para que no se note que es una
+   fórmula: si alguien prueba tres patentes seguidas en una reunión y las tres tienen
+   la misma proporción, la simulación se delata. La variación es determinista, así que
+   la demo es repetible. */
+export function tasarAutored(vehiculo: VehiculoRegistro, km: number, patenteRaw: string): TasacionAutored {
+  const patente = normalizarPatente(patenteRaw);
+  const h = hash(`${patente}${vehiculo.marca}${vehiculo.modelo}${vehiculo.anio}`);
+
+  const antiguedad = Math.max(1, ANIO_ACTUAL - vehiculo.anio);
+  const kmEsperado = antiguedad * KM_POR_ANIO;
+  const tope = vehiculo.referencia * 0.18;
+  const ajusteKm = Math.max(-tope, Math.min(tope, (kmEsperado - km) * PESOS_POR_KM));
+  const precioVenta = round10k(vehiculo.referencia + ajusteKm);
+
+  /* Toma entre el 77% y el 85% del de venta; publicación entre el 102% y el 107%.
+     En pasos de medio punto y no de uno entero: con ocho valores posibles, probar
+     cuatro patentes en una reunión ya repetía la misma proporción dos veces. */
+  const factorToma = 0.77 + ((h >>> 2) % 17) / 200;
+  const factorPublicacion = 1.02 + ((h >>> 6) % 11) / 200;
+  const precioToma = round10k(precioVenta * factorToma);
+  const precioPublicacion = round10k(precioVenta * factorPublicacion);
+
+  // La amplitud del rango también varía: en la captura va del 8% al 11%.
+  const rango = (centro: number, semilla: number): RangoPrecio => {
+    const amplitud = 0.08 + ((h >>> semilla) % 7) / 200;
+    return { min: round10k(centro * (1 - amplitud)), max: round10k(centro * (1 + amplitud)) };
+  };
+
+  /* Entre 2 y 13 publicaciones, que es el orden de magnitud de la captura ("Cantidad
+     publicaciones 11", "1-10 de 14 resultados"). De ahí sale la comercialidad. */
+  const cantidad = 2 + ((h >>> 10) % 12);
+  const publicaciones: PublicacionSimilar[] = Array.from({ length: cantidad }, (_, i) => {
+    /* El índice va PRIMERO en la semilla, no al final. Con `${patente}pub${i}` los
+       hashes de publicaciones consecutivas se diferenciaban en 1, así que al
+       desplazar bits (>>> 5, >>> 11) el km y la ubicación salían idénticos en las
+       ocho filas y la lista parecía rota. */
+    const g = hash(`${i}|${patente}|pub`);
+    const varPrecio = (((g % 19) - 9) / 100) * precioPublicacion; // ±9%
+    const varKm = ((g >>> 5) % 61) - 30; // ±30.000 km
+    return {
+      titulo: `${vehiculo.anio} ${vehiculo.marca} ${vehiculo.modelo} ${vehiculo.version}`,
+      km: Math.max(5000, Math.round((km + varKm * 1000) / 500) * 500),
+      ubicacion: UBICACIONES[(g >>> 11) % UBICACIONES.length],
+      precio: round10k(precioPublicacion + varPrecio),
+    };
+  }).sort((a, b) => b.precio - a.precio);
+
+  const comercialidad = cantidad <= 2 ? 1 : cantidad <= 4 ? 2 : cantidad <= 7 ? 3 : cantidad <= 10 ? 4 : 5;
+
+  return {
+    vehiculo,
+    patente,
+    km,
+    precioToma,
+    rangoToma: rango(precioToma, 14),
+    precioVenta,
+    rangoVenta: rango(precioVenta, 18),
+    precioPublicacion,
+    rangoPublicacion: rango(precioPublicacion, 22),
+    comercialidad,
+    publicaciones,
+  };
+}
