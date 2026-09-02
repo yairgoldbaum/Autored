@@ -112,8 +112,13 @@ export function KpisScreen({
           />
         </View>
         <View style={s.kpiRow}>
+          {/* "Ese margen total yo lo pondria como utilidad total, como se refiere a
+              cuánto han ganado en el fondo en el mes" (David, ronda 3, punto 11).
+              Solo cambia la etiqueta. "Margen promedio", que está justo arriba, se
+              queda como está: David no lo mencionó y cambiarlo por cuenta propia es
+              inventar. Que las dos palabras convivan quedó como pregunta abierta. */}
           <KpiCard
-            label="Margen total"
+            label="Utilidad total"
             value={fmtCLP(kpisMes.margenTotal)}
             insight="del mes completo"
             color={C.emerald600}
