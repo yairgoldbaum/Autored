@@ -97,6 +97,8 @@ import {
 } from './src/helpers';
 import { NOTIF_MS, NavButton, NotificationBanner } from './components/shared';
 import { KpisScreen } from './screens/Kpis';
+import { InformesScreen } from './screens/Informes';
+import { TransferenciasScreen } from './screens/Transferencias';
 import { FilterSheet, StockScreen } from './screens/Stock';
 import {
   AuctionBidSheet,
@@ -1373,12 +1375,19 @@ function AppInner() {
           ]}
         >
           <Image source={require('./logoauto.jpg')} style={s.logoImg} resizeMode="contain" />
-          {/* Lo que salió de la barra inferior pero sigue en la app: el Motor de
-              Precios (era la pantalla de Inicio) y Subastas, que espera la
-              decisión de Autored sobre si sale de la app (punto 46). */}
+          {/* Lo que no está en la barra pero sigue en la app: KPIs, que David sacó de
+              abajo el 21-08 ("los gallos lo hacen una vez al año cuando pagan
+              impuestos"), y Subastas, que espera la decisión de Autored sobre si
+              sale de la app (punto 46). El Motor de Precios se fue a la barra. */}
           <View style={s.headerActions}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleAbrirMotor} style={s.headerIconBtn}>
-              <Icon name="gauge-high" size={16} color={C.slate600} />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setActiveTab('kpis')}
+              style={s.headerIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="KPIs"
+            >
+              <Icon name="chart-simple" size={16} color={activeTab === 'kpis' ? C.chileanTeal : C.slate600} />
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -1466,6 +1475,8 @@ function AppInner() {
               handleCambiarEstadoCliente={handleCambiarEstadoCliente}
             />
           )}
+          {activeTab === 'informes' && <InformesScreen />}
+          {activeTab === 'transferencias' && <TransferenciasScreen />}
           {activeTab === 'kpis' && (
             <KpisScreen
               kpis={kpis}
@@ -1488,13 +1499,48 @@ function AppInner() {
           ]}
           onLayout={handleBottomNavLayout}
         >
-          {/* El orden de David (punto 44): Stock, Clientes y al final los KPIs.
-              Cuando Autored decida si la transferencia digital entra al alcance
-              (punto 48), Transferencias se suma entre Clientes y KPIs. */}
-          <NavButton icon="warehouse" label="Stock" active={activeTab === 'stock'} onPress={() => setActiveTab('stock')} />
-          <NavButton icon="user-group" label="Clientes" active={activeTab === 'clientes'} onPress={() => setActiveTab('clientes')} />
-
-          <NavButton icon="chart-simple" label="KPIs" active={activeTab === 'kpis'} onPress={() => setActiveTab('kpis')} />
+          {/* Los cinco que cerró David el 21-08: "la del stock, la de cliente,
+              informe, transferencia, motor de precio, eso es 5". Van sin etiqueta
+              porque con cinco el texto no entra en pantalla de teléfono; el label
+              se sigue pasando para el lector de pantalla. Si los compraventeros
+              dudan de dónde tocar, se prende `showLabel` y listo. */}
+          <NavButton
+            icon="warehouse"
+            label="Stock"
+            showLabel={false}
+            active={activeTab === 'stock'}
+            onPress={() => setActiveTab('stock')}
+          />
+          <NavButton
+            icon="user-group"
+            label="Clientes"
+            showLabel={false}
+            active={activeTab === 'clientes'}
+            onPress={() => setActiveTab('clientes')}
+          />
+          <NavButton
+            icon="file-lines"
+            label="Informes"
+            showLabel={false}
+            active={activeTab === 'informes'}
+            onPress={() => setActiveTab('informes')}
+          />
+          <NavButton
+            icon="right-left"
+            label="Transferencias"
+            showLabel={false}
+            active={activeTab === 'transferencias'}
+            onPress={() => setActiveTab('transferencias')}
+          />
+          {/* El Motor sigue siendo un overlay y no un `TabKey`: pasa a pestaña de
+              verdad cuando se rehaga con la cara de Autored (punto 6). */}
+          <NavButton
+            icon="gauge-high"
+            label="Motor de Precios"
+            showLabel={false}
+            active={isMotorOpen}
+            onPress={handleAbrirMotor}
+          />
         </View>
 
         {showStockFab ? (

@@ -20,13 +20,19 @@ import {
   esClienteDeVenta,
 } from './data';
 
-/* El orden que pidió David: primero Stock, luego Clientes y al final los KPIs.
-   Transferencias entra a la barra solo si Autored decide que la transferencia
-   digital es parte del alcance (punto 48). 'inicio' ya no existe como pestaña:
-   la app abre en la bandeja del stock y el Motor de Precios se entra desde el
-   header. 'subastas' tampoco vive en la barra, pero la pantalla sigue (también
-   desde el header) mientras Autored resuelve si sale de la app (punto 46). */
-export type TabKey = 'stock' | 'clientes' | 'subastas' | 'kpis';
+/* Los cinco de la barra que cerró David el 21-08: Stock, Clientes, Informes,
+   Transferencias y Motor de Precios. KPIs salió de abajo ("no es tan importante
+   que esté abajo, los gallos lo hacen una vez al año cuando pagan impuestos") y
+   pasó a ser un ícono de la cabecera, al lado de Subastas.
+   'kpis' y 'subastas' siguen siendo destinos válidos aunque no estén en la barra:
+   se entra por la cabecera. Sacarlos del tipo rompería esos dos íconos. */
+export type TabKey =
+  | 'stock'
+  | 'clientes'
+  | 'informes'
+  | 'transferencias'
+  | 'subastas'
+  | 'kpis';
 
 /* Tramo de antigüedad. Es a la vez un filtro del panel del Stock y el destino de
    las barras del gráfico de KPIs (cruce 1 con P2): tocar una barra deja la

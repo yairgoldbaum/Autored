@@ -58,6 +58,9 @@ export const s = StyleSheet.create({
     borderRadius: 12,
     minWidth: 0,
   },
+  /* Sin etiqueta el botón queda más alto para que el área de toque no se achique
+     al sacarle la línea de texto. */
+  navBtnIconOnly: { paddingVertical: 10 },
   navLabel: { fontSize: 10, fontWeight: W.bold, textAlign: 'center' },
   navBadge: {
     position: 'absolute',

@@ -112,31 +112,45 @@ export function BarsEstado({
   );
 }
 
+/* `label` es opcional desde la ronda 3: con cinco secciones el texto no entra en
+   pantalla de teléfono, así que la barra va con íconos solos. El label se sigue
+   pasando siempre porque es el que lee el lector de pantalla; lo que cambia es si
+   se dibuja o no (`showLabel`). Si los compraventeros dudan de dónde tocar, se
+   vuelve a prender acá y en ningún otro lado. */
 export function NavButton({
   icon,
   label,
   active,
   onPress,
   badge,
+  showLabel = true,
 }: {
   icon: any;
   label: string;
   active: boolean;
   onPress: () => void;
   badge?: number;
+  showLabel?: boolean;
 }) {
   const color = active ? C.chileanTeal : C.slate400;
   return (
-    <TouchableOpacity onPress={onPress} style={s.navBtn} activeOpacity={0.7}>
+    <TouchableOpacity
+      onPress={onPress}
+      style={[s.navBtn, !showLabel && s.navBtnIconOnly]}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+    >
       <View>
-        <Icon name={icon} size={18} color={color} />
+        <Icon name={icon} size={showLabel ? 18 : 20} color={color} />
         {badge && badge > 0 ? (
           <View style={s.navBadge}>
             <Text style={s.navBadgeText}>{badge}</Text>
           </View>
         ) : null}
       </View>
-      <Text style={[s.navLabel, { color }]}>{label}</Text>
+      {showLabel ? <Text style={[s.navLabel, { color }]}>{label}</Text> : null}
     </TouchableOpacity>
   );
 }
