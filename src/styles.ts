@@ -98,7 +98,12 @@ export const s = StyleSheet.create({
     elevation: 6,
   },
 
-  /* Notificación */
+  /* Notificación.
+     Va pegada a los dos bordes con left/right y NADA MÁS de ancho. Tenía además
+     width:'100%', y eso la estiraba al ancho completo del padre: como el left:16
+     manda, los 16px que sobraban se le iban por la derecha y se veía cortada.
+     El alignSelf no la salvaba, porque no aplica a un absolute con left y right.
+     El tope de ancho tampoco hace falta: el padre (s.frame) ya es maxWidth 440. */
   notif: {
     position: 'absolute',
     left: 16,
@@ -113,9 +118,6 @@ export const s = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: C.teal500,
-    alignSelf: 'center',
-    maxWidth: 440 - 32,
-    width: '100%',
     shadowColor: '#000',
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -822,6 +824,22 @@ export const s = StyleSheet.create({
   patenteBoxSub: { fontSize: 11, color: C.slate500, fontWeight: W.medium, lineHeight: 16 },
   patenteBuscarBtn: { backgroundColor: C.chileanTeal, borderRadius: 12, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   patenteBuscarBtnOff: { backgroundColor: C.slate200 },
+
+  /* Paso 1 del alta: el atajo a la cámara y la salida a carga manual, que son
+     las dos alternativas a escribir la patente. */
+  altaSepRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  altaSepLinea: { flex: 1, height: 1, backgroundColor: C.slate200 },
+  altaSepTexto: { fontSize: 11, fontWeight: W.bold, color: C.slate400 },
+  altaFotoBtn: { backgroundColor: C.white, borderWidth: 1, borderColor: C.slate200, borderRadius: 12, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  altaFotoBtnText: { fontSize: 13, fontWeight: W.bold, color: C.slate700 },
+  altaManualBtn: { alignItems: 'center', paddingVertical: 10, gap: 3 },
+  altaManualText: { fontSize: 13, fontWeight: W.bold, color: C.chileanTeal },
+  altaManualSub: { fontSize: 11, color: C.slate500, textAlign: 'center' },
+  altaAutoChip: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.white, borderWidth: 1, borderColor: C.slate200, borderRadius: 12, padding: 12 },
+  altaAutoChipNombre: { fontSize: 13, fontWeight: W.extrabold, color: C.slate800 },
+  altaAutoChipPatente: { fontSize: 11, fontWeight: W.bold, color: C.slate500, marginTop: 1 },
+  altaAutoChipBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: C.slate200 },
+  altaAutoChipBtnText: { fontSize: 12, fontWeight: W.bold, color: C.slate600 },
   patenteBuscarText: { color: C.white, fontSize: 13, fontWeight: W.extrabold },
   patenteBuscarTextOff: { color: C.slate400 },
   fichaBox: { backgroundColor: C.teal50, borderRadius: 16, borderWidth: 1, borderColor: C.teal200, padding: 14, gap: 12 },
@@ -924,6 +942,8 @@ export const s = StyleSheet.create({
   wizardBackText: { color: C.slate700, fontWeight: W.bold, fontSize: 14 },
   wizardNext: { flex: 1, paddingVertical: 12, backgroundColor: C.chileanTeal, borderRadius: 12, alignItems: 'center' },
   wizardNextText: { color: C.white, fontWeight: W.bold, fontSize: 14 },
+  wizardNextOff: { backgroundColor: C.slate200 },
+  wizardNextTextOff: { color: C.slate400 },
 
   /* Ficha detalle */
   gallery: { width: '100%', height: 224, backgroundColor: C.slate200 },
