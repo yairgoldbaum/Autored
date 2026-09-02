@@ -31,6 +31,7 @@ import {
   INITIAL_CUSTOMERS,
   INITIAL_RELACIONES,
   INITIAL_INFORMES,
+  INITIAL_TRANSFERENCIAS,
   ESTADOS,
   costoBase,
   tenenciaSegunEstado,
@@ -58,6 +59,11 @@ import {
   autoParaPatente,
   estaEnStock,
 } from './src/informes';
+import {
+  EstadoTransferencia,
+  SolicitudTransferencia,
+  TipoTransferencia,
+} from './src/transferencias';
 /* La Inspección con IA salió de la app el 1-09 (ronda 3, punto 3). David:
    "yo sacaría el de inspección y agregamos esto otro". El módulo sigue en
    `src/inspection/` sin enchufar; el argumento fue de alcance, no de que
@@ -98,7 +104,7 @@ import {
 import { NOTIF_MS, NavButton, NotificationBanner } from './components/shared';
 import { KpisScreen } from './screens/Kpis';
 import { InformesScreen } from './screens/Informes';
-import { TransferenciasScreen } from './screens/Transferencias';
+import { NuevaSolicitudOverlay, TransferenciasScreen } from './screens/Transferencias';
 import { FilterSheet, StockScreen } from './screens/Stock';
 import {
   AuctionBidSheet,
@@ -150,6 +156,12 @@ function AppInner() {
   /* El informe que se está mirando desde la sección. Es aparte de `activeCar`
      porque acá la patente puede no ser de ningún auto del patio. */
   const [informeAbierto, setInformeAbierto] = useState<{ car: Car; tipo: TipoInforme } | null>(null);
+  // Solicitudes de transferencia de la sección nueva (ronda 3, punto 5)
+  const [transferencias, setTransferencias] = useState<SolicitudTransferencia[]>(INITIAL_TRANSFERENCIAS);
+  const [trPatente, setTrPatente] = useState('');
+  const [trEstado, setTrEstado] = useState<EstadoTransferencia | 'Todos'>('Todos');
+  const [isNuevaSolicitudOpen, setIsNuevaSolicitudOpen] = useState(false);
+  const [trTipoElegido, setTrTipoElegido] = useState<TipoTransferencia | null>(null);
 
   // La app abre en la bandeja del stock: es lo que el mayorista entra a ver
   // todos los días (David, punto 4). Los KPIs pasaron al final de la barra.
@@ -260,6 +272,7 @@ function AppInner() {
         // Vacía significa "guardado antes de que existiera": se siembra el
         // historial de fábrica en vez de dejar la sección en blanco.
         setInformes(saved.informes.length ? saved.informes : INITIAL_INFORMES);
+        setTransferencias(saved.transferencias.length ? saved.transferencias : INITIAL_TRANSFERENCIAS);
       }
       setHydrated(true);
     })();
@@ -267,8 +280,8 @@ function AppInner() {
 
   useEffect(() => {
     if (!hydrated) return;
-    saveState({ stock, auctions, customers, relaciones, informes });
-  }, [hydrated, stock, auctions, customers, relaciones, informes]);
+    saveState({ stock, auctions, customers, relaciones, informes, transferencias });
+  }, [hydrated, stock, auctions, customers, relaciones, informes, transferencias]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowTs(Date.now()), 1000);
@@ -300,6 +313,7 @@ function AppInner() {
       if (isEnvioInformeSheetOpen) { setIsEnvioInformeSheetOpen(false); return true; }
       if (isCargarAutoOpen) { setIsCargarAutoOpen(false); return true; }
       if (isMotorOpen) { setIsMotorOpen(false); return true; }
+      if (isNuevaSolicitudOpen) { setIsNuevaSolicitudOpen(false); return true; }
       // El informe se apila sobre la ficha: hay que cerrarlo antes que ella.
       if (isAutosaveReportOpen) { setIsAutosaveReportOpen(false); return true; }
       // El de la sección de Informes no tiene ficha debajo, pero sí es una pantalla.
@@ -319,6 +333,7 @@ function AppInner() {
     isEnvioInformeSheetOpen,
     isCargarAutoOpen,
     isMotorOpen,
+    isNuevaSolicitudOpen,
     isAutosaveReportOpen,
     informeAbierto,
     activeCar,
@@ -987,6 +1002,12 @@ function AppInner() {
     setInformeAbierto({ car, tipo: informe.tipo });
   };
 
+  /* ------------------- Transferencias (ronda 3, punto 5) ------------------- */
+  const handleAbrirNuevaSolicitud = () => {
+    setTrTipoElegido(null);
+    setIsNuevaSolicitudOpen(true);
+  };
+
   // El acceso directo del punto 7: cierra la ficha y abre el módulo nuevo.
   const handleIrATransferencias = () => {
     setIsAutosaveReportOpen(false);
@@ -1330,6 +1351,7 @@ function AppInner() {
     isEnvioInformeSheetOpen ||
     isCargarAutoOpen ||
     isMotorOpen ||
+    isNuevaSolicitudOpen ||
     !!informeAbierto ||
     isAutosaveReportOpen;
   const showStockFab = activeTab === 'stock' && !hasOpenSurface;
@@ -1463,7 +1485,17 @@ function AppInner() {
               handleVerInforme={handleVerInforme}
             />
           )}
-          {activeTab === 'transferencias' && <TransferenciasScreen />}
+          {activeTab === 'transferencias' && (
+            <TransferenciasScreen
+              transferencias={transferencias}
+              stock={stock}
+              trPatente={trPatente}
+              setTrPatente={setTrPatente}
+              trEstado={trEstado}
+              setTrEstado={setTrEstado}
+              handleAbrirNuevaSolicitud={handleAbrirNuevaSolicitud}
+            />
+          )}
           {activeTab === 'kpis' && (
             <KpisScreen
               kpis={kpis}
@@ -1589,6 +1621,12 @@ function AppInner() {
           mostrarAcciones={informeAbierto ? estaEnStock(informeAbierto.car.patente, stock) : true}
           handleAbrirEnvioInforme={handleAbrirEnvioInforme}
           handleIrATransferencias={handleIrATransferencias}
+        />
+        <NuevaSolicitudOverlay
+          abierto={isNuevaSolicitudOpen}
+          onCerrar={() => setIsNuevaSolicitudOpen(false)}
+          tipoElegido={trTipoElegido}
+          setTipoElegido={setTrTipoElegido}
         />
         <MotorPreciosOverlay
           isMotorOpen={isMotorOpen}

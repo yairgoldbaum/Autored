@@ -1,6 +1,7 @@
 // Datos iniciales — réplica exacta del HTML (INITIAL_STOCK_DATA / AUCTIONS / CUSTOMERS)
 import type { InspectionReport } from './inspection/types';
 import type { InformeComprado } from './informes';
+import type { SolicitudTransferencia } from './transferencias';
 
 export type EstadoAuto =
   | 'Pre-stock'
@@ -1489,6 +1490,25 @@ export const INITIAL_INFORMES: InformeComprado[] = [
   { id: 7, patente: 'SFYK57', tipo: 'CAV', fecha: '2026-08-19' },
   { id: 8, patente: 'JCKG34', tipo: 'Multas', fecha: '2026-08-14' },
   { id: 9, patente: 'JZWY12', tipo: 'Autored Completo', fecha: '2026-08-11' },
+];
+
+/* Las solicitudes de transferencia de la sección nueva (ronda 3, punto 5). Repiten
+   las patentes del patio, porque una transferencia sale de un auto que vendiste o
+   compraste, y traen los cinco estados para que la lista muestre de qué se trata.
+
+   La primera es la que el Hyundai Accent (RC-VB-56) ya tenía guardada en
+   `car.transferencia`: misma fecha de solicitud y mismo trámite en curso. Esa
+   tarjeta salió de la ficha con el punto 7, así que ahora la transferencia del
+   Hyundai se ve acá y en ningún otro lado. */
+export const INITIAL_TRANSFERENCIAS: SolicitudTransferencia[] = [
+  { id: 1, solicitud: 45892, patente: 'RCVB56', tipo: 'Automotora Vende', estado: 'AutoSafe transfiere', fecha: '2026-07-08' },
+  { id: 2, solicitud: 45903, patente: 'LSCS34', tipo: 'Automotora Vende', estado: 'Finalizada', fecha: '2026-07-24' },
+  { id: 3, solicitud: 45918, patente: 'HVXP90', tipo: 'Automotora Compra', estado: 'Finalizada', fecha: '2026-08-03' },
+  { id: 4, solicitud: 45931, patente: 'JZWY12', tipo: 'Contrato Abierto', estado: 'En registro civil', fecha: '2026-08-12' },
+  { id: 5, solicitud: 45944, patente: 'TKCF56', tipo: 'Automotora Compra', estado: 'En registro civil', fecha: '2026-08-18' },
+  { id: 6, solicitud: 45952, patente: 'BFGH22', tipo: 'Automotora Gestiona', estado: 'Rechazada', fecha: '2026-08-21' },
+  { id: 7, solicitud: 45967, patente: 'MRQP40', tipo: 'Automotora Vende', estado: 'AutoSafe transfiere', fecha: '2026-08-26' },
+  { id: 8, solicitud: 45978, patente: 'SWXR16', tipo: 'Automotora Gestiona', estado: 'Pendiente', fecha: '2026-08-31' },
 ];
 
 export const ESTADOS: EstadoAuto[] = [

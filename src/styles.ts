@@ -1045,6 +1045,69 @@ export const s = StyleSheet.create({
   },
   informeEstadoText: { fontSize: 10, fontWeight: W.black, color: C.teal700, letterSpacing: 0.4 },
 
+  /* Módulo de Transferencias (ronda 3, punto 5). La captura de Autored es una tabla
+     de ocho columnas más tres filas de filtros; en el teléfono cada solicitud es una
+     fila-tarjeta con esos mismos campos. */
+  trNuevaBtn: {
+    backgroundColor: C.chileanNavy,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  trNuevaBtnText: { color: C.white, fontWeight: W.extrabold, fontSize: 13 },
+  trFila: {
+    backgroundColor: C.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.slate200,
+    padding: 14,
+    gap: 10,
+  },
+  trFilaHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  trPatente: { fontSize: 17, fontWeight: W.black, color: C.slate900, letterSpacing: 1 },
+  trAuto: { fontSize: 12, color: C.slate500, marginTop: 1 },
+  trPie: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: C.slate100,
+    paddingTop: 10,
+    gap: 8,
+  },
+  trMeta: { fontSize: 11, color: C.slate400, flexShrink: 0 },
+  trSigla: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  trSiglaText: { fontSize: 11, fontWeight: W.bold },
+  trEstadoPill: { borderRadius: 9999, paddingHorizontal: 10, paddingVertical: 4 },
+  trEstadoText: { fontSize: 11, fontWeight: W.bold },
+  /* Las cuatro tarjetas de tipo de la pantalla de crear (david-pantallas-2.png). */
+  trTipoCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 8,
+  },
+  trTipoIcono: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trTipoTitulo: { fontSize: 15, fontWeight: W.extrabold, color: C.slate900 },
+  trTipoDesc: { fontSize: 12, color: C.slate600, lineHeight: 17 },
+
   /* Acceso directo a Transferencias desde la ficha del auto vendido (ronda 3,
      punto 7). Reemplaza a la tarjeta de transferencia notarial que vivía en el
      bloque de AutoSafe. */

@@ -12,13 +12,19 @@ import {
   TipoRelacion,
 } from './data';
 import { InformeComprado, TIPOS_INFORME } from './informes';
+import {
+  ESTADOS_TRANSFERENCIA,
+  SolicitudTransferencia,
+  TIPOS_TRANSFERENCIA,
+} from './transferencias';
 import { ESTADOS_CLIENTE } from './helpers';
 
 // La versión se sube cada vez que cambian los datos de fábrica: el estado guardado
 // pisa a data.ts, así que sin subirla las semillas nuevas no aparecen nunca.
 //   v2 (21-08-2026): se sacaron las visitas y entró la bandeja de pre-stock.
 //   v3 (21-08-2026): estado Consignado, embudo de clientes y más casos de muestra.
-//   v4 (01-09-2026): historial de informes de la sección nueva (ronda 3, punto 4).
+//   v4 (01-09-2026): historial de informes y solicitudes de transferencia de las
+//       dos secciones nuevas (ronda 3, puntos 4 y 5).
 const STORAGE_KEY = 'suramotor:state:v4';
 
 export interface PersistedState {
@@ -27,6 +33,7 @@ export interface PersistedState {
   customers: Customer[];
   relaciones: RelacionClienteVehiculo[];
   informes: InformeComprado[];
+  transferencias: SolicitudTransferencia[];
 }
 
 export async function loadState(): Promise<PersistedState | null> {
@@ -48,6 +55,9 @@ export async function loadState(): Promise<PersistedState | null> {
       // Cuarta colección, nueva en v4. Un estado guardado antes de que existiera
       // no la trae: arranca vacía y la app siembra el historial de fábrica.
       informes: Array.isArray(data.informes) ? data.informes.flatMap(normalizeInforme) : [],
+      transferencias: Array.isArray(data.transferencias)
+        ? data.transferencias.flatMap(normalizeSolicitud)
+        : [],
     };
   } catch {
     return null;
@@ -61,6 +71,26 @@ function normalizeInforme(inf: unknown): InformeComprado[] {
   if (typeof i.id !== 'number' || typeof i.patente !== 'string' || !i.patente) return [];
   if (!i.tipo || !TIPOS_INFORME.includes(i.tipo)) return [];
   return [{ id: i.id, patente: i.patente, tipo: i.tipo, fecha: i.fecha || '' }];
+}
+
+/* Ojo con el nombre: `normalizeTransferencia`, más abajo, es la del trámite
+   notarial que vive dentro del auto. Esta es la solicitud del módulo nuevo. */
+function normalizeSolicitud(sol: unknown): SolicitudTransferencia[] {
+  if (!sol || typeof sol !== 'object') return [];
+  const t = sol as Partial<SolicitudTransferencia>;
+  if (typeof t.id !== 'number' || typeof t.patente !== 'string' || !t.patente) return [];
+  if (!t.tipo || !TIPOS_TRANSFERENCIA.includes(t.tipo)) return [];
+  if (!t.estado || !ESTADOS_TRANSFERENCIA.includes(t.estado)) return [];
+  return [
+    {
+      id: t.id,
+      solicitud: Number(t.solicitud || 0),
+      patente: t.patente,
+      tipo: t.tipo,
+      estado: t.estado,
+      fecha: t.fecha || '',
+    },
+  ];
 }
 
 const TIPOS_RELACION: TipoRelacion[] = ['adquisicion', 'venta', 'consignacion', 'oportunidad'];
