@@ -1,8 +1,8 @@
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { C, fmtCLP } from '../src/theme';
-import { Icon } from '../src/ui';
+import { Dropdown, Icon } from '../src/ui';
 import { s } from '../src/styles';
 import { Car, EstadoAuto } from '../src/data';
 import { FiltroDias, TabKey, etiquetaPeriodo } from '../src/helpers';
@@ -74,24 +74,19 @@ export function KpisScreen({
         <Text style={s.subMuted}>Cómo te fue en el mes y cómo está tu stock hoy</Text>
       </View>
 
-      {/* Filtro de período */}
+      {/* Filtro de período (ronda 3, punto 12). David: "esta bueno, lo que los
+          clientes nos han dicho es lo que ven en el mes en curso; aca arriba lo
+          seleccionan y obviamente puede seleccionar los periodos anteriores".
+          Eran chips: con pocos meses de datos alcanzaban, con un año de operación
+          no. La regla de qué meses se listan no cambia — el mes actual siempre, más
+          los anteriores en que hubo alguna venta. */}
       <View style={{ gap: 8 }}>
         <Text style={s.sectionLabel}>Período</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
-          {periodosDisponibles.map((p) => {
-            const isSelected = periodoKpi === p;
-            return (
-              <TouchableOpacity
-                key={p}
-                activeOpacity={0.8}
-                onPress={() => setPeriodoKpi(p)}
-                style={[s.chip, isSelected ? s.chipActive : s.chipInactive]}
-              >
-                <Text style={[s.chipText, { color: isSelected ? C.white : C.slate600 }]}>{etiquetaPeriodo(p)}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <Dropdown
+          value={periodoKpi}
+          onChange={setPeriodoKpi}
+          options={periodosDisponibles.map((p) => ({ label: etiquetaPeriodo(p), value: p }))}
+        />
       </View>
 
       {/* Los cuatro del mes */}
