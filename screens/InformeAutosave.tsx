@@ -15,31 +15,50 @@ import {
   VehicleContact,
 } from '../src/data';
 import { AUTOMOTORA, NOTARIAS, PRECIO_COPIA_INFORME, cotizarTransferencia, fmtFecha } from '../src/autosave';
+import { ETIQUETA_TIPO_INFORME, RESUMEN_TIPO_INFORME, TipoInforme } from '../src/informes';
 import { hasContactData, veredictoColor } from '../src/helpers';
 import { Field, PartyRow, ReportRow, SegBtn, TechItem } from '../components/shared';
 
 interface InformeAutosaveOverlayProps {
-  activeCar: Car | null;
-  activeInforme: InformeAutosave | null;
-  isAutosaveReportOpen: boolean;
-  setIsAutosaveReportOpen: (open: boolean) => void;
+  car: Car | null;
+  informe: InformeAutosave | null;
+  /* Los tres tipos son tres recortes del MISMO informe (ronda 3, punto 4), no tres
+     informes distintos: así el CAV y el completo de una misma patente nunca se
+     contradicen. Desde la ficha del auto se abre siempre el completo. */
+  tipo: TipoInforme;
+  abierto: boolean;
+  onCerrar: () => void;
+  /* Solo para autos del patio. A uno ajeno, sacado por patente desde la sección de
+     Informes, no hay a quién enviarle la copia ni qué transferir. */
+  mostrarAcciones: boolean;
   handleAbrirEnvioInforme: (car: Car) => void;
   handleIrATransferencias: () => void;
 }
 
 /* ======================= AUTOSAVE: VENTANA DEL INFORME ======================= */
 export function InformeAutosaveOverlay({
-  activeCar,
-  activeInforme,
-  isAutosaveReportOpen,
-  setIsAutosaveReportOpen,
+  car: carProp,
+  informe: informeProp,
+  tipo,
+  abierto,
+  onCerrar,
+  mostrarAcciones,
   handleAbrirEnvioInforme,
   handleIrATransferencias,
 }: InformeAutosaveOverlayProps) {
   const insets = useSafeAreaInsets();
-  if (!activeCar || !activeInforme || !isAutosaveReportOpen) return null;
-  const car = activeCar;
-  const informe = activeInforme;
+  if (!carProp || !informeProp || !abierto) return null;
+  const car = carProp;
+  const informe = informeProp;
+
+  /* Qué secciones trae cada tipo. El completo trae todo lo que ya traía; el CAV
+     solo lo que un CAV certifica —titulares, prendas y encargos—; el certificado
+     de multas, solo las multas. */
+  const esCompleto = tipo === 'Autored Completo';
+  const verEncargo = esCompleto || tipo === 'CAV';
+  const verTitulares = esCompleto || tipo === 'CAV';
+  const verPrenda = esCompleto || tipo === 'CAV';
+  const verMultas = esCompleto || tipo === 'Multas';
   const impagas = informe.multas.filter((m) => !m.pagada);
   const totalImpagas = impagas.reduce((sum, m) => sum + m.monto, 0);
   const general = veredictoColor(informe.veredictoGeneral);
@@ -48,11 +67,13 @@ export function InformeAutosaveOverlay({
   return (
     <PageOverlay>
       <View style={[s.overlayHeader, { paddingTop: insets.top + 16 }]}>
-        <TouchableOpacity onPress={() => setIsAutosaveReportOpen(false)} style={s.rowCenter}>
+        <TouchableOpacity onPress={onCerrar} style={s.rowCenter}>
           <Icon name="chevron-left" size={14} color={C.slate400} />
           <Text style={s.cancelText}> Volver</Text>
         </TouchableOpacity>
-        <Text style={s.overlayTitle}>Informe AutoSafe</Text>
+        <Text style={s.overlayTitle} numberOfLines={1}>
+          {esCompleto ? 'Informe AutoSafe' : ETIQUETA_TIPO_INFORME[tipo]}
+        </Text>
         <View style={s.stepPill}>
           <Text style={s.stepPillText}>{informe.folio}</Text>
         </View>
@@ -69,19 +90,29 @@ export function InformeAutosaveOverlay({
               {car.patente} · {car.anio} · VIN {informe.vin}
             </Text>
             <Text style={s.asReportHeroSub}>Consultado el {fmtFecha(informe.fechaConsulta)} · vigencia 30 días</Text>
-            <View style={[s.asReportBanner, { backgroundColor: general.color }]}>
-              <Text style={s.asReportBannerText}>
-                {informe.veredictoGeneral === 'ok'
-                  ? 'Sin observaciones'
-                  : informe.veredictoGeneral === 'atencion'
-                    ? 'Con observaciones'
-                    : 'No recomendado sin resolver los hallazgos'}
-              </Text>
-            </View>
-            <Text style={s.asReportResumen}>{informe.resumen}</Text>
+            {/* El veredicto general y el resumen hablan del informe entero, así que
+                en un CAV o en un certificado de multas prometerían de más. */}
+            {esCompleto ? (
+              <>
+                <View style={[s.asReportBanner, { backgroundColor: general.color }]}>
+                  <Text style={s.asReportBannerText}>
+                    {informe.veredictoGeneral === 'ok'
+                      ? 'Sin observaciones'
+                      : informe.veredictoGeneral === 'atencion'
+                        ? 'Con observaciones'
+                        : 'No recomendado sin resolver los hallazgos'}
+                  </Text>
+                </View>
+                <Text style={s.asReportResumen}>{informe.resumen}</Text>
+              </>
+            ) : (
+              // El nombre del documento ya está en la cabecera: acá va qué certifica.
+              <Text style={s.asReportResumen}>{RESUMEN_TIPO_INFORME[tipo]}.</Text>
+            )}
           </View>
 
           {/* Resumen */}
+          {esCompleto ? (
           <View style={s.detailTechCard}>
             <Text style={s.detailTechTitle}>Resumen</Text>
             <ReportRow
@@ -119,9 +150,10 @@ export function InformeAutosaveOverlay({
               last
             />
           </View>
+          ) : null}
 
           {/* Encargo */}
-          {informe.encargo.vigente ? (
+          {verEncargo && informe.encargo.vigente ? (
             <View style={[s.detailTechCard, { borderColor: C.red100, backgroundColor: C.red50 }]}>
               <Text style={[s.detailTechTitle, { color: C.red700 }]}>Encargo por robo</Text>
               <Text style={s.asEventTitle}>Vigente desde el {fmtFecha(informe.encargo.fecha)}</Text>
@@ -131,6 +163,7 @@ export function InformeAutosaveOverlay({
           ) : null}
 
           {/* Identificación y origen */}
+          {esCompleto ? (
           <View style={s.detailTechCard}>
             <Text style={s.detailTechTitle}>Identificación y origen</Text>
             <View style={s.detailTechGrid}>
@@ -140,8 +173,10 @@ export function InformeAutosaveOverlay({
               <TechItem label="Titulares registrados" value={String(informe.titulares.length)} />
             </View>
           </View>
+          ) : null}
 
           {/* Siniestros */}
+          {esCompleto ? (
           <View style={s.detailTechCard}>
             <Text style={s.detailTechTitle}>Siniestros ({informe.siniestros.length})</Text>
             {informe.siniestros.length ? (
@@ -168,8 +203,10 @@ export function InformeAutosaveOverlay({
               <Text style={s.emptySectionText}>Sin siniestros registrados en compañías de seguro.</Text>
             )}
           </View>
+          ) : null}
 
           {/* Historial de odómetro */}
+          {esCompleto ? (
           <View style={s.detailTechCard}>
             <Text style={s.detailTechTitle}>Historial de odómetro</Text>
             {informe.revisiones.length ? (
@@ -216,8 +253,10 @@ export function InformeAutosaveOverlay({
               <Text style={s.emptySectionText}>El vehículo aún no registra revisiones técnicas.</Text>
             )}
           </View>
+          ) : null}
 
           {/* Titulares */}
+          {verTitulares ? (
           <View style={s.detailTechCard}>
             <Text style={s.detailTechTitle}>Titulares y patentes ({informe.titulares.length})</Text>
             <View style={{ gap: 10 }}>
@@ -234,8 +273,10 @@ export function InformeAutosaveOverlay({
               ))}
             </View>
           </View>
+          ) : null}
 
           {/* Multas */}
+          {verMultas ? (
           <View style={s.detailTechCard}>
             <Text style={s.detailTechTitle}>Multas ({informe.multas.length})</Text>
             {informe.multas.length ? (
@@ -258,8 +299,10 @@ export function InformeAutosaveOverlay({
               <Text style={s.emptySectionText}>Sin multas registradas.</Text>
             )}
           </View>
+          ) : null}
 
           {/* Prenda */}
+          {verPrenda ? (
           <View style={s.detailTechCard}>
             <Text style={s.detailTechTitle}>Prenda y limitaciones al dominio</Text>
             {informe.prenda?.vigente ? (
@@ -274,6 +317,7 @@ export function InformeAutosaveOverlay({
               <Text style={s.emptySectionText}>Sin prenda ni limitaciones vigentes.</Text>
             )}
           </View>
+          ) : null}
 
           <Text style={s.asDisclaimer}>
             Informe generado localmente para demostración. Los datos no provienen de registros reales.
@@ -281,11 +325,15 @@ export function InformeAutosaveOverlay({
         </View>
       </ScrollView>
 
+      {/* Las dos acciones son sobre un auto del patio: venderle la copia al cliente
+          y transferirlo. Un informe sacado por patente desde la sección de Informes
+          no tiene ni cliente ni auto que transferir, así que el pie no va. */}
+      {mostrarAcciones ? (
       <View style={[s.detailFooter, { paddingBottom: (insets.bottom || 8) + 16 }]}>
         <View style={s.detailFooterActions}>
           <TouchableOpacity
             onPress={() => {
-              setIsAutosaveReportOpen(false);
+              onCerrar();
               handleAbrirEnvioInforme(car);
             }}
             style={s.detailActionGray}
@@ -327,6 +375,7 @@ export function InformeAutosaveOverlay({
           </TouchableOpacity>
         </View>
       </View>
+      ) : null}
     </PageOverlay>
   );
 }

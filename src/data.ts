@@ -1,5 +1,6 @@
 // Datos iniciales — réplica exacta del HTML (INITIAL_STOCK_DATA / AUCTIONS / CUSTOMERS)
 import type { InspectionReport } from './inspection/types';
+import type { InformeComprado } from './informes';
 
 export type EstadoAuto =
   | 'Pre-stock'
@@ -1468,6 +1469,26 @@ export const INITIAL_RELACIONES: RelacionClienteVehiculo[] = [
   { id: 5, clienteId: 3, vehiculoId: 1, tipo: 'oportunidad', fecha: '2026-08-11' },
   { id: 6, clienteId: 6, vehiculoId: 14, tipo: 'oportunidad', fecha: '2026-08-19' },
   { id: 7, clienteId: 9, vehiculoId: 1, tipo: 'oportunidad', fecha: '2026-08-20' },
+];
+
+/* Historial de informes de la sección nueva (ronda 3, punto 4). La mayoría son de
+   patentes que NO están en el patio, que es el caso que describió Mauro: "estos
+   gallos generalmente compran informes cuando van a comprar un auto". Tres sí son
+   del stock, para que se vea que la misma patente abre el informe que ya muestra
+   su ficha y no uno distinto.
+   Solo patente, tipo y fecha: el folio, la marca y el modelo se derivan. */
+export const INITIAL_INFORMES: InformeComprado[] = [
+  // Los de esta semana: anda mirando autos para comprar.
+  { id: 1, patente: 'TKCF56', tipo: 'Autored Completo', fecha: '2026-09-01' },
+  { id: 2, patente: 'SWXR16', tipo: 'Autored Completo', fecha: '2026-08-31' },
+  { id: 3, patente: 'DJTT51', tipo: 'CAV', fecha: '2026-08-28' },
+  // Del patio: el Hyundai Accent que vendió y el Kia Morning que lleva 62 días.
+  { id: 4, patente: 'RCVB56', tipo: 'Autored Completo', fecha: '2026-08-27' },
+  { id: 5, patente: 'TYZB91', tipo: 'Multas', fecha: '2026-08-25' },
+  { id: 6, patente: 'KDPT45', tipo: 'Autored Completo', fecha: '2026-08-21' },
+  { id: 7, patente: 'SFYK57', tipo: 'CAV', fecha: '2026-08-19' },
+  { id: 8, patente: 'JCKG34', tipo: 'Multas', fecha: '2026-08-14' },
+  { id: 9, patente: 'JZWY12', tipo: 'Autored Completo', fecha: '2026-08-11' },
 ];
 
 export const ESTADOS: EstadoAuto[] = [

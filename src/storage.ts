@@ -11,19 +11,22 @@ import {
   RelacionClienteVehiculo,
   TipoRelacion,
 } from './data';
+import { InformeComprado, TIPOS_INFORME } from './informes';
 import { ESTADOS_CLIENTE } from './helpers';
 
 // La versión se sube cada vez que cambian los datos de fábrica: el estado guardado
 // pisa a data.ts, así que sin subirla las semillas nuevas no aparecen nunca.
 //   v2 (21-08-2026): se sacaron las visitas y entró la bandeja de pre-stock.
 //   v3 (21-08-2026): estado Consignado, embudo de clientes y más casos de muestra.
-const STORAGE_KEY = 'suramotor:state:v3';
+//   v4 (01-09-2026): historial de informes de la sección nueva (ronda 3, punto 4).
+const STORAGE_KEY = 'suramotor:state:v4';
 
 export interface PersistedState {
   stock: Car[];
   auctions: Auction[];
   customers: Customer[];
   relaciones: RelacionClienteVehiculo[];
+  informes: InformeComprado[];
 }
 
 export async function loadState(): Promise<PersistedState | null> {
@@ -42,10 +45,22 @@ export async function loadState(): Promise<PersistedState | null> {
       // trae: se arranca vacía y syncStockAndCustomers rearma las que se derivan
       // de los contactos embebidos del auto.
       relaciones: Array.isArray(data.relaciones) ? data.relaciones.flatMap(normalizeRelacion) : [],
+      // Cuarta colección, nueva en v4. Un estado guardado antes de que existiera
+      // no la trae: arranca vacía y la app siembra el historial de fábrica.
+      informes: Array.isArray(data.informes) ? data.informes.flatMap(normalizeInforme) : [],
     };
   } catch {
     return null;
   }
+}
+
+/** Devuelve [] en vez de null, igual que las relaciones, para descartar basura. */
+function normalizeInforme(inf: unknown): InformeComprado[] {
+  if (!inf || typeof inf !== 'object') return [];
+  const i = inf as Partial<InformeComprado>;
+  if (typeof i.id !== 'number' || typeof i.patente !== 'string' || !i.patente) return [];
+  if (!i.tipo || !TIPOS_INFORME.includes(i.tipo)) return [];
+  return [{ id: i.id, patente: i.patente, tipo: i.tipo, fecha: i.fecha || '' }];
 }
 
 const TIPOS_RELACION: TipoRelacion[] = ['adquisicion', 'venta', 'consignacion', 'oportunidad'];

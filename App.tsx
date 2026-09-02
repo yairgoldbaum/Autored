@@ -30,6 +30,7 @@ import {
   INITIAL_AUCTIONS,
   INITIAL_CUSTOMERS,
   INITIAL_RELACIONES,
+  INITIAL_INFORMES,
   ESTADOS,
   costoBase,
   tenenciaSegunEstado,
@@ -51,6 +52,12 @@ import {
   generarInformeAutosave,
   textoWhatsappInforme,
 } from './src/autosave';
+import {
+  InformeComprado,
+  TipoInforme,
+  autoParaPatente,
+  estaEnStock,
+} from './src/informes';
 /* La Inspección con IA salió de la app el 1-09 (ronda 3, punto 3). David:
    "yo sacaría el de inspección y agregamos esto otro". El módulo sigue en
    `src/inspection/` sin enchufar; el argumento fue de alcance, no de que
@@ -135,6 +142,14 @@ function AppInner() {
   // Las relaciones cliente-vehículo viven acá, al lado de stock y customers, no
   // adentro de ninguno de los dos.
   const [relaciones, setRelaciones] = useState<RelacionClienteVehiculo[]>(initialSyncedState.relaciones);
+  // Historial de informes de la sección nueva (ronda 3, punto 4)
+  const [informes, setInformes] = useState<InformeComprado[]>(INITIAL_INFORMES);
+  const [informePatente, setInformePatente] = useState('');
+  const [informeTipo, setInformeTipo] = useState<TipoInforme>('Autored Completo');
+  const [informeBusqueda, setInformeBusqueda] = useState('');
+  /* El informe que se está mirando desde la sección. Es aparte de `activeCar`
+     porque acá la patente puede no ser de ningún auto del patio. */
+  const [informeAbierto, setInformeAbierto] = useState<{ car: Car; tipo: TipoInforme } | null>(null);
 
   // La app abre en la bandeja del stock: es lo que el mayorista entra a ver
   // todos los días (David, punto 4). Los KPIs pasaron al final de la barra.
@@ -242,6 +257,9 @@ function AppInner() {
         setAuctions(mergeAuctionsWithInitial(saved.auctions));
         setCustomers(synced.customers);
         setRelaciones(synced.relaciones);
+        // Vacía significa "guardado antes de que existiera": se siembra el
+        // historial de fábrica en vez de dejar la sección en blanco.
+        setInformes(saved.informes.length ? saved.informes : INITIAL_INFORMES);
       }
       setHydrated(true);
     })();
@@ -249,8 +267,8 @@ function AppInner() {
 
   useEffect(() => {
     if (!hydrated) return;
-    saveState({ stock, auctions, customers, relaciones });
-  }, [hydrated, stock, auctions, customers, relaciones]);
+    saveState({ stock, auctions, customers, relaciones, informes });
+  }, [hydrated, stock, auctions, customers, relaciones, informes]);
 
   useEffect(() => {
     const timer = setInterval(() => setNowTs(Date.now()), 1000);
@@ -284,6 +302,8 @@ function AppInner() {
       if (isMotorOpen) { setIsMotorOpen(false); return true; }
       // El informe se apila sobre la ficha: hay que cerrarlo antes que ella.
       if (isAutosaveReportOpen) { setIsAutosaveReportOpen(false); return true; }
+      // El de la sección de Informes no tiene ficha debajo, pero sí es una pantalla.
+      if (informeAbierto) { setInformeAbierto(null); return true; }
       if (activeCar) { setActiveCar(null); return true; }
       return false;
     });
@@ -300,6 +320,7 @@ function AppInner() {
     isCargarAutoOpen,
     isMotorOpen,
     isAutosaveReportOpen,
+    informeAbierto,
     activeCar,
   ]);
 
@@ -458,6 +479,13 @@ function AppInner() {
   // El informe AutoSafe no es estado: se deriva del auto y siempre da lo mismo para la
   // misma patente. La automotora tiene acceso libre; lo que se cobra es la copia al cliente.
   const activeInforme = useMemo(() => (activeCar ? generarInformeAutosave(activeCar) : null), [activeCar]);
+  /* El de la sección de Informes: mismo generador, otro auto. Si la patente está en
+     el stock, `autoParaPatente` devuelve ESE auto, así que el informe es idéntico al
+     que muestra su ficha y la demo no se contradice sola. */
+  const informeDeLaSeccion = useMemo(
+    () => (informeAbierto ? generarInformeAutosave(informeAbierto.car) : null),
+    [informeAbierto],
+  );
 
   // Las relaciones de cada cliente, indexadas una vez para no recorrer la lista entera
   // por cada tarjeta.
@@ -925,9 +953,44 @@ function AppInner() {
      sheet. El TransferSheet sigue en screens/InformeAutosave.tsx sin enchufar.
      Ver el README de src/inspection/ para el mismo criterio. */
 
+  /* ------------------- Informes (ronda 3, punto 4) ------------------- */
+  /* Sacar el informe no le cuesta nada al compraventero: la regla ya estaba en el
+     código —la automotora tiene acceso libre, lo que se cobra es la copia al
+     cliente— y la sección la respeta. Si la patente ya está en el historial no se
+     duplica la fila: se actualiza la fecha, que es lo que hace un sistema real. */
+  const handleSacarInforme = () => {
+    const car = autoParaPatente(informePatente, stock);
+    if (!car) {
+      showNotification('Escribe una patente completa, por ejemplo KDPT45.', 'warning');
+      return;
+    }
+    /* Normalizada, sin guiones: los autos del patio la guardan como "PL-GR-88" y
+       una patente ajena llega como "PLGR88". Si no se empareja acá, el historial
+       muestra dos formatos y la misma patente puede entrar dos veces. */
+    const patente = normalizarPatente(car.patente);
+    const hoy = todayIsoDate();
+    setInformes((prev) => {
+      const yaEsta = prev.find((i) => i.patente === patente && i.tipo === informeTipo);
+      if (yaEsta) {
+        return [{ ...yaEsta, fecha: hoy }, ...prev.filter((i) => i.id !== yaEsta.id)];
+      }
+      const nuevoId = prev.reduce((max, i) => Math.max(max, i.id), 0) + 1;
+      return [{ id: nuevoId, patente, tipo: informeTipo, fecha: hoy }, ...prev];
+    });
+    setInformeAbierto({ car, tipo: informeTipo });
+    setInformePatente('');
+  };
+
+  const handleVerInforme = (informe: InformeComprado) => {
+    const car = autoParaPatente(informe.patente, stock);
+    if (!car) return;
+    setInformeAbierto({ car, tipo: informe.tipo });
+  };
+
   // El acceso directo del punto 7: cierra la ficha y abre el módulo nuevo.
   const handleIrATransferencias = () => {
     setIsAutosaveReportOpen(false);
+    setInformeAbierto(null);
     setActiveCar(null);
     setActiveTab('transferencias');
   };
@@ -1267,6 +1330,7 @@ function AppInner() {
     isEnvioInformeSheetOpen ||
     isCargarAutoOpen ||
     isMotorOpen ||
+    !!informeAbierto ||
     isAutosaveReportOpen;
   const showStockFab = activeTab === 'stock' && !hasOpenSurface;
   const handleBottomNavLayout = (event: LayoutChangeEvent) => {
@@ -1385,7 +1449,20 @@ function AppInner() {
               handleCambiarEstadoCliente={handleCambiarEstadoCliente}
             />
           )}
-          {activeTab === 'informes' && <InformesScreen />}
+          {activeTab === 'informes' && (
+            <InformesScreen
+              informes={informes}
+              stock={stock}
+              informePatente={informePatente}
+              setInformePatente={setInformePatente}
+              informeTipo={informeTipo}
+              setInformeTipo={setInformeTipo}
+              informeBusqueda={informeBusqueda}
+              setInformeBusqueda={setInformeBusqueda}
+              handleSacarInforme={handleSacarInforme}
+              handleVerInforme={handleVerInforme}
+            />
+          )}
           {activeTab === 'transferencias' && <TransferenciasScreen />}
           {activeTab === 'kpis' && (
             <KpisScreen
@@ -1497,11 +1574,19 @@ function AppInner() {
           handleEliminarAuto={handleEliminarAuto}
         />
         {/* PageOverlay no usa zIndex: se pinta por orden, así el informe queda sobre la ficha */}
+        {/* Un solo visor para dos entradas: la ficha del auto, que abre siempre el
+            informe completo con sus acciones, y la sección de Informes, que abre el
+            tipo que se sacó y sin acciones si la patente no es del patio. */}
         <InformeAutosaveOverlay
-          activeCar={activeCar}
-          activeInforme={activeInforme}
-          isAutosaveReportOpen={isAutosaveReportOpen}
-          setIsAutosaveReportOpen={setIsAutosaveReportOpen}
+          car={informeAbierto ? informeAbierto.car : activeCar}
+          informe={informeAbierto ? informeDeLaSeccion : activeInforme}
+          tipo={informeAbierto ? informeAbierto.tipo : 'Autored Completo'}
+          abierto={!!informeAbierto || isAutosaveReportOpen}
+          onCerrar={() => {
+            setInformeAbierto(null);
+            setIsAutosaveReportOpen(false);
+          }}
+          mostrarAcciones={informeAbierto ? estaEnStock(informeAbierto.car.patente, stock) : true}
           handleAbrirEnvioInforme={handleAbrirEnvioInforme}
           handleIrATransferencias={handleIrATransferencias}
         />
