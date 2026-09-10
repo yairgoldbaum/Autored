@@ -28,7 +28,9 @@
           "photosPermission": "SuraMotor necesita acceso a tus fotos para cargar imágenes de los vehículos.",
           "cameraPermission": "SuraMotor necesita acceso a la cámara para fotografiar los vehículos en stock."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-sharing"
     ]
   }
 }
