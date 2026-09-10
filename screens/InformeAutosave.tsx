@@ -32,7 +32,7 @@ interface InformeAutosaveOverlayProps {
      Informes, no hay a quién enviarle la copia ni qué transferir. */
   mostrarAcciones: boolean;
   handleAbrirEnvioInforme: (car: Car) => void;
-  handleIrATransferencias: () => void;
+  handleIrATransferencias: (car: Car) => void;
 }
 
 /* ======================= AUTOSAVE: VENTANA DEL INFORME ======================= */
@@ -354,26 +354,16 @@ export function InformeAutosaveOverlay({
           {/* Antes abría el trámite notarial simulado y se apagaba con los bloqueos
               del informe. Desde el 1-09 (ronda 3, punto 7) lleva al módulo de
               Transferencias y los bloqueos ya no aplican: el flujo corta al elegir
-              el tipo, así que no hay nada que bloquear. */}
+              el tipo, así que no hay nada que bloquear. Y desde el 10-09 tampoco se
+              apaga por estado, igual que el botón de la ficha: David pidió poder
+              transferir siempre, no solo un auto vendido. */}
           <TouchableOpacity
-            disabled={car.estado !== 'Vendido'}
-            onPress={handleIrATransferencias}
-            style={[
-              s.detailActionGray,
-              { backgroundColor: C.chileanNavy },
-              car.estado !== 'Vendido' && s.asCtaDisabled,
-            ]}
+            onPress={() => handleIrATransferencias(car)}
+            style={[s.detailActionGray, { backgroundColor: C.chileanNavy }]}
           >
-            <Icon
-              name="right-left"
-              size={12}
-              color={car.estado !== 'Vendido' ? C.slate400 : C.white}
-            />
+            <Icon name="right-left" size={12} color={C.white} />
             <Text
-              style={[
-                s.detailActionGrayText,
-                { color: car.estado !== 'Vendido' ? C.slate400 : C.white },
-              ]}
+              style={[s.detailActionGrayText, { color: C.white }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.85}

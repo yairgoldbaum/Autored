@@ -235,6 +235,9 @@ interface NuevaSolicitudOverlayProps {
   onCerrar: () => void;
   tipoElegido: TipoTransferencia | null;
   setTipoElegido: (tipo: TipoTransferencia | null) => void;
+  /* El auto que viene de la ficha. En null cuando la solicitud se crea desde el
+     botón del módulo, que es el caso en que todavía no hay vehículo elegido. */
+  auto: Car | null;
 }
 
 /* Crear una solicitud llega hasta el tipo y corta. El resto —patente, prohibición de
@@ -247,6 +250,7 @@ export function NuevaSolicitudOverlay({
   onCerrar,
   tipoElegido,
   setTipoElegido,
+  auto,
 }: NuevaSolicitudOverlayProps) {
   const insets = useSafeAreaInsets();
   if (!abierto) return null;
@@ -263,9 +267,35 @@ export function NuevaSolicitudOverlay({
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 32 }}>
+        {/* El auto que llega desde la ficha. Se muestra arriba para que quien entró
+            por "Transferir este vehículo" vea que la solicitud es de ese auto y no
+            tenga que digitarlo. Si el estado no es Vendido va una línea sugiriendo
+            cambiarlo: transferir suele venir después de vender, pero el botón ya no
+            depende del estado, así que se sugiere y no se bloquea. */}
+        {auto ? (
+          <View style={[s.detailTechCard, { flexDirection: 'row', gap: 12, alignItems: 'flex-start' }]}>
+            <Icon name="car" size={16} color={C.chileanTeal} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.trTipoTitulo}>
+                {auto.marca} {auto.modelo} {auto.version}
+              </Text>
+              <Text style={s.trTipoDesc}>
+                {auto.patente} · {auto.anio} · {auto.estado}
+              </Text>
+              {auto.estado !== 'Vendido' ? (
+                <Text style={[s.trTipoDesc, { color: C.amber700, marginTop: 6 }]}>
+                  Si lo estás transfiriendo porque se vendió, acuérdate de cambiarle el estado a Vendido.
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
         <View>
           <Text style={s.h2Black}>Selecciona el tipo</Text>
-          <Text style={s.subMuted}>Qué transferencia deseas realizar</Text>
+          <Text style={s.subMuted}>
+            {auto ? 'Qué transferencia deseas realizar para este vehículo' : 'Qué transferencia deseas realizar'}
+          </Text>
         </View>
 
         {TIPOS_TRANSFERENCIA.map((tipo) => {
@@ -296,7 +326,9 @@ export function NuevaSolicitudOverlay({
                 <View style={[s.detailTechCard, { flexDirection: 'row', gap: 12, alignItems: 'flex-start' }]}>
                   <Icon name="circle-info" size={16} color={C.chileanTeal} />
                   <Text style={[s.trTipoDesc, { flex: 1, minWidth: 0 }]}>
-                    Por ahora el trámite se completa en la web de Autored. Próximamente vas a poder hacerlo desde acá.
+                    {auto
+                      ? 'Por ahora el trámite se completa en la web de Autored. Próximamente vas a poder hacerlo desde acá, con los datos de este auto ya puestos.'
+                      : 'Por ahora el trámite se completa en la web de Autored. Próximamente vas a poder hacerlo desde acá.'}
                   </Text>
                 </View>
               ) : null}

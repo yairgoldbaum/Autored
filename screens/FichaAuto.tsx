@@ -46,10 +46,10 @@ interface FichaAutoProps {
   activeInforme: InformeAutosave | null;
   setIsAutosaveReportOpen: (open: boolean) => void;
   handleAbrirEnvioInforme: (car: Car) => void;
-  /* El acceso directo del punto 7: cierra la ficha y abre el módulo de
-     Transferencias. No lleva la patente puesta, porque la pantalla de crear
-     corta al elegir el tipo. */
-  handleIrATransferencias: () => void;
+  /* El acceso directo del punto 7: cierra la ficha y abre la pantalla de crear
+     una solicitud con este auto puesto. Desde el 10-09 recibe el auto, porque
+     David pidió que no haya que volver a digitarlo. */
+  handleIrATransferencias: (car: Car) => void;
   handleLlamar: (telefono: string) => void;
   handleWhatsapp: (telefono: string) => void;
   setAdjustedPrice: React.Dispatch<React.SetStateAction<number>>;
@@ -327,12 +327,17 @@ export function FichaAuto({
                 {/* Acceso directo a Transferencias (punto 7). David: "en la ficha de
                     tu auto, cuando hay un auto que ya está vendido, tenéis que tener
                     un botón que diga transferir". Andrés: "sí, como un acceso
-                    directo". No lleva la patente puesta: la pantalla de crear corta
-                    al elegir el tipo, así que no hay dónde ponerla todavía. */}
-                {!modoCliente && car.estado === 'Vendido' ? (
+                    directo".
+
+                    El 10-09 David lo sacó de "vendido": "vendido solamente, no, yo
+                    pondría transferir siempre. A veces quizás quieren transferirlo de
+                    otra persona a ellos... para que se le prellenen los datos del
+                    formulario de ese vehículo y no los tenga que digitar de nuevo".
+                    Por eso va en cualquier estado y lleva el auto puesto. */}
+                {!modoCliente ? (
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={handleIrATransferencias}
+                    onPress={() => handleIrATransferencias(car)}
                     style={s.transferirCard}
                     accessibilityRole="button"
                     accessibilityLabel="Transferir este vehículo"
@@ -342,7 +347,7 @@ export function FichaAuto({
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={s.transferirTitulo}>Transferir este vehículo</Text>
-                      <Text style={s.transferirSub}>Te lleva a Transferencias para crear la solicitud</Text>
+                      <Text style={s.transferirSub}>Abre la solicitud con los datos de este auto</Text>
                     </View>
                     <Icon name="chevron-right" size={14} color={C.slate400} />
                   </TouchableOpacity>

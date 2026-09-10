@@ -172,6 +172,11 @@ function AppInner() {
   const [isTrFilterSheetOpen, setIsTrFilterSheetOpen] = useState(false);
   const [isNuevaSolicitudOpen, setIsNuevaSolicitudOpen] = useState(false);
   const [trTipoElegido, setTrTipoElegido] = useState<TipoTransferencia | null>(null);
+  /* El auto que viene de la ficha cuando se toca "Transferir este vehículo". La
+     pantalla de crear lo muestra arriba para no volver a digitarlo (David, 10-09:
+     "para que se le prellenen los datos del formulario de ese vehículo"). Entrando
+     por el botón del módulo va en null y la solicitud parte de cero. */
+  const [trAutoPrecargado, setTrAutoPrecargado] = useState<Car | null>(null);
 
   // La app abre en la bandeja del stock: es lo que el mayorista entra a ver
   // todos los días (David, punto 4). Los KPIs pasaron al final de la barra.
@@ -1048,15 +1053,21 @@ function AppInner() {
   /* ------------------- Transferencias (ronda 3, punto 5) ------------------- */
   const handleAbrirNuevaSolicitud = () => {
     setTrTipoElegido(null);
+    setTrAutoPrecargado(null);
     setIsNuevaSolicitudOpen(true);
   };
 
-  // El acceso directo del punto 7: cierra la ficha y abre el módulo nuevo.
-  const handleIrATransferencias = () => {
+  /* El acceso directo del punto 7. El 10-09 dejó de depender del estado —David:
+     "vendido solamente, no, yo pondría transferir siempre"— y pasó a abrir derecho
+     la pantalla de crear con el auto puesto, en vez de dejar al usuario en la lista. */
+  const handleIrATransferencias = (car: Car) => {
     setIsAutosaveReportOpen(false);
     setInformeAbierto(null);
     setActiveCar(null);
     setActiveTab('transferencias');
+    setTrTipoElegido(null);
+    setTrAutoPrecargado(car);
+    setIsNuevaSolicitudOpen(true);
   };
 
   const handleEnviarOfertaSubasta = () => {
@@ -1593,42 +1604,38 @@ function AppInner() {
           onLayout={handleBottomNavLayout}
         >
           {/* Los cinco que cerró David el 21-08: "la del stock, la de cliente,
-              informe, transferencia, motor de precio, eso es 5". Van sin etiqueta
-              porque con cinco el texto no entra en pantalla de teléfono; el label
-              se sigue pasando para el lector de pantalla. Si los compraventeros
-              dudan de dónde tocar, se prende `showLabel` y listo. */}
+              informe, transferencia, motor de precio, eso es 5". Iban sin etiqueta
+              y el 10-09 pidió que se lean: "podría ponerle un nombre, un nombre
+              abajito", "yo creo que es necesario que sepan el nombre". Los rótulos
+              van cortos porque con cinco columnas en 390px "Transferencias" no
+              entra —"queda muy largo"—, así que se acortan a Transferir y Motor. */}
           <NavButton
             icon="warehouse"
             label="Stock"
-            showLabel={false}
             active={activeTab === 'stock'}
             onPress={() => setActiveTab('stock')}
           />
           <NavButton
             icon="user-group"
             label="Clientes"
-            showLabel={false}
             active={activeTab === 'clientes'}
             onPress={() => setActiveTab('clientes')}
           />
           <NavButton
             icon="file-lines"
             label="Informes"
-            showLabel={false}
             active={activeTab === 'informes'}
             onPress={() => setActiveTab('informes')}
           />
           <NavButton
             icon="right-left"
-            label="Transferencias"
-            showLabel={false}
+            label="Transferir"
             active={activeTab === 'transferencias'}
             onPress={() => setActiveTab('transferencias')}
           />
           <NavButton
             icon="gauge-high"
-            label="Motor de Precios"
-            showLabel={false}
+            label="Motor"
             active={activeTab === 'motor'}
             onPress={handleAbrirMotor}
           />
@@ -1704,9 +1711,13 @@ function AppInner() {
         />
         <NuevaSolicitudOverlay
           abierto={isNuevaSolicitudOpen}
-          onCerrar={() => setIsNuevaSolicitudOpen(false)}
+          onCerrar={() => {
+            setIsNuevaSolicitudOpen(false);
+            setTrAutoPrecargado(null);
+          }}
           tipoElegido={trTipoElegido}
           setTipoElegido={setTrTipoElegido}
+          auto={trAutoPrecargado}
         />
         <AltaVehiculoWizard
           isCargarAutoOpen={isCargarAutoOpen}
