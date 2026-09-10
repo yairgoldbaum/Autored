@@ -1,20 +1,23 @@
 # autored-vendor
 
-> **¿Recién llegas al proyecto?** Empieza por **[`CONTEXTO-P1.md`](./CONTEXTO-P1.md)**: qué se
-> implementó, qué cambió en el modelo de datos y qué falta por hacer. Este README solo explica
-> cómo levantar la app.
+> **¿Recién llegas al proyecto?** Empieza por **[`AGENTS.md`](./AGENTS.md)**, que dice en qué rama
+> se trabaja y qué hay que revisar antes de commitear, y sigue con
+> **[`CONTEXTO-P1.md`](./CONTEXTO-P1.md)** para el detalle de qué hace la app y cómo está armado el
+> modelo de datos. Este README solo explica cómo levantarla.
 >
-> **Ojo con la rama.** La app está en `sdk57` (y su gemela `sdk54-p2`). La rama `main` de este
-> repo es el HTML viejo del challenge original, no la app.
+> **Ojo con la rama.** La app vive en **`sdk54`** (Expo SDK 54), que es la rama de trabajo, y en
+> **`sdk57-r3`**, que es la misma app en Expo SDK 57 para los Expo Go actualizados. La rama `main`
+> es el HTML viejo del challenge original, no la app.
 
 Una app simplificada para las compra y ventas de autos pequeños.
 
-App móvil hecha con **React Native + Expo** (SDK 57, React 19, RN 0.86, TypeScript).
+App móvil hecha con **React Native + Expo**: SDK 54 en `sdk54` y SDK 57 en `sdk57-r3`, con React 19
+y TypeScript en las dos.
 
 ## Requisitos
 
-- Node.js 20+ (tienes v22 ✅)
-- **pnpm** (tienes v10 ✅)
+- Node.js 20 o superior
+- **pnpm**
 - La app **Expo Go** instalada en tu teléfono ([iOS](https://apps.apple.com/app/expo-go/id982107779) / [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
 
 > Este proyecto usa **pnpm**. El archivo `.npmrc` fija `node-linker=hoisted`, necesario para que Metro/Expo funcione con pnpm.
@@ -22,6 +25,10 @@ App móvil hecha con **React Native + Expo** (SDK 57, React 19, RN 0.86, TypeScr
 ## Configurar la API key de Claude
 
 La función de **inspección con IA** analiza las fotos usando Claude (Anthropic) y necesita una API key. La key **no viene en el repo**: cada persona usa la suya.
+
+> Desde el 1-09-2026 esta función está **desconectada de la app**: Autored pidió sacarla del flujo,
+> porque el auto ya está comprado cuando entra a esta app. El módulo sigue completo en
+> `src/inspection/` y estos pasos sirven si se vuelve a enchufar.
 
 1. Consigue una API key en [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) (empieza con `sk-ant-...`).
 2. Copia el archivo de ejemplo y pega tu key:
@@ -72,11 +79,15 @@ Con `pnpm start` corriendo:
 - **Android**: abre **Expo Go** → "Scan QR code" → escanea el QR.
 
 > ⚠️ Tu teléfono y tu computador deben estar en la **misma red WiFi**.
-> Si no conectan (WiFi corporativa, redes que aíslan dispositivos, etc.), usa un túnel:
-> ```bash
-> pnpm start --tunnel
-> ```
-> Esto enruta la conexión por internet en vez de la red local. Es más lento pero funciona en cualquier red.
+> Si no conectan (WiFi corporativa, redes que aíslan dispositivos), lo natural sería
+> `pnpm start --tunnel`, pero hoy falla siempre con `remote gone away`. Lo que sí funciona es
+> levantar un túnel aparte contra el puerto de Metro —por ejemplo `cloudflared tunnel --url
+> http://localhost:8081`— y arrancar Metro con `EXPO_PACKAGER_PROXY_URL` apuntando a esa URL, para
+> que el QR sirva fuera de la red local.
+>
+> ⚠️ Desde el 10-09-2026, el Expo Go de iPhone (SDK 57) exige que el computador que sirve la app y
+> el teléfono tengan sesión iniciada **con la misma cuenta de Expo**: `npx expo login` en el
+> computador y la misma cuenta en Expo Go. Si no, la app no abre y avisa cuál de los dos falta.
 
 ### Otros comandos
 
@@ -98,6 +109,11 @@ npx expo-doctor            # revisa que las versiones de las dependencias sean c
 
 ## Estructura
 
-- `App.tsx` — pantalla principal (el "Hola Mundo").
-- `app.json` — configuración de Expo.
-- `index.ts` — punto de entrada.
+- `App.tsx` — el armazón: el estado de la app, la navegación entre las cinco secciones y los overlays.
+- `screens/` — una pantalla por archivo: Stock, Clientes, Informes, Transferencias, MotorPrecios,
+  FichaAuto, AltaVehiculo, InformeAutosave, Kpis y Subastas.
+- `components/shared.tsx` — las piezas que se repiten entre pantallas.
+- `src/` — modelo y lógica: `data.ts` (tipos y datos semilla), `helpers.ts`, `pricing.ts`,
+  `informes.ts`, `transferencias.ts`, `autosave.ts`, `storage.ts`, `styles.ts`, `theme.ts`, `ui.tsx`.
+- `src/inspection/` — el módulo de inspección con IA, hoy desconectado de la app.
+- `app.json` — configuración de Expo. `index.ts` — punto de entrada.
