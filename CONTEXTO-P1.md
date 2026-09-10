@@ -49,8 +49,13 @@ Lo que eso significa para ti, concretamente:
 
 | Rama | Qué es |
 |---|---|
+> **Actualizado el 10-09-2026.** Este documento se escribió el 10-08 y describe el estado de
+> entonces. Hoy la rama de trabajo es **`sdk54`**, y **`sdk57-r3`** es la misma app en SDK 57. Las
+> ramas `sdk57` y `sdk54-p2` quedaron en el trabajo de agosto. El Expo Go del App Store se actualizó
+> a SDK 57 el 10-09, así que el 54 sirve para los teléfonos que no actualizaron.
+
 | `main` | La app original, Expo **SDK 54**. Congelada en el commit inicial. |
-| `sdk57` | SDK 57 + los 21 pasos de P2. **Es la rama de trabajo.** |
+| `sdk57` | SDK 57 + los 21 pasos de P2. Fue la rama de trabajo hasta el 21-08. |
 | `sdk54-p2` | Los 12 commits de código de P2 sobre la base SDK 54, sin la subida de SDK. Se hizo solo para que Eitan pudiera ver la app en su Expo Go. **No es "el port"**, es una rama para mirar. |
 
 **Por qué hay dos SDK:** el Expo Go del App Store solo abre SDK 54 y el de David es 57. Por eso
