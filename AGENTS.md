@@ -12,12 +12,19 @@ eliminados a propósito y reemplazados; y que el margen de un auto **nunca** se 
 ## Expo HAS CHANGED
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v54.0.0/ before writing any code.
-Desde el 21-08-2026 este repo sirve **solo SDK 54**: es el único que abre en el Expo Go del App Store.
+Desde el 10-09-2026 este repo sirve **SDK 54 y SDK 57**: ese día el Expo Go del App Store se
+actualizó a 57 y dejó de abrir el 54, que queda para quien no actualizó. Ojo: el Expo Go 57 de
+iPhone exige que el Mac y el teléfono tengan sesión con la **misma cuenta de Expo**, así que para
+mostrarle la app a alguien de afuera va la versión web por la URL del túnel, no el QR.
 
 ## Ramas
 
 - `sdk54` — **la rama de trabajo desde el 21-08-2026.** Expo SDK 54. La Ronda 3 (doce puntos, un
-  commit por punto) está acá desde el 2-09-2026.
+  commit por punto) está acá desde el 2-09-2026, y sus dos pendientes (H5 y H6) se cerraron el
+  10-09-2026.
+- `sdk57-r3` — la misma app en Expo SDK 57, en el worktree `repos/autored-vendor-sdk57`. Solo
+  cambian las dependencias, `app.json` y `absoluteFillObject` → `absoluteFill` (RN 0.86 lo sacó de
+  los tipos). **Se trabaja en `sdk54` y lo nuevo se trae acá con `git cherry-pick`.**
 - `sdk54-p2` y `sdk57` — la Ronda 2, 14 commits que divergieron el 16-08 en `ea11605`. No están en
   `sdk54` y no se perdieron. Juntarlas es un merge real: 6 archivos, ~167 líneas.
 - `main` — **no es la app.** Es el HTML viejo del challenge original de este repo.
