@@ -20,7 +20,7 @@ import { C, W, fmtCLP, fmtMiles } from '../src/theme';
 import { Dropdown, Icon } from '../src/ui';
 import { s } from '../src/styles';
 import { Car, VehicleContact, VeredictoAutosave } from '../src/data';
-import { buscarPatente, tasar } from '../src/pricing';
+import { buscarPatente, tasarAutored } from '../src/pricing';
 import { FiltroDias, MARCA_OPTIONS, hasContactData, veredictoColor } from '../src/helpers';
 
 /* ---------------- Dashboard de inicio ---------------- */
@@ -203,7 +203,16 @@ export function MotorPreciosPublicacion({
     );
   }
 
-  const t = tasar(
+  /* La ficha y el paso 3 del alta avalaban el precio con las publicaciones de
+     `tasar()`, mientras la pantalla del Motor ya usaba `tasarAutored()`: para el
+     mismo Kia el precio coincidía ($8.550.000) pero los comparables no, 9
+     publicaciones de $8,13M a $9,73M en el Motor contra 3 de $7,35M a $7,95M en la
+     ficha, todas por debajo del precio que la propia ficha sugiere (H6 de la
+     auditoría del 2-09-2026). Un mismo auto no puede sostener su precio con dos
+     listas distintas, así que los tres lugares salen del mismo motor. Cambian dos
+     rótulos, porque `tasarAutored` no devuelve lo mismo: la confianza pasa a
+     comercialidad, y el ajuste por km al rango de venta. */
+  const t = tasarAutored(
     {
       ...registro,
       marca: vehiculo.marca || registro.marca,
@@ -214,6 +223,7 @@ export function MotorPreciosPublicacion({
       combustible: vehiculo.combustible || registro.combustible,
     },
     km,
+    patente,
   );
 
   return (
@@ -224,7 +234,7 @@ export function MotorPreciosPublicacion({
           <Text style={s.motorAltaTitle}> Precio sugerido</Text>
         </View>
         <View style={s.motorConfTag}>
-          <Text style={s.motorConfText}>{t.confianza}% confianza</Text>
+          <Text style={s.motorConfText}>Comercialidad {t.comercialidad}/5</Text>
         </View>
       </View>
 
@@ -232,24 +242,23 @@ export function MotorPreciosPublicacion({
         {fmtCLP(t.precioVenta)}
       </Text>
       <Text style={s.motorAltaSub}>
-        Referencia {t.vehiculo.anio} {fmtCLP(t.vehiculo.referencia)} · ajuste por {fmtMiles(km)} km{' '}
-        {t.ajusteKm >= 0 ? '+' : '−'}
-        {fmtCLP(Math.abs(t.ajusteKm)).replace('-', '')}
+        Referencia {t.vehiculo.anio} {fmtCLP(t.vehiculo.referencia)} · rango{' '}
+        {fmtCLP(t.rangoVenta.min)} a {fmtCLP(t.rangoVenta.max)}
       </Text>
 
       <View style={{ gap: 6, marginTop: 12 }}>
-        <Text style={s.sectionLabel}>Publicaciones similares</Text>
-        {t.comparables.map((c) => (
-          <View key={c.fuente} style={s.motorCompRow}>
+        <Text style={s.sectionLabel}>Publicaciones similares ({t.publicaciones.length})</Text>
+        {t.publicaciones.map((pub, i) => (
+          <View key={`${pub.titulo}-${i}`} style={s.motorCompRow}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={s.motorCompTitle} numberOfLines={1}>
-                {c.titulo}
+                {pub.titulo}
               </Text>
               <Text style={s.motorCompSub}>
-                {c.fuente} · {fmtMiles(c.km)} km
+                {fmtMiles(pub.km)} km · {pub.ubicacion}
               </Text>
             </View>
-            <Text style={s.motorCompPrice}>{fmtCLP(c.precio)}</Text>
+            <Text style={s.motorCompPrice}>{fmtCLP(pub.precio)}</Text>
           </View>
         ))}
       </View>
