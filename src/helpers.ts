@@ -353,11 +353,24 @@ const hashTexto = (txt: string) => {
   return h;
 };
 
+/* El auto que nadie mira. David pidió el número por los dos extremos: "este es un
+   auto que lleva tanto en stock y tiene muchas vistas; o no tiene ninguna vista, se
+   da cuenta que se está quedando pegado y mejor que se deshaga rápido". La mitad de
+   abajo no se podía mostrar: el piso de 2 clics diarios se lo impedía a todo auto
+   publicable, y un total en cero no se dibuja, así que el caso se comunicaba por
+   ausencia (H5 de la auditoría del 2-09-2026).
+   Va sembrado en el auto en venta más antiguo de la demo, que es el que cuenta la
+   historia: una visita cada tanto en vez de ninguna, porque cero esconde la línea. */
+const PATENTE_PEGADA = 'FKLM77';
+
+const soloPatente = (patente: string) => patente.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
 /** Vistas de un día puntual, contando `atras` días hacia atrás desde hoy. */
 export function vistasDelDia(car: Car, atras: number): number {
   const h = hashTexto(`${car.patente}|vistas|${atras}`);
   // Un auto que ya se vendió deja de moverse: no sigue recibiendo clics.
   if (car.estado === 'Vendido' || car.estado === 'Pre-stock') return 0;
+  if (soloPatente(car.patente) === PATENTE_PEGADA) return h % 12 === 0 ? 1 : 0;
   const base = 2 + (h % 11); // 2 a 12 clics al día
   return base;
 }
